@@ -40,6 +40,10 @@ async function _ensureInit() {
     await _initPromise;
 }
 
+function isBypassMode() {
+    return window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+}
+
 // ── Public API ───────────────────────────────────────────────────────────────
 
 /**
@@ -50,6 +54,19 @@ async function _ensureInit() {
  * @param {Function} onSignOut        - called when user is signed out
  */
 async function initFirebaseAuth(onReady, onPendingApproval, onSignOut) {
+    if (isBypassMode()) {
+        console.warn("🔐 Local mode detected. Bypassing Firebase Auth.");
+        setTimeout(() => {
+            onReady({
+                uid: "local-dev-user",
+                email: "admin@local.test",
+                displayName: "Local Dev",
+                photoURL: "https://lh3.googleusercontent.com/a/default-user"
+            });
+        }, 100);
+        return;
+    }
+
     await _ensureInit();
 
     _auth.onAuthStateChanged(async (user) => {
@@ -77,6 +94,10 @@ async function initFirebaseAuth(onReady, onPendingApproval, onSignOut) {
  * @returns {Promise<void>}
  */
 async function signInWithGoogle() {
+    if (isBypassMode()) {
+        console.warn("signInWithGoogle ignored in local dev mode.");
+        return;
+    }
     await _ensureInit();
     await _auth.signInWithPopup(_googleProvider);
     // onAuthStateChanged will handle the result
@@ -88,6 +109,7 @@ async function signInWithGoogle() {
  * @returns {Promise<string|null>}
  */
 async function getIdToken() {
+    if (isBypassMode()) return "mock-dev-token";
     await _ensureInit();
     const user = _auth.currentUser;
     if (!user) return null;
@@ -98,6 +120,11 @@ async function getIdToken() {
  * Sign the current user out.
  */
 async function signOut() {
+    if (isBypassMode()) {
+        console.warn("signOut ignored in local dev mode.");
+        window.location.reload();
+        return;
+    }
     await _ensureInit();
     await _auth.signOut();
 }

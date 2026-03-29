@@ -28,3 +28,6 @@ uv.lock
 .firebase/
 .env
 .serena/
+
+# Local Dev Uploads
+backend/uploads/

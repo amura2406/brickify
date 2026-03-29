@@ -27,7 +27,7 @@ from pydantic import BaseModel
 from PIL import Image
 import urllib.parse
 import urllib.request
-from firebase_admin import storage
+from storage import StorageProvider, get_storage_provider
 
 from lego_sets import LEGO_SETS, get_set_info, get_set_detail, merge_sets
 from mosaic import generate_mosaic, render_mosaic_image, generate_palette_preview
@@ -55,23 +55,7 @@ app.add_middleware(
 FRONTEND_DIR = Path(__file__).parent.parent / "frontend"
 
 
-def _upload_to_storage(img: Image.Image, folder: str, fmt: str = "JPEG") -> str:
-    """Uploads PIL image to Firebase Storage and returns public URL with token."""
-    bucket = storage.bucket()
-    file_id = str(uuid.uuid4())
-    ext = "jpg" if fmt.upper() == "JPEG" else fmt.lower()
-    path = f"{folder}/{file_id}.{ext}"
-    
-    blob = bucket.blob(path)
-    buf = io.BytesIO()
-    img.save(buf, format=fmt, quality=90)
-    buf.seek(0)
-    
-    token = str(uuid.uuid4())
-    blob.metadata = {"firebaseStorageDownloadTokens": token}
-    blob.upload_from_file(buf, content_type=f"image/{ext}")
-    
-    return f"https://firebasestorage.googleapis.com/v0/b/{bucket.name}/o/{urllib.parse.quote(path, safe='')}?alt=media&token={token}"
+
 
 def _download_from_url(url: str) -> Image.Image:
     """Downloads image from URL and returns PIL Image."""
@@ -118,7 +102,8 @@ def get_set(set_id: str):
 @app.post("/api/upload")
 async def upload_image(
     file: UploadFile = File(...),
-    _user: dict = Depends(require_approved_user)
+    _user: dict = Depends(require_approved_user),
+    provider: StorageProvider = Depends(get_storage_provider)
 ):
     """Upload an image directly to storage (approved users)."""
     try:
@@ -127,7 +112,7 @@ async def upload_image(
     except Exception:
         raise HTTPException(400, "Invalid image file")
 
-    url = _upload_to_storage(img, "uploads", fmt="JPEG")
+    url = provider.upload_image(img, "uploads", fmt="JPEG")
     w, h = img.size
 
     return {
@@ -144,7 +129,10 @@ class UploadPathRequest(BaseModel):
 
 
 @app.post("/api/upload-path")
-def upload_from_path(req: UploadPathRequest):
+def upload_from_path(
+    req: UploadPathRequest,
+    provider: StorageProvider = Depends(get_storage_provider)
+):
     """DEV ONLY: Upload an image from a local file path (bypasses file picker)."""
     file_path = Path(req.file_path)
     if not file_path.exists():
@@ -157,7 +145,7 @@ def upload_from_path(req: UploadPathRequest):
     except Exception:
         raise HTTPException(400, f"Cannot open image: {req.file_path}")
 
-    url = _upload_to_storage(img, "uploads", fmt="JPEG")
+    url = provider.upload_image(img, "uploads", fmt="JPEG")
     w, h = img.size
 
     return {
@@ -178,7 +166,8 @@ class CropRequest(BaseModel):
 @app.post("/api/crop")
 def crop_image(
     req: CropRequest,
-    _user: dict = Depends(require_approved_user)
+    _user: dict = Depends(require_approved_user),
+    provider: StorageProvider = Depends(get_storage_provider)
 ):
     """Download image, crop, and upload resulting square."""
     try:
@@ -204,7 +193,7 @@ def crop_image(
         raise HTTPException(400, "Crop region too small")
 
     cropped = img.crop((x, y, x + size, y + size))
-    new_url = _upload_to_storage(cropped, "crops", fmt="JPEG")
+    new_url = provider.upload_image(cropped, "crops", fmt="JPEG")
 
     return {
         "url": new_url,
@@ -248,6 +237,7 @@ def _resolve_set_data(set_id: str | None, set_selections: list[SetSelection] | N
 def generate(
     req: GenerateRequest,
     _user: dict = Depends(require_approved_user),
+    provider: StorageProvider = Depends(get_storage_provider)
 ):
     """Generate a LEGO mosaic and render a preview to storage."""
     try:
@@ -265,7 +255,7 @@ def generate(
     )
     
     preview_img = render_mosaic_image(mosaic_data, stud_size=15)
-    preview_url = _upload_to_storage(preview_img, "mosaics", fmt="PNG")
+    preview_url = provider.upload_image(preview_img, "mosaics", fmt="PNG")
 
     return {
         "preview_url": preview_url,
@@ -337,6 +327,7 @@ class PalettePreviewRequest(BaseModel):
 def preview_palette(
     req: PalettePreviewRequest,
     _user: dict = Depends(require_approved_user),
+    provider: StorageProvider = Depends(get_storage_provider)
 ):
     """Uploads palette preview to Firebase Storage and returns URL."""
     try:
@@ -355,14 +346,20 @@ def preview_palette(
         contrast_boost=max(0.0, min(2.0, req.contrast_boost)),
     )
 
-    url = _upload_to_storage(preview, "previews", fmt="PNG")
+    url = provider.upload_image(preview, "previews", fmt="PNG")
     return {"url": url}
 
 
 
 # ── Serve Frontend ─────────────────────────────────────────────
 
+if not IS_PRODUCTION:
+    UPLOAD_DIR = Path(__file__).parent / "uploads"
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+    app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
+
 # Mount static files ONLY if directory exists (in local dev)
+# This MUST be placed after all other routes and mounts because it matches the root "/"
 if FRONTEND_DIR.exists():
     app.mount("/", StaticFiles(directory=str(FRONTEND_DIR), html=True), name="frontend")
 else:

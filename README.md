@@ -53,6 +53,18 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
 Open [http://localhost:8000](http://localhost:8000) in your browser.
 
+### Local Development Mode (Offline)
+By default, running the server sets `ENVIRONMENT=development`. This activates "Local Mode", which:
+- Bypasses Firebase Authentication (auto-logs you in as a Mock User).
+- Bypasses Firebase Cloud Storage.
+- Saves all uploaded images, crops, and generated mosaics directly to the internal `backend/uploads/` directory on your hard drive.
+- Serves images locally so you can develop and test the entire mosaic engine completely offline.
+
+To run the application in Production mode (which requires valid Firebase credentials):
+```bash
+ENVIRONMENT=production IS_PRODUCTION=true uvicorn main:app
+```
+
 ## 📖 How It Works
 
 ```mermaid
