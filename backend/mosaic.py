@@ -12,6 +12,7 @@ from PIL import Image
 from algos.color_math import preprocess_image, single_rgb_to_lab, rgb_to_lab, ciede2000
 from algos.realistic import analyze_palette_relevance, generate_realistic, generate_realistic_dithered
 from algos.pop_art import generate_pop_art_ratio
+from algos.gradient import generate_gradient_mapping
 
 def generate_palette_preview(
     img: Image.Image,
@@ -69,6 +70,7 @@ def generate_mosaic(
     preprocessing: bool = True,
     contrast_boost: float = 1.0,
     color_mode: str = "realistic",
+    gradient_colors: list[str] | None = None,
 ) -> dict:
     """Generate a LEGO mosaic from an image.
 
@@ -79,7 +81,8 @@ def generate_mosaic(
         crop_box: Optional {x, y, size} for square crop
         preprocessing: Enable palette-aware preprocessing (CLAHE)
         contrast_boost: Contrast enhancement multiplier (0.0-2.0)
-        color_mode: "realistic" or "pop_art"
+        color_mode: "realistic", "pop_art", or "gradient"
+        gradient_colors: List of hex colors for gradient mapping mode
 
     Returns:
         dict with grid, colors, width, height
@@ -112,7 +115,11 @@ def generate_mosaic(
     palette_lab = np.array([single_rgb_to_lab(rgb) for rgb in palette_rgb])
     max_counts = np.array([c["count"] for c in set_data["colors"]])
 
-    if color_mode == "pop_art":
+    if color_mode == "gradient" and gradient_colors:
+        grid = generate_gradient_mapping(
+            pixels, gradient_colors, palette_rgb, palette_lab, grid_w, grid_h
+        )
+    elif color_mode == "pop_art":
         grid = generate_pop_art_ratio(pixels, palette_lab, max_counts, grid_w, grid_h)
     else:
         # Realistic color matching

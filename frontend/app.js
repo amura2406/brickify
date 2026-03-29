@@ -23,6 +23,8 @@ let state = {
     zoom: 1,
     baseScale: 1,
     isDev: false,
+    compareColumns: [],
+    isCompareArena: false,
 };
 
 // ── DOM Refs ──
@@ -95,6 +97,18 @@ const btnGenerate = $('#btn-generate');
 
 // Build plan tab
 const mosaicCanvas = $('#mosaic-canvas');
+const btnModeSingle = $('#btn-mode-single');
+const btnModeCompare = $('#btn-mode-compare');
+const singleModeView = $('#single-mode-view');
+const compareModeView = $('#compare-mode-view');
+const compareColumnsContainer = $('#compare-columns-container');
+const btnAddCompareColumn = $('#btn-add-compare-column');
+const gradientConfig = $('#gradient-config');
+const gradientColorPickers = $('#gradient-color-pickers');
+const btnAddGradientColor = $('#btn-add-gradient-color');
+const quickGradientConfig = $('#quick-gradient-config');
+const quickGradientPickers = $('#quick-gradient-color-pickers');
+const btnQuickAddGradientColor = $('#btn-quick-add-gradient-color');
 const mosaicWrapper = $('#mosaic-canvas-wrapper');
 const referenceLayer = $('#reference-layer');
 const referenceImage = $('#reference-image');
@@ -1030,11 +1044,71 @@ function setupGenerate() {
     if (colorModeSelect && quickColorModeSelect) {
         colorModeSelect.addEventListener('change', () => {
             quickColorModeSelect.value = colorModeSelect.value;
+            syncGradientConfigUI();
         });
         quickColorModeSelect.addEventListener('change', () => {
             colorModeSelect.value = quickColorModeSelect.value;
+            syncGradientConfigUI();
         });
     }
+
+    function syncGradientConfigUI() {
+        if (colorModeSelect && colorModeSelect.value === 'gradient') {
+            if (gradientConfig) gradientConfig.classList.remove('hidden');
+            if (quickGradientConfig) quickGradientConfig.classList.remove('hidden');
+        } else {
+            if (gradientConfig) gradientConfig.classList.add('hidden');
+            if (quickGradientConfig) quickGradientConfig.classList.add('hidden');
+        }
+    }
+    syncGradientConfigUI();
+
+    function setupPickers(btnAdd, container) {
+        if (!btnAdd || !container) return;
+        btnAdd.addEventListener('click', () => {
+            const current = container.querySelectorAll('input[type="color"]').length;
+            if (current >= 5) {
+                alert('Maximum 5 colors allowed for gradient mapping.');
+                return;
+            }
+            const input = document.createElement('input');
+            input.type = 'color';
+            input.value = '#cccccc';
+            input.className = container.id.includes('quick') 
+                ? 'w-6 h-6 rounded cursor-pointer border-none p-0' 
+                : 'w-8 h-8 rounded cursor-pointer border-none p-0';
+            
+            input.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                if (container.querySelectorAll('input[type="color"]').length > 2) {
+                    input.remove();
+                } else {
+                    alert('Minimum 2 colors required.');
+                }
+            });
+            container.appendChild(input);
+        });
+        
+        container.querySelectorAll('input[type="color"]').forEach(inp => {
+            inp.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                if (container.querySelectorAll('input[type="color"]').length > 2) {
+                    inp.remove();
+                } else {
+                    alert('Minimum 2 colors required.');
+                }
+            });
+        });
+    }
+
+    setupPickers(btnAddGradientColor, gradientColorPickers);
+    setupPickers(btnQuickAddGradientColor, quickGradientPickers);
+}
+
+function getGradientColors(isQuick = false) {
+    const container = isQuick ? quickGradientPickers : gradientColorPickers;
+    if (!container) return ['#000000', '#ffffff'];
+    return Array.from(container.querySelectorAll('input[type="color"]')).map(el => el.value);
 }
 
 function setupPreprocessingControls() {
@@ -1060,6 +1134,7 @@ async function previewPalette() {
                 preprocessing: preprocessingToggle.checked,
                 contrast_boost: parseFloat(contrastSlider.value),
                 color_mode: colorModeSelect ? colorModeSelect.value : 'realistic',
+                gradient_colors: getGradientColors(),
             }),
         });
         if (!res.ok) { const err = await res.json(); throw new Error(err.detail || 'Preview failed'); }
@@ -1087,6 +1162,7 @@ async function generateMosaic() {
     }
 
     try {
+        const isQuickCol = quickColorModeSelect && quickColorModeSelect.value === 'gradient';
         const res = await authFetch(`${API}/api/generate`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1097,6 +1173,7 @@ async function generateMosaic() {
                 preprocessing: preprocessingToggle.checked,
                 contrast_boost: parseFloat(contrastSlider.value),
                 color_mode: colorModeSelect ? colorModeSelect.value : 'realistic',
+                gradient_colors: isQuickCol ? getGradientColors(true) : getGradientColors(),
             }),
         });
         const data = await res.json();
@@ -1536,6 +1613,13 @@ function setupResult() {
     });
 
     // Download & navigation
+    // Mode toggles
+    if (btnModeSingle && btnModeCompare) {
+        btnModeSingle.addEventListener('click', () => switchResultMode('single'));
+        btnModeCompare.addEventListener('click', () => switchResultMode('compare'));
+        btnAddCompareColumn.addEventListener('click', () => addCompareColumn());
+    }
+
     $('#btn-download').addEventListener('click', downloadMosaic);
     $('#btn-download-instructions').addEventListener('click', downloadInstructions);
     $('#btn-start-over').addEventListener('click', startOver);
@@ -1907,3 +1991,280 @@ window.update3DMosaic = function() {
     camera3d.updateProjectionMatrix();
     renderer3d.setSize(containerWidth, containerHeight);
 };
+
+// ═════════════════════════════════════════════════
+//  COMPARISON ARENA (Mode)
+// ═════════════════════════════════════════════════
+
+function switchResultMode(mode) {
+    state.isCompareArena = (mode === 'compare');
+    if (state.isCompareArena) {
+        btnModeSingle.classList.remove('text-primary', 'border-primary');
+        btnModeSingle.classList.add('text-on-surface-variant', 'border-transparent');
+        
+        btnModeCompare.classList.remove('text-on-surface-variant', 'border-transparent');
+        btnModeCompare.classList.add('text-primary', 'border-primary');
+        
+        singleModeView.classList.add('hidden');
+        singleModeView.classList.remove('flex');
+        compareModeView.classList.remove('hidden');
+        
+        // Initialize if empty
+        if (state.compareColumns.length === 0) {
+            addCompareColumn();
+            addCompareColumn();
+        }
+    } else {
+        btnModeCompare.classList.remove('text-primary', 'border-primary');
+        btnModeCompare.classList.add('text-on-surface-variant', 'border-transparent');
+        
+        btnModeSingle.classList.remove('text-on-surface-variant', 'border-transparent');
+        btnModeSingle.classList.add('text-primary', 'border-primary');
+        
+        compareModeView.classList.add('hidden');
+        singleModeView.classList.remove('hidden');
+        singleModeView.classList.add('flex');
+    }
+}
+
+function addCompareColumn() {
+    if (state.compareColumns.length >= 5) {
+        alert("Maximum 5 comparisons allowed.");
+        return;
+    }
+    
+    // Copy current global settings or last column's settings
+    const lastCol = state.compareColumns.length > 0 ? state.compareColumns[state.compareColumns.length - 1] : null;
+    
+    const newCol = {
+        id: Date.now().toString(),
+        colorMode: lastCol ? lastCol.colorMode : (colorModeSelect ? colorModeSelect.value : 'realistic'),
+        dithering: lastCol ? lastCol.dithering : $('#dithering-toggle').checked,
+        contrast: lastCol ? lastCol.contrast : parseFloat(contrastSlider.value),
+        preprocessing: lastCol ? lastCol.preprocessing : preprocessingToggle.checked,
+        gradientColors: lastCol ? [...lastCol.gradientColors] : getGradientColors(),
+        mosaicUrl: null,
+        mosaicData: null,
+        loading: false,
+        error: null
+    };
+    
+    state.compareColumns.push(newCol);
+    renderCompareColumns();
+    generateCompareColumn(newCol.id);
+}
+
+function removeCompareColumn(id) {
+    if (state.compareColumns.length <= 2) {
+        alert("Minimum 2 columns required in comparison mode.");
+        return;
+    }
+    state.compareColumns = state.compareColumns.filter(c => c.id !== id);
+    renderCompareColumns();
+}
+
+function renderCompareColumns() {
+    if (!compareColumnsContainer) return;
+    
+    // Remove all columns (keep the Add button)
+    const columns = compareColumnsContainer.querySelectorAll('.compare-col');
+    columns.forEach(col => col.remove());
+    
+    // Hide Add button if max reached
+    if (state.compareColumns.length >= 5) {
+        btnAddCompareColumn.classList.add('hidden');
+        btnAddCompareColumn.classList.remove('flex');
+    } else {
+        btnAddCompareColumn.classList.remove('hidden');
+        btnAddCompareColumn.classList.add('flex');
+    }
+    
+    state.compareColumns.forEach((col, idx) => {
+        const colEl = document.createElement('div');
+        colEl.className = 'compare-col flex flex-col gap-4 w-[340px] shrink-0';
+        colEl.dataset.id = col.id;
+        
+        let visualArea = '';
+        if (col.loading) {
+            visualArea = `<div class="aspect-square w-full bg-surface-container-high rounded-xl border border-outline-variant flex flex-col items-center justify-center gap-3">
+                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                <span class="font-label text-xs uppercase tracking-widest text-on-surface-variant">Generating...</span>
+            </div>`;
+        } else if (col.error) {
+           visualArea = `<div class="aspect-square w-full bg-surface-container-high rounded-xl border border-error/50 flex flex-col items-center justify-center p-4 text-center gap-2">
+                <span class="material-symbols-outlined text-error text-3xl">error</span>
+                <span class="font-label text-xs text-error">${col.error}</span>
+                <button class="mt-2 text-xs uppercase text-primary border border-primary/50 px-3 py-1 rounded hover:bg-primary/10" onclick="generateCompareColumn('${col.id}')">Retry</button>
+            </div>`; 
+        } else if (col.mosaicUrl) {
+           visualArea = `<div class="aspect-square w-full bg-surface-container-lowest rounded-xl border border-outline-variant p-2 overflow-hidden relative group">
+                <img src="${col.mosaicUrl}" class="w-full h-full object-contain" />
+                <button class="absolute bottom-4 right-4 bg-background/80 backdrop-blur border border-outline-variant p-2 rounded-lg text-primary hover:text-white transition-colors opacity-0 group-hover:opacity-100" title="Make this the active single mode result" onclick="promoteToPrimary('${col.id}')">
+                    <span class="material-symbols-outlined text-sm">open_in_full</span>
+                </button>
+            </div>`;
+        } else {
+            visualArea = `<div class="aspect-square w-full bg-surface-container-high rounded-xl border border-outline-variant flex items-center justify-center">
+                <span class="font-label text-xs text-on-surface-variant uppercase">Pending</span>
+            </div>`;
+        }
+        
+        // Specs Matrix
+        let specsMatrix = '';
+        if (col.mosaicData) {
+            const numColors = col.mosaicData.colors.filter(c => c.used > 0).length;
+            const totalPiecesUsed = col.mosaicData.colors.reduce((sum, c) => sum + (c.used || 0), 0);
+            const isFreeMode = state.setSelections.length === 0;
+            const piecesLabel = isFreeMode ? 'Total Pieces' : 'Stock Used';
+            const warningInfo = col.mosaicData.warnings && col.mosaicData.warnings.length > 0 
+                ? `<div class="col-span-2 mt-2 px-2 py-1 bg-error-container text-on-error-container text-[10px] font-label rounded font-bold">${col.mosaicData.warnings.length} constraint warnings!</div>`
+                : '';
+            
+            specsMatrix = `
+            <div class="bg-surface-container border border-outline-variant rounded-lg p-3 grid grid-cols-2 gap-2 mt-2 shadow-inner">
+                <div class="flex flex-col">
+                    <span class="font-label text-[9px] uppercase tracking-widest text-on-surface-variant">Colors Used</span>
+                    <span class="font-headline font-bold text-lg text-primary">${numColors}</span>
+                </div>
+                <div class="flex flex-col">
+                    <span class="font-label text-[9px] uppercase tracking-widest text-on-surface-variant">${piecesLabel}</span>
+                    <span class="font-headline font-bold text-lg text-on-surface">${totalPiecesUsed}</span>
+                </div>
+                ${warningInfo}
+            </div>
+            `;
+        }
+        
+        let gradPickers = '';
+        if (col.colorMode === 'gradient') {
+            const inputs = col.gradientColors.map((hex, i) => 
+                `<input type="color" value="${hex}" class="w-5 h-5 rounded cursor-pointer border-none p-0 inline-block" onchange="window.updateCompareGradient('${col.id}', ${i}, this.value)">`
+            ).join('');
+            gradPickers = `
+            <div class="flex flex-col gap-1 mt-2">
+                <label class="font-label text-[9px] text-on-surface-variant uppercase tracking-widest">Gradient Palette</label>
+                <div class="flex gap-1 items-center">
+                    ${inputs}
+                </div>
+            </div>`;
+        }
+
+        colEl.innerHTML = `
+            <div class="flex items-center justify-between border-b border-outline-variant/50 pb-2 mb-2">
+                <h3 class="font-headline font-bold text-secondary text-sm">Variant ${idx + 1}</h3>
+                <button onclick="removeCompareColumn('${col.id}')" class="text-on-surface-variant hover:text-error transition-colors"><span class="material-symbols-outlined" style="font-size:16px">close</span></button>
+            </div>
+            
+            ${visualArea}
+            ${specsMatrix}
+            
+            <div class="flex flex-col gap-3 bg-surface-container-high border border-outline-variant p-4 rounded-xl mt-2">
+                <div class="flex flex-col gap-1">
+                    <label class="font-label text-[10px] uppercase text-on-surface-variant">Color Mode</label>
+                    <select class="bg-surface-container border border-outline-variant text-xs text-on-surface rounded px-2 py-1 outline-none" onchange="window.updateCompareConfig('${col.id}', 'colorMode', this.value)">
+                        <option value="realistic" ${col.colorMode === 'realistic' ? 'selected' : ''}>Realistic</option>
+                        <option value="pop_art" ${col.colorMode === 'pop_art' ? 'selected' : ''}>Pop-Art</option>
+                        <option value="gradient" ${col.colorMode === 'gradient' ? 'selected' : ''}>Gradient Mapping</option>
+                    </select>
+                </div>
+                
+                ${gradPickers}
+                
+                <div class="flex justify-between items-center">
+                    <label class="font-label text-[10px] uppercase text-on-surface-variant">Dithering</label>
+                    <input type="checkbox" ${col.dithering ? 'checked' : ''} class="w-4 h-4 rounded border-outline-variant bg-surface-container accent-primary" onchange="window.updateCompareConfig('${col.id}', 'dithering', this.checked)">
+                </div>
+                
+                <div class="flex flex-col gap-1">
+                    <label class="font-label text-[10px] uppercase text-on-surface-variant flex justify-between">
+                        <span>Contrast</span>
+                        <span class="text-primary font-bold">${col.contrast.toFixed(1)}x</span>
+                    </label>
+                    <input type="range" min="0.5" max="2.0" step="0.1" value="${col.contrast}" class="w-full h-1 bg-surface-container-high rounded-lg appearance-none cursor-pointer accent-primary" onchange="window.updateCompareConfig('${col.id}', 'contrast', parseFloat(this.value))">
+                </div>
+            </div>
+        `;
+        
+        compareColumnsContainer.insertBefore(colEl, btnAddCompareColumn);
+    });
+}
+
+window.updateCompareConfig = function(id, key, value) {
+    const col = state.compareColumns.find(c => c.id === id);
+    if (col) {
+        col[key] = value;
+        renderCompareColumns();
+        generateCompareColumn(id);
+    }
+}
+
+window.updateCompareGradient = function(id, index, value) {
+    const col = state.compareColumns.find(c => c.id === id);
+    if (col) {
+        col.gradientColors[index] = value;
+        // debounce slightly for color picker
+        clearTimeout(col.debounceTimer);
+        col.debounceTimer = setTimeout(() => {
+            generateCompareColumn(id);
+        }, 500);
+    }
+}
+
+window.promoteToPrimary = function(id) {
+    const col = state.compareColumns.find(c => c.id === id);
+    if (!col || !col.mosaicData) return;
+    
+    // update global state
+    state.mosaicUrl = col.mosaicUrl;
+    state.mosaicData = col.mosaicData;
+    
+    // sync global UI controls
+    colorModeSelect.value = col.colorMode;
+    quickColorModeSelect.value = col.colorMode;
+    $('#dithering-toggle').checked = col.dithering;
+    quickDitherToggle.checked = col.dithering;
+    contrastSlider.value = col.contrast;
+    quickContrastSlider.value = col.contrast;
+    
+    renderMosaic();
+    renderLegend();
+    if (window.update3DMosaic) window.update3DMosaic();
+    
+    switchResultMode('single');
+}
+
+async function generateCompareColumn(id) {
+    const col = state.compareColumns.find(c => c.id === id);
+    if (!col || !state.croppedImageUrl) return;
+    
+    col.loading = true;
+    col.error = null;
+    renderCompareColumns(); // shows loading state
+    
+    try {
+        const res = await authFetch(`${API}/api/generate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                url: state.croppedImageUrl,
+                set_selections: getSetSelectionsPayload(),
+                dithering: col.dithering,
+                preprocessing: col.preprocessing,
+                contrast_boost: col.contrast,
+                color_mode: col.colorMode,
+                gradient_colors: col.gradientColors,
+            }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Generation failed');
+        
+        col.mosaicUrl = data.preview_url;
+        col.mosaicData = data;
+    } catch (e) {
+        console.error('Arena generation failed:', e);
+        col.error = e.message.substring(0, 50);
+    } finally {
+        col.loading = false;
+        renderCompareColumns();
+    }
+}

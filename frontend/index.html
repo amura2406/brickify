@@ -468,7 +468,18 @@
             <select id="color-mode-select" class="bg-surface-container-highest border border-outline-variant text-sm text-on-surface rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-secondary focus:border-secondary transition-all">
               <option value="realistic">Realistic (Color Match)</option>
               <option value="pop_art">Pop-Art (Luminance Match)</option>
+              <option value="gradient">Gradient Mapping</option>
             </select>
+            <!-- Gradient Colors Config (Hidden by default) -->
+            <div id="gradient-config" class="hidden flex flex-col gap-2 mt-2 p-3 bg-surface-container-highest border border-outline-variant rounded-lg">
+              <label class="font-label text-xs text-on-surface-variant uppercase tracking-widest">Gradient Colors</label>
+              <div id="gradient-color-pickers" class="flex gap-2">
+                <input type="color" value="#000000" class="w-8 h-8 rounded cursor-pointer border-none p-0">
+                <input type="color" value="#ff2d78" class="w-8 h-8 rounded cursor-pointer border-none p-0">
+                <input type="color" value="#ffffff" class="w-8 h-8 rounded cursor-pointer border-none p-0">
+              </div>
+              <button id="btn-add-gradient-color" class="text-xs font-label text-primary hover:text-white mt-1 text-left">+ Add Color (Max 5)</button>
+            </div>
           </div>
 
           <div class="flex items-center justify-between group">
@@ -541,8 +552,15 @@
     </div>
 
     <!-- ── TAB: BUILD PLAN (Result) ── -->
-    <div id="tab-build-plan" class="tab-panel hidden flex-1 flex overflow-hidden">
-      <main class="flex-1 p-4 sm:p-6 lg:p-12 flex flex-col lg:flex-row gap-6 sm:gap-8 overflow-y-auto">
+    <div id="tab-build-plan" class="tab-panel hidden flex-1 flex flex-col overflow-hidden">
+      <!-- Mode Tabs -->
+      <div class="border-b border-outline-variant/30 px-6 py-2 flex justify-center gap-4 bg-surface-container/50 backdrop-blur-md">
+         <button id="btn-mode-single" class="px-4 py-2 text-sm font-label uppercase tracking-widest text-primary border-b-2 border-primary transition-colors">Single Mosaic</button>
+         <button id="btn-mode-compare" class="px-4 py-2 text-sm font-label uppercase tracking-widest text-on-surface-variant hover:text-on-surface border-b-2 border-transparent transition-colors">Compare Arena</button>
+      </div>
+
+      <!-- SINGLE MODE -->
+      <main id="single-mode-view" class="flex-1 p-4 sm:p-6 lg:p-12 flex flex-col lg:flex-row gap-6 sm:gap-8 overflow-y-auto w-full">
 
         <!-- Left: Mosaic viewer -->
         <section class="flex-1 flex flex-col gap-6">
@@ -649,7 +667,18 @@
               <select id="quick-color-mode-select" class="bg-surface-container-high border border-outline-variant text-xs text-on-surface rounded-md px-2 py-1 outline-none focus:ring-1 focus:ring-primary focus:border-primary">
                 <option value="realistic">Realistic</option>
                 <option value="pop_art">Pop-Art</option>
+                <option value="gradient">Gradient</option>
               </select>
+            </div>
+            <!-- Quick Gradient Colors Config -->
+            <div id="quick-gradient-config" class="hidden flex flex-col gap-2 p-2 bg-surface-container-lowest border border-outline-variant rounded-md">
+              <label class="font-label text-[10px] text-on-surface-variant uppercase tracking-widest">Gradient Palette</label>
+              <div id="quick-gradient-color-pickers" class="flex gap-1">
+                <input type="color" value="#000000" class="w-6 h-6 rounded cursor-pointer border-none p-0">
+                <input type="color" value="#ff2d78" class="w-6 h-6 rounded cursor-pointer border-none p-0">
+                <input type="color" value="#ffffff" class="w-6 h-6 rounded cursor-pointer border-none p-0">
+              </div>
+              <button id="btn-quick-add-gradient-color" class="text-[10px] font-label text-primary hover:text-white mt-1 text-left">+ Add Color (Max 5)</button>
             </div>
 
             <div class="flex items-center justify-between">
@@ -694,6 +723,17 @@
             <button id="btn-download-instructions" class="flex-1 py-3 bg-primary/10 border border-primary/50 text-primary font-label text-xs uppercase tracking-wider rounded-lg hover:bg-primary/20 transition-all touch-target">Build Guide</button>
           </div>
         </aside>
+      </main>
+
+      <!-- COMPARE MODE -->
+      <main id="compare-mode-view" class="hidden flex-1 p-4 overflow-x-auto overflow-y-auto w-full bg-[#050508]">
+        <div class="flex items-start gap-6 min-w-max h-full" id="compare-columns-container">
+          <!-- Columns injected here by JS -->
+          <button id="btn-add-compare-column" class="flex flex-col items-center justify-center gap-3 w-[300px] h-[500px] border-2 border-dashed border-outline-variant/50 rounded-xl text-on-surface-variant hover:text-primary hover:border-primary/50 hover:bg-surface-container/30 transition-all font-label uppercase tracking-widest text-sm touch-target shrink-0">
+            <span class="material-symbols-outlined text-4xl">add_box</span>
+            Add Column
+          </button>
+        </div>
       </main>
     </div>
 
