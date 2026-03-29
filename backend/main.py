@@ -292,9 +292,14 @@ def list_pending_users(_admin: dict = Depends(require_admin)):
     from firebase_admin import auth as firebase_auth
     page = firebase_auth.list_users()
     pending = []
+    
+    admin_emails = [e.strip().lower() for e in os.environ.get("ADMIN_EMAILS", "amuhr4@gmail.com").split(",") if e.strip()]
+    
     for user in page.users:
         claims = user.custom_claims or {}
-        if not claims.get("approved", False):
+        is_admin = (user.email or "").lower() in admin_emails
+        
+        if not claims.get("approved", False) and not is_admin:
             pending.append({
                 "uid": user.uid,
                 "email": user.email,

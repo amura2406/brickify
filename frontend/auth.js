@@ -61,7 +61,8 @@ async function initFirebaseAuth(onReady, onPendingApproval, onSignOut) {
                 uid: "local-dev-user",
                 email: "admin@local.test",
                 displayName: "Local Dev",
-                photoURL: "https://lh3.googleusercontent.com/a/default-user"
+                photoURL: "https://lh3.googleusercontent.com/a/default-user",
+                isAdmin: true
             });
         }, 100);
         return;
@@ -80,6 +81,8 @@ async function initFirebaseAuth(onReady, onPendingApproval, onSignOut) {
         const claims = tokenResult.claims;
         const isAdmin = (user.email || "").toLowerCase() === "amuhr4@gmail.com";
         const isApproved = isAdmin || !!claims.approved;
+
+        user.isAdmin = isAdmin;
 
         if (isApproved) {
             onReady(user);

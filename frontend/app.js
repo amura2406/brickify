@@ -107,6 +107,11 @@ const btn3d = $('#btn-3d');
 const comparisonDot = $('#comparison-dot');
 const btnComparisonToggle = $('#btn-comparison-toggle');
 
+// Admin
+const adminModal = $('#admin-modal');
+const btnCloseAdmin = $('#btn-close-admin');
+const adminPendingList = $('#admin-pending-list');
+
 // ── Init ──
 document.addEventListener('DOMContentLoaded', () => {
     initAppFlow();
@@ -155,12 +160,24 @@ function _setNavUser(user) {
     }
     if (name)  name.textContent  = user.displayName || '';
     if (email) email.textContent = user.email || '';
+
+    const btnNavAdmin = $('#btn-nav-admin');
+    if (btnNavAdmin) {
+        if (user.isAdmin) {
+            btnNavAdmin.classList.remove('hidden');
+            btnNavAdmin.classList.add('flex');
+        } else {
+            btnNavAdmin.classList.add('hidden');
+            btnNavAdmin.classList.remove('flex');
+        }
+    }
 }
 
 function _setupUserMenu() {
     const menuBtn      = $('#btn-user-menu');
     const menuDropdown = $('#user-menu-dropdown');
     const signOutBtn   = $('#btn-nav-signout');
+    const adminBtn     = $('#btn-nav-admin');
 
     menuBtn?.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -169,6 +186,18 @@ function _setupUserMenu() {
     document.addEventListener('click', () => menuDropdown?.classList.add('hidden'));
     signOutBtn?.addEventListener('click', () => window.BrickifyAuth.signOut());
     btnPendingSignOut?.addEventListener('click', () => window.BrickifyAuth.signOut());
+    
+    adminBtn?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        menuDropdown?.classList.add('hidden');
+        openAdminDashboard();
+    });
+
+    if (btnCloseAdmin) {
+        btnCloseAdmin.addEventListener('click', () => {
+            adminModal?.classList.add('hidden');
+        });
+    }
 }
 
 function initAppFlow() {
@@ -246,6 +275,85 @@ async function authFetch(url, options = {}) {
     return fetch(url, options);
 }
 
+// ═════════════════════════════════════════════════
+//  ADMIN DASHBOARD
+// ═════════════════════════════════════════════════
+
+async function openAdminDashboard() {
+    if (adminModal) adminModal.classList.remove('hidden');
+    await loadPendingUsers();
+}
+
+async function loadPendingUsers() {
+    if (!adminPendingList) return;
+    
+    adminPendingList.innerHTML = `
+        <div class="text-center py-8 text-on-surface-variant text-sm font-label flex flex-col items-center gap-3">
+          <span class="spinner" style="width:24px;height:24px;border-width:3px;color:#ff2d78"></span>
+          Loading pending users...
+        </div>
+    `;
+
+    try {
+        const res = await authFetch(`${API}/api/admin/pending-users`);
+        if (!res.ok) throw new Error("Failed to load pending users");
+        const data = await res.json();
+        const pendingUsers = data.pending || [];
+        
+        if (pendingUsers.length === 0) {
+            adminPendingList.innerHTML = `
+                <div class="text-center py-8 text-on-surface-variant text-sm font-label flex flex-col items-center gap-3">
+                  <span class="material-symbols-outlined text-4xl opacity-50">check_circle</span>
+                  No pending users to approve
+                </div>
+            `;
+            return;
+        }
+
+        adminPendingList.innerHTML = pendingUsers.map(u => `
+            <div class="flex items-center justify-between p-4 bg-surface-container-high border border-outline-variant rounded-lg">
+                <div class="flex flex-col">
+                    <span class="text-sm font-bold text-on-surface">${u.email || 'No Email'}</span>
+                    <span class="text-[10px] font-label text-on-surface-variant tracking-wider uppercase mt-1">UID: ${u.uid}</span>
+                </div>
+                <button onclick="approveUser('${u.uid}')" class="px-4 py-2 bg-secondary/10 border border-secondary/50 text-secondary hover:bg-secondary/20 transition-colors rounded font-label text-xs uppercase tracking-wider touch-target shadow-[0_0_10px_rgba(0,255,204,0.1)]">
+                    Approve
+                </button>
+            </div>
+        `).join('');
+
+    } catch (e) {
+        console.error("Admin error:", e);
+        adminPendingList.innerHTML = `
+            <div class="text-center py-8 text-error text-sm font-label flex flex-col items-center gap-3">
+              <span class="material-symbols-outlined text-4xl opacity-50">error</span>
+              Failed to load pending users.<br>${e.message}
+            </div>
+        `;
+    }
+}
+
+window.approveUser = async function(uid) {
+    if (!confirm("Are you sure you want to approve this user?")) return;
+    
+    try {
+        const res = await authFetch(`${API}/api/admin/approve-user`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({uid})
+        });
+        
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.detail || "Approval failed");
+        }
+        
+        // Reload list
+        await loadPendingUsers();
+    } catch(e) {
+        alert("Failed to approve: " + e.message);
+    }
+};
 
 // ═════════════════════════════════════════════════
 //  TAB NAVIGATION
