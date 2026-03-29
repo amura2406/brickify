@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="logo.png" alt="LEGO Mosaic Maker" width="200">
+  <img src="logo.png" alt="LEGO Mosaic Maker">
 </p>
 
 # 🧱 Brickify (LEGO Mosaic Maker)
