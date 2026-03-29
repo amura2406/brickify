@@ -1195,7 +1195,7 @@ function setupGenerate() {
             window.colorPopover.innerHTML = '<p class="text-xs text-on-surface-variant p-2">No sets selected.</p>';
         } else {
             availableColors.forEach(c => {
-                const hexColor = '#' + c.hex;
+                const hexColor = c.hex.startsWith('#') ? c.hex : '#' + c.hex;
                 const isSelected = currentColors.includes(hexColor) && btn.dataset.color !== hexColor;
                 
                 const swatch = document.createElement('button');
@@ -1286,12 +1286,25 @@ function setupGenerate() {
         initialColors.forEach(hex => createColorButton(hex));
 
         btnAdd.addEventListener('click', () => {
-            const current = container.querySelectorAll('button[data-color]').length;
-            if (current >= 5) {
+            const currentButtons = Array.from(container.querySelectorAll('button[data-color]'));
+            if (currentButtons.length >= 5) {
                 alert('Maximum 5 colors allowed for gradient mapping.');
                 return;
             }
-            createColorButton('#cccccc');
+            const setInfo = getMergedSetInfo();
+            const availableColors = setInfo.colors.length > 0 ? setInfo.colors : [
+                { hex: '000000', name: 'Black' }, { hex: 'FFFFFF', name: 'White' }, { hex: 'FF2D78', name: 'Pink' }
+            ];
+            const currentColors = currentButtons.map(b => b.dataset.color);
+            let defaultColor = '#cccccc';
+            for (const c of availableColors) {
+                const hexColor = c.hex.startsWith('#') ? c.hex : '#' + c.hex;
+                if (!currentColors.includes(hexColor)) {
+                    defaultColor = hexColor;
+                    break;
+                }
+            }
+            createColorButton(defaultColor);
         });
     }
 
@@ -2349,8 +2362,8 @@ function renderCompareColumns() {
         }
 
         let setsPickers = '';
-        if (state.sets && state.sets.length > 0) {
-            const list = state.sets.map(s => {
+        if (state.allSets && state.allSets.length > 0) {
+            const list = state.allSets.map(s => {
                 const inCol = col.setSelections.some(sel => sel.set.id === s.id);
                 return `<label class="flex items-center gap-2 cursor-pointer p-1 hover:bg-on-surface/5 rounded transition-colors">
                     <input type="checkbox" ${inCol ? 'checked' : ''} class="w-3.5 h-3.5 accent-primary border-outline-variant bg-surface-container" onchange="window.updateCompareSets('${col.id}', '${s.id}', this.checked)">
@@ -2421,7 +2434,7 @@ window.updateCompareSets = function(id, setId, checked) {
     if (!col) return;
     
     if (checked) {
-        const setObj = state.sets.find(s => s.id === setId);
+        const setObj = state.allSets.find(s => s.id === setId);
         if (setObj && !col.setSelections.some(s => s.set.id === setId)) {
             // Default 1 quantity for comparison testing
             col.setSelections.push({ set: setObj, qty: 1 });
@@ -2488,8 +2501,8 @@ async function generateCompareColumn(id) {
         };
         
         // Pass targets so rectangular mosaics are properly processed without squashing.
-        if (cropState.targetW) payload.target_width = cropState.targetW;
-        if (cropState.targetH) payload.target_height = cropState.targetH;
+        if (state.targetW) payload.target_width = state.targetW;
+        if (state.targetH) payload.target_height = state.targetH;
 
         const res = await authFetch(`${API}/api/generate`, {
             method: 'POST',
