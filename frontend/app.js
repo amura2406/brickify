@@ -7,7 +7,7 @@
  * canvas rendering, 2D/3D/comparison view, export
  */
 
-const API = 'http://localhost:8000';
+const API = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? 'http://localhost:8000' : '';
 
 // ── State ──
 let state = {
