@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 def _init_firebase() -> None:
     """Initialise the Firebase Admin SDK once per process."""
-    if os.environ.get("ENVIRONMENT") == "development":
+    if os.environ.get("ENV", "development") != "production":
         logger.info("ENVIRONMENT=development detected. Skipping Firebase Admin SDK init.")
         return
 
@@ -101,7 +101,7 @@ def get_current_user(authorization: Optional[str] = Header(default=None)) -> dic
         def endpoint(user: dict = Depends(get_current_user)):
             ...
     """
-    if os.environ.get("ENVIRONMENT") == "development":
+    if os.environ.get("ENV", "development") != "production":
         logger.info("Local mode auth bypass triggered.")
         return {"uid": "local-dev-user", "email": list(_ADMIN_EMAILS)[0] if _ADMIN_EMAILS else "admin@local.test", "approved": True}
 

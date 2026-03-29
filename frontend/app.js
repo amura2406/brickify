@@ -7,7 +7,7 @@
  * canvas rendering, 2D/3D/comparison view, export
  */
 
-const API = '';
+const API = 'http://localhost:8000';
 
 // ── State ──
 let state = {
@@ -53,6 +53,7 @@ const quickSetPicker = $('#quick-set-picker');
 const quickDitherToggle = $('#quick-dither-toggle');
 const quickContrastSlider = $('#quick-contrast-slider');
 const quickContrastValue = $('#quick-contrast-value');
+const quickColorModeSelect = $('#quick-color-mode-select');
 
 // Sets tab
 const setsGrid = $('#sets-grid');
@@ -86,6 +87,7 @@ const preprocessingToggle = $('#preprocessing-toggle');
 const contrastSlider = $('#contrast-slider');
 const contrastValue = $('#contrast-value');
 const contrastGroup = $('#contrast-group');
+const colorModeSelect = $('#color-mode-select');
 const palettePreview = $('#palette-preview');
 const palettePreviewContainer = $('#palette-preview-container');
 const btnPreviewPalette = $('#btn-preview-palette');
@@ -1024,6 +1026,15 @@ function updateOptionsPanel() {
 function setupGenerate() {
     btnGenerate.addEventListener('click', generateMosaic);
     btnPreviewPalette.addEventListener('click', previewPalette);
+
+    if (colorModeSelect && quickColorModeSelect) {
+        colorModeSelect.addEventListener('change', () => {
+            quickColorModeSelect.value = colorModeSelect.value;
+        });
+        quickColorModeSelect.addEventListener('change', () => {
+            colorModeSelect.value = quickColorModeSelect.value;
+        });
+    }
 }
 
 function setupPreprocessingControls() {
@@ -1048,6 +1059,7 @@ async function previewPalette() {
                 set_selections: getSetSelectionsPayload(),
                 preprocessing: preprocessingToggle.checked,
                 contrast_boost: parseFloat(contrastSlider.value),
+                color_mode: colorModeSelect ? colorModeSelect.value : 'realistic',
             }),
         });
         if (!res.ok) { const err = await res.json(); throw new Error(err.detail || 'Preview failed'); }
@@ -1084,6 +1096,7 @@ async function generateMosaic() {
                 dithering: $('#dithering-toggle').checked,
                 preprocessing: preprocessingToggle.checked,
                 contrast_boost: parseFloat(contrastSlider.value),
+                color_mode: colorModeSelect ? colorModeSelect.value : 'realistic',
             }),
         });
         const data = await res.json();
@@ -1463,6 +1476,9 @@ function setupResult() {
         quickDitherToggle.checked = $('#dithering-toggle').checked;
         quickContrastSlider.value = contrastSlider.value;
         quickContrastValue.textContent = parseFloat(contrastSlider.value).toFixed(1);
+        if (quickColorModeSelect && colorModeSelect) {
+            quickColorModeSelect.value = colorModeSelect.value;
+        }
     }
     window.syncQuickConfigUI = syncQuickConfigUI;
     syncQuickConfigUI();
@@ -1471,6 +1487,12 @@ function setupResult() {
         $('#dithering-toggle').checked = quickDitherToggle.checked;
         generateMosaic();
     });
+    if (quickColorModeSelect) {
+        quickColorModeSelect.addEventListener('change', () => {
+            if (colorModeSelect) colorModeSelect.value = quickColorModeSelect.value;
+            generateMosaic();
+        });
+    }
     quickContrastSlider.addEventListener('input', () => {
         contrastSlider.value = quickContrastSlider.value;
         quickContrastValue.textContent = quickContrastSlider.value;

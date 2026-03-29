@@ -11,6 +11,7 @@ Turn any photo into a buildable LEGO Art mosaic. Pick from official LEGO Art set
 - **Multi-Set Blending** — Combine multiple LEGO Art sets (even duplicates) to unlock more colors and pieces. A cart-style UI lets you add sets, adjust quantities, and see merged stats at a glance.
 - **Free Mode** — Bypass set constraints entirely. Uses all 38 official LEGO 1×1 round plate colors with unlimited quantity for the highest-fidelity mosaic.
 - **Smart Color Matching** — Converts to CIELAB color space for perceptually accurate color mapping, producing mosaics that look natural to the human eye.
+- **Pop-Art Mode** — Bypass strict color matching and instead map the image's luminance to your assigned LEGO set colors for a highly stylized, high-contrast pop-art mosaic.
 - **Floyd-Steinberg Dithering** — Distributes color quantization error across neighboring studs, simulating gradients and smooth transitions even with limited palettes.
 - **Image Preprocessing** — Optional contrast enhancement and palette-aware color quantization before mosaic generation, dramatically improving results for low-contrast photos.
 - **Interactive Crop & Zoom** — Drag-to-crop with a zoom slider (or mousewheel) to frame your subject precisely before converting.

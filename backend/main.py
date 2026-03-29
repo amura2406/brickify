@@ -215,6 +215,7 @@ class GenerateRequest(BaseModel):
     dithering: bool = False
     preprocessing: bool = True
     contrast_boost: float = 1.0
+    color_mode: str = "realistic"
 
 
 def _resolve_set_data(set_id: str | None, set_selections: list[SetSelection] | None) -> dict:
@@ -252,6 +253,7 @@ def generate(
         dithering=req.dithering,
         preprocessing=req.preprocessing,
         contrast_boost=max(0.0, min(2.0, req.contrast_boost)),
+        color_mode=req.color_mode,
     )
     
     preview_img = render_mosaic_image(mosaic_data, stud_size=15)

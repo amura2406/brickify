@@ -76,7 +76,7 @@ class LocalStorageProvider:
 
 def get_storage_provider() -> StorageProvider:
     """FastAPI Dependency to get the current storage provider based on environment."""
-    if os.environ.get("ENVIRONMENT") == "development":
+    if os.environ.get("ENV", "development") != "production":
         # Can be made more robust by extracting Host url dynamically from request,
         # but for local dev localhost:8000 is the hardcoded default.
         return LocalStorageProvider()

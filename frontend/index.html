@@ -460,6 +460,17 @@
 
         <!-- Toggles -->
         <div class="space-y-8">
+          <div class="flex flex-col gap-3">
+            <div class="flex flex-col">
+              <span class="font-label text-xs uppercase tracking-widest text-on-surface font-bold">Color Mode</span>
+              <span class="text-[10px] text-on-surface-variant uppercase mt-1">Algorithm Strategy</span>
+            </div>
+            <select id="color-mode-select" class="bg-surface-container-highest border border-outline-variant text-sm text-on-surface rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-secondary focus:border-secondary transition-all">
+              <option value="realistic">Realistic (Color Match)</option>
+              <option value="pop_art">Pop-Art (Luminance Match)</option>
+            </select>
+          </div>
+
           <div class="flex items-center justify-between group">
             <div class="flex flex-col">
               <span class="font-label text-xs uppercase tracking-widest text-on-surface font-bold">Preprocessing</span>
@@ -634,6 +645,14 @@
             </div>
 
             <div class="flex items-center justify-between">
+              <label class="font-label text-xs text-on-surface-variant">Color Mode</label>
+              <select id="quick-color-mode-select" class="bg-surface-container-high border border-outline-variant text-xs text-on-surface rounded-md px-2 py-1 outline-none focus:ring-1 focus:ring-primary focus:border-primary">
+                <option value="realistic">Realistic</option>
+                <option value="pop_art">Pop-Art</option>
+              </select>
+            </div>
+
+            <div class="flex items-center justify-between">
               <label class="font-label text-xs text-on-surface-variant">Dithering (Quality)</label>
               <label class="relative inline-flex items-center cursor-pointer">
                 <input type="checkbox" id="quick-dither-toggle" class="sr-only peer" checked>
@@ -680,7 +699,7 @@
 
     <!-- Bottom footer bar -->
     <footer class="bg-background border-t border-outline-variant/30 py-3 sm:py-4 px-4 sm:px-8 flex flex-col sm:flex-row justify-between items-center text-on-surface-variant mt-auto gap-2 safe-area-bottom">
-      <div class="font-label text-[9px] sm:text-[10px] uppercase tracking-widest text-center sm:text-left">© 2024 BRICKIFY NEON. NOT AN OFFICIAL LEGO PRODUCT. <span class="ml-2 opacity-50">v0.5.0</span></div>
+      <div class="font-label text-[9px] sm:text-[10px] uppercase tracking-widest text-center sm:text-left">© 2024 BRICKIFY NEON. NOT AN OFFICIAL LEGO PRODUCT. <span class="ml-2 opacity-50">v0.6.0</span></div>
       <div class="flex gap-4 sm:gap-6 font-label text-[9px] sm:text-[10px] uppercase tracking-widest">
         <a class="hover:text-tertiary transition-colors" href="#">Terms</a>
         <a class="hover:text-tertiary transition-colors" href="#">Privacy</a>
