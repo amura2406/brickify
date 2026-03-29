@@ -185,7 +185,7 @@ LEGO_SETS = {
     "31207": {
         "name": "Floral Art",
         "description": "Build stunning floral artwork with a vibrant, colorful palette",
-        "grid": (48, 48),
+        "grid": (32, 48),
         "total_studs": 2304,
         "colors": [
             {"name": "White",              "hex": "#FFFFFF", "rgb": (255, 255, 255), "count": 550},

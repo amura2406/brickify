@@ -25,6 +25,8 @@ let state = {
     isDev: false,
     compareColumns: [],
     isCompareArena: false,
+    targetW: 0,
+    targetH: 0,
 };
 
 // ── DOM Refs ──
@@ -85,6 +87,7 @@ const cropZoomSlider = $('#crop-zoom-slider');
 const cropZoomValue = $('#crop-zoom-value');
 const btnApplyCrop = $('#btn-apply-crop');
 const btnResetCrop = $('#btn-reset-crop');
+const targetResolutionSelect = $('#target-resolution-select');
 const preprocessingToggle = $('#preprocessing-toggle');
 const contrastSlider = $('#contrast-slider');
 const contrastValue = $('#contrast-value');
@@ -803,9 +806,10 @@ function handleUploadResponse(data) {
 //  STEP 2b: CROP TOOL
 // ═════════════════════════════════════════════════
 let cropState = {
-    x: 0, y: 0, size: 0,
+    x: 0, y: 0, size: 0, w: 0, h: 0,
     dragging: false, dragStartX: 0, dragStartY: 0, startX: 0, startY: 0,
-    displayScale: 1, canvasOffsetX: 0, maxSize: 0,
+    displayScale: 1, canvasOffsetX: 0, maxSize: 0, maxW: 0, maxH: 0,
+    targetRatio: 1
 };
 
 let mosaicState = {
@@ -865,21 +869,89 @@ function setupCrop() {
 }
 
 function setCropZoom(pct) {
-    const maxSize = cropState.maxSize;
-    const minSize = Math.max(20, maxSize * 0.1);
-    const newSize = minSize + (maxSize - minSize) * (pct / 100);
-    const centerX = cropState.x + cropState.size / 2;
-    const centerY = cropState.y + cropState.size / 2;
-    cropState.size = Math.round(newSize);
-    cropState.x = Math.max(0, Math.min(Math.round(centerX - cropState.size / 2), cropCanvas.width - cropState.size));
-    cropState.y = Math.max(0, Math.min(Math.round(centerY - cropState.size / 2), cropCanvas.height - cropState.size));
+    const minW = Math.max(20, cropState.maxW * 0.1);
+    const newW = minW + (cropState.maxW - minW) * (pct / 100);
+    const minH = Math.max(20, cropState.maxH * 0.1);
+    const newH = minH + (cropState.maxH - minH) * (pct / 100);
+    const centerX = cropState.x + cropState.w / 2;
+    const centerY = cropState.y + cropState.h / 2;
+    cropState.w = Math.round(newW);
+    cropState.h = Math.round(newH);
+    cropState.x = Math.max(0, Math.min(Math.round(centerX - cropState.w / 2), cropCanvas.width - cropState.w));
+    cropState.y = Math.max(0, Math.min(Math.round(centerY - cropState.h / 2), cropCanvas.height - cropState.h));
     updateCropOverlay();
     updateZoomLabel();
 }
 
 function updateZoomLabel() {
-    const zoom = cropState.maxSize / cropState.size;
+    const zoom = cropState.maxW / cropState.w;
     cropZoomValue.textContent = `${zoom.toFixed(1)}×`;
+}
+
+function populateTargetResolutions() {
+    const info = getMergedSetInfo();
+    const baseW = info.grid[0];
+    const baseH = info.grid[1];
+    let optionsHtml = '';
+    
+    optionsHtml += `<option value="${baseW}x${baseH}">${baseW}×${baseH} (Default Set Size)</option>`;
+    
+    // We offer precomputed standard sizes if they fit within ~95% of available pieces to account for color usage imbalances.
+    const standards = [
+        [48, 48, "Square"],
+        [48, 64, "Portrait 3:4"],
+        [64, 48, "Landscape 4:3"],
+        [48, 96, "Portrait 1:2"],
+        [96, 48, "Landscape 2:1"],
+        [80, 80, "Large Square"],
+        [96, 96, "Extra Large Square"],
+        [96, 144, "Gallery Portrait"],
+        [144, 96, "Gallery Landscape"]
+    ];
+
+    standards.forEach(([w, h, label]) => {
+        if (w === baseW && h === baseH) return;
+        if (w * h <= info.totalPieces * 0.95) {
+             optionsHtml += `<option value="${w}x${h}">${w}×${h} (${label})</option>`;
+        }
+    });
+    
+    if (targetResolutionSelect) {
+        targetResolutionSelect.innerHTML = optionsHtml;
+        targetResolutionSelect.value = `${baseW}x${baseH}`;
+        targetResolutionSelect.onchange = () => {
+             const [tw, th] = targetResolutionSelect.value.split('x').map(Number);
+             cropState.targetRatio = tw / th;
+             state.targetW = tw;
+             state.targetH = th;
+             recalcCropMaxSize();
+        };
+        const [tw, th] = targetResolutionSelect.value.split('x').map(Number);
+        cropState.targetRatio = tw / th;
+        state.targetW = tw;
+        state.targetH = th;
+    }
+}
+
+function recalcCropMaxSize() {
+    let mw = cropCanvas.width;
+    let mh = mw / cropState.targetRatio;
+    
+    if (mh > cropCanvas.height) {
+        mh = cropCanvas.height;
+        mw = mh * cropState.targetRatio;
+    }
+    
+    cropState.maxW = mw;
+    cropState.maxH = mh;
+    cropState.w = mw;
+    cropState.h = mh;
+    cropState.x = (cropCanvas.width - mw) / 2;
+    cropState.y = (cropCanvas.height - mh) / 2;
+    cropZoomSlider.value = 100;
+    
+    updateCropOverlay();
+    updateZoomLabel();
 }
 
 function initCropTool() {
@@ -913,15 +985,8 @@ function initCropTool() {
         ctx.drawImage(img, 0, 0, dispW, dispH);
         cropState.displayScale = scale;
 
-        const minDim = Math.min(dispW, dispH);
-        cropState.maxSize = minDim;
-        cropState.size = minDim;
-        cropState.x = (dispW - minDim) / 2;
-        cropState.y = (dispH - minDim) / 2;
-
-        cropZoomSlider.value = 100;
-        updateCropOverlay();
-        updateZoomLabel();
+        populateTargetResolutions();
+        recalcCropMaxSize();
 
         // Remove old listeners
         cropOverlay.removeEventListener('mousedown', startCropDrag);
@@ -943,8 +1008,8 @@ function initCropTool() {
 function updateCropOverlay() {
     cropOverlay.style.left = cropState.x + 'px';
     cropOverlay.style.top = cropState.y + 'px';
-    cropOverlay.style.width = cropState.size + 'px';
-    cropOverlay.style.height = cropState.size + 'px';
+    cropOverlay.style.width = cropState.w + 'px';
+    cropOverlay.style.height = cropState.h + 'px';
 }
 
 function startCropDrag(e) {
@@ -979,36 +1044,30 @@ function moveCropDragTouch(e) {
 }
 
 function moveCrop(dx, dy) {
-    cropState.x = Math.max(0, Math.min(cropState.startX + dx, cropCanvas.width - cropState.size));
-    cropState.y = Math.max(0, Math.min(cropState.startY + dy, cropCanvas.height - cropState.size));
+    cropState.x = Math.max(0, Math.min(cropState.startX + dx, cropCanvas.width - cropState.w));
+    cropState.y = Math.max(0, Math.min(cropState.startY + dy, cropCanvas.height - cropState.h));
     updateCropOverlay();
 }
 
 function endCropDrag() { cropState.dragging = false; }
 
 function resetCrop() {
-    const minDim = Math.min(cropCanvas.width, cropCanvas.height);
-    cropState.maxSize = minDim;
-    cropState.size = minDim;
-    cropState.x = (cropCanvas.width - minDim) / 2;
-    cropState.y = (cropCanvas.height - minDim) / 2;
-    cropZoomSlider.value = 100;
-    updateCropOverlay();
-    updateZoomLabel();
+    recalcCropMaxSize();
 }
 
 async function applyCrop() {
     const scale = cropState.displayScale;
     const x = Math.round(cropState.x / scale);
     const y = Math.round(cropState.y / scale);
-    const size = Math.round(cropState.size / scale);
+    const w = Math.round(cropState.w / scale);
+    const h = Math.round(cropState.h / scale);
 
     setBtnLoading(btnApplyCrop, true, 'Cropping…');
     try {
         const res = await authFetch(`${API}/api/crop`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url: state.imageUrl, x, y, size }),
+            body: JSON.stringify({ url: state.imageUrl, x, y, size: 0, w, h }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || 'Crop failed');
@@ -1034,7 +1093,7 @@ function updateOptionsPanel() {
     const setNameLabel = $('#set-name-label');
     const gridSizeLabel = $('#grid-size-label');
     if (setNameLabel) setNameLabel.textContent = info.name;
-    if (gridSizeLabel) gridSizeLabel.textContent = `${info.grid[0]}×${info.grid[1]} studs`;
+    if (gridSizeLabel) gridSizeLabel.textContent = `${state.targetW || info.grid[0]}×${state.targetH || info.grid[1]} studs`;
 }
 
 function setupGenerate() {
@@ -1135,6 +1194,8 @@ async function previewPalette() {
                 contrast_boost: parseFloat(contrastSlider.value),
                 color_mode: colorModeSelect ? colorModeSelect.value : 'realistic',
                 gradient_colors: getGradientColors(),
+                target_width: state.targetW || null,
+                target_height: state.targetH || null,
             }),
         });
         if (!res.ok) { const err = await res.json(); throw new Error(err.detail || 'Preview failed'); }
@@ -1174,6 +1235,8 @@ async function generateMosaic() {
                 contrast_boost: parseFloat(contrastSlider.value),
                 color_mode: colorModeSelect ? colorModeSelect.value : 'realistic',
                 gradient_colors: isQuickCol ? getGradientColors(true) : getGradientColors(),
+                target_width: state.targetW || null,
+                target_height: state.targetH || null,
             }),
         });
         const data = await res.json();

@@ -71,6 +71,8 @@ def generate_mosaic(
     contrast_boost: float = 1.0,
     color_mode: str = "realistic",
     gradient_colors: list[str] | None = None,
+    target_width: int | None = None,
+    target_height: int | None = None,
 ) -> dict:
     """Generate a LEGO mosaic from an image.
 
@@ -83,6 +85,8 @@ def generate_mosaic(
         contrast_boost: Contrast enhancement multiplier (0.0-2.0)
         color_mode: "realistic", "pop_art", or "gradient"
         gradient_colors: List of hex colors for gradient mapping mode
+        target_width: Override standard grid width
+        target_height: Override standard grid height
 
     Returns:
         dict with grid, colors, width, height
@@ -91,16 +95,22 @@ def generate_mosaic(
 
     # Apply crop if provided
     if crop_box:
-        x = int(crop_box["x"])
-        y = int(crop_box["y"])
-        size = int(crop_box["size"])
-        img = img.crop((x, y, x + size, y + size))
+        x = int(crop_box.get("x", 0))
+        y = int(crop_box.get("y", 0))
+        w = int(crop_box.get("w", crop_box.get("size", 0)))
+        h = int(crop_box.get("h", crop_box.get("size", 0)))
+        if w > 0 and h > 0:
+            img = img.crop((x, y, x + w, y + h))
 
     if img.width > 1024 or img.height > 1024:
         img.thumbnail((1024, 1024), Image.Resampling.LANCZOS)
 
     palette_rgb = [c["rgb"] for c in set_data["colors"]]
     grid_w, grid_h = set_data["grid"]
+    if target_width:
+        grid_w = target_width
+    if target_height:
+        grid_h = target_height
 
     if preprocessing:
         img = preprocess_image(img, contrast_boost=contrast_boost)

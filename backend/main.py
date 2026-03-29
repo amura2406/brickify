@@ -160,7 +160,8 @@ class CropRequest(BaseModel):
     url: str
     x: float
     y: float
-    size: float
+    w: float
+    h: float
 
 
 @app.post("/api/crop")
@@ -175,31 +176,34 @@ def crop_image(
     except Exception:
         raise HTTPException(400, "Cannot fetch image from URL")
 
-    w, h = img.size
+    cw, ch = img.size
     x = max(0, int(req.x))
     y = max(0, int(req.y))
-    size = int(req.size)
+    target_w = int(req.w)
+    target_h = int(req.h)
 
     # Clamp to image bounds
-    if x + size > w:
-        x = w - size
-    if y + size > h:
-        y = h - size
+    if x + target_w > cw:
+        x = cw - target_w
+    if y + target_h > ch:
+        y = ch - target_h
     x = max(0, x)
     y = max(0, y)
-    size = min(size, w - x, h - y)
+    
+    target_w = min(target_w, cw - x)
+    target_h = min(target_h, ch - y)
 
-    if size <= 0:
+    if target_w <= 0 or target_h <= 0:
         raise HTTPException(400, "Crop region too small")
 
-    cropped = img.crop((x, y, x + size, y + size))
+    cropped = img.crop((x, y, x + target_w, y + target_h))
     new_url = provider.upload_image(cropped, "crops", fmt="JPEG")
 
     return {
         "url": new_url,
-        "width": size,
-        "height": size,
-        "is_square": True,
+        "width": target_w,
+        "height": target_h,
+        "is_square": target_w == target_h,
     }
 
 
@@ -217,6 +221,8 @@ class GenerateRequest(BaseModel):
     contrast_boost: float = 1.0
     color_mode: str = "realistic"
     gradient_colors: list[str] | None = None
+    target_width: int | None = None
+    target_height: int | None = None
 
 
 def _resolve_set_data(set_id: str | None, set_selections: list[SetSelection] | None) -> dict:
@@ -256,6 +262,8 @@ def generate(
         contrast_boost=max(0.0, min(2.0, req.contrast_boost)),
         color_mode=req.color_mode,
         gradient_colors=req.gradient_colors,
+        target_width=req.target_width,
+        target_height=req.target_height,
     )
     
     preview_img = render_mosaic_image(mosaic_data, stud_size=15)
@@ -330,6 +338,10 @@ class PalettePreviewRequest(BaseModel):
     set_selections: list[SetSelection] | None = None
     preprocessing: bool = True
     contrast_boost: float = 1.0
+    color_mode: str = "realistic"
+    gradient_colors: list[str] | None = None
+    target_width: int | None = None
+    target_height: int | None = None
 
 
 @app.post("/api/preview-palette")
@@ -346,7 +358,9 @@ def preview_palette(
 
     set_data = _resolve_set_data(req.set_id, req.set_selections)
 
-    grid_w, grid_h = set_data["grid"]
+    grid_w = req.target_width if req.target_width else set_data["grid"][0]
+    grid_h = req.target_height if req.target_height else set_data["grid"][1]
+    
     palette_rgb = [c["rgb"] for c in set_data["colors"]]
 
     preview = generate_palette_preview(
