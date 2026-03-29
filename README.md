@@ -2,7 +2,7 @@
   <img src="logo.png" alt="LEGO Mosaic Maker" width="200">
 </p>
 
-# 🧱 LEGO Mosaic Maker
+# 🧱 Brickify (LEGO Mosaic Maker)
 
 Turn any photo into a buildable LEGO Art mosaic. Pick from official LEGO Art sets — or combine multiple sets for richer colors and better results.
 

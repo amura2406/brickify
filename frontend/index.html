@@ -1,216 +1,516 @@
 <!DOCTYPE html>
-<html lang="en">
+<html class="dark" lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LEGO Mosaic Maker — Turn Photos into LEGO Art</title>
-    <meta name="description" content="Convert any image into a buildable LEGO mosaic using official LEGO Art set color palettes and piece counts.">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css">
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <title>BRICKIFY — Turn Photos into LEGO Art</title>
+  <meta name="description" content="Transform your photos into buildable LEGO Art mosaics using official LEGO Art set color palettes."/>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;700;800&family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+  <script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "primary": "#ff2d78",
+            "secondary": "#00ffcc",
+            "tertiary": "#ffe04a",
+            "background": "#0a0a12",
+            "surface": "#0f0f1a",
+            "surface-container": "#141422",
+            "surface-container-low": "#111118",
+            "surface-container-high": "#1e1e30",
+            "surface-container-highest": "#28283e",
+            "surface-container-lowest": "#0a0a12",
+            "surface-bright": "#1a1a2e",
+            "surface-dim": "#0f0f1a",
+            "surface-variant": "#1e1e30",
+            "surface-tint": "#ff2d78",
+            "on-background": "#e8e0f0",
+            "on-surface": "#e8e0f0",
+            "on-surface-variant": "#a098b0",
+            "on-primary": "#1a0010",
+            "on-secondary": "#001a1a",
+            "on-tertiary": "#1a1000",
+            "primary-container": "#b3004e",
+            "secondary-container": "#004d3d",
+            "tertiary-container": "#665200",
+            "on-primary-container": "#ffe0ec",
+            "on-secondary-container": "#c0fff4",
+            "on-tertiary-container": "#fff0c0",
+            "primary-fixed": "#ffe0ec",
+            "primary-fixed-dim": "#ff80aa",
+            "secondary-fixed": "#c0fff4",
+            "secondary-fixed-dim": "#00e6b8",
+            "tertiary-fixed": "#fff0c0",
+            "tertiary-fixed-dim": "#ffe04a",
+            "outline": "#5a5068",
+            "outline-variant": "#302840",
+            "error": "#ff4444",
+            "error-container": "#3d0f0f",
+            "on-error": "#1a0000",
+            "on-error-container": "#ffa0a0",
+            "inverse-surface": "#e8e0f0",
+            "inverse-on-surface": "#0a0a12",
+            "inverse-primary": "#8c0038",
+            "on-primary-fixed": "#3d0020",
+            "on-primary-fixed-variant": "#8c0038",
+            "on-secondary-fixed": "#001a1a",
+            "on-secondary-fixed-variant": "#004d4d",
+            "on-tertiary-fixed": "#1a1000",
+            "on-tertiary-fixed-variant": "#665200",
+          },
+          fontFamily: {
+            "headline": ["Sora", "sans-serif"],
+            "body": ["Inter", "sans-serif"],
+            "label": ["Space Grotesk", "sans-serif"],
+          },
+          borderRadius: {
+            "DEFAULT": "0.125rem",
+            "lg": "0.25rem",
+            "xl": "0.5rem",
+            "2xl": "0.75rem",
+            "full": "9999px",
+          },
+        },
+      },
+    }
+  </script>
+  <link rel="stylesheet" href="styles.css"/>
 </head>
-<body>
-    <!-- Hero Section -->
-    <header class="hero">
-        <div class="hero-bg"></div>
-        <div class="hero-content">
-            <div class="logo">
-                <div class="logo-studs">
-                    <span class="stud s1"></span>
-                    <span class="stud s2"></span>
-                    <span class="stud s3"></span>
-                    <span class="stud s4"></span>
-                </div>
-                <h1>LEGO Mosaic Maker</h1>
-            </div>
-            <p class="tagline">Transform your photos into buildable LEGO Art masterpieces</p>
+<body class="bg-background text-on-background font-body min-h-screen flex flex-col selection:bg-primary/30">
+
+  <!-- ═══════════════════════════════════════════════
+       LOGIN SCREEN OVERLAY
+       Hidden when ?bypass_login=true or after sign-in
+  ════════════════════════════════════════════════════ -->
+  <div id="login-screen" class="fixed inset-0 z-[999] bg-background flex flex-col items-center justify-center overflow-hidden">
+    <!-- Background grid pattern -->
+    <div class="absolute inset-0 bg-grid-pattern opacity-100 pointer-events-none"></div>
+    <!-- Lego stud dots -->
+    <div class="absolute inset-0 lego-studs opacity-50 pointer-events-none"></div>
+    <!-- Blurred brick overlay -->
+    <div class="absolute inset-0 brick-overlay opacity-20 pointer-events-none">
+      <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuDt7WAZweTGm3GeRhkB0eq4OdO55BVjytZrVOgzD5q5yYaJF_RSX4kf7WvjWJm8Ztq2zkfOHlZ-UYvshQPAm09uYJfr1IBMWzD6m9KxgeH5eKSF-gnNVxwNF1ZYQEAZwEkVrT-pUB5myD4HsgbcpqCkSNlGKwg-yfqf_Rbli2Y3EUGTSm44VOY_0RSwvhVs-PjmgLt93tP3CQEKrXQ-Vc5E0sBdSl30_H7NDsozUaqJh-_7GNz60mPVnXgW3cs8jDJPuZm1pWIVrdu" alt="" class="w-full h-full object-cover grayscale"/>
+    </div>
+
+    <main class="relative z-10 w-full max-w-[440px] px-6">
+      <!-- Brand -->
+      <div class="text-center mb-10">
+        <h1 class="font-headline font-black text-5xl tracking-tighter text-primary neon-text-glow mb-2">BRICKIFY</h1>
+        <p class="font-label uppercase tracking-widest text-secondary text-xs neon-text-glow-secondary mb-4">LOG IN TO YOUR NEON WORKSHOP</p>
+        <p class="text-on-surface-variant text-sm font-medium tracking-tight max-w-[280px] mx-auto opacity-80">Transform photos into buildable LEGO Art mosaics</p>
+      </div>
+
+      <!-- Auth Card -->
+      <div class="bg-surface-container border border-primary/30 neon-border-glow rounded-xl p-8 backdrop-blur-xl flex flex-col items-center">
+        <div class="w-full space-y-6">
+          <button id="btn-login-google" class="w-full flex items-center justify-center gap-4 py-3 px-4 bg-white rounded-lg font-medium text-gray-700 hover:bg-gray-50 transition-all duration-300 google-btn-glow border border-transparent font-body text-sm">
+            <svg class="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+              <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+              <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
+              <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+            </svg>
+            Sign in with Google
+          </button>
+          <!-- DEV BYPASS NOTICE — Only shown when bypass available -->
+          <div id="dev-bypass-notice" class="hidden text-center">
+            <p class="font-label text-[10px] uppercase tracking-widest text-tertiary/60">Dev mode • bypass active</p>
+          </div>
+          <div class="text-center">
+            <p class="text-[10px] font-label uppercase tracking-widest text-on-surface-variant/60">Powered by Firebase</p>
+          </div>
         </div>
-    </header>
+      </div>
 
-    <main class="container">
-        <!-- Step 1: Choose LEGO Set(s) -->
-        <section class="step" id="step-set">
-            <div class="step-header">
-                <span class="step-number">1</span>
-                <h2>Choose Your LEGO Art Sets</h2>
-                <p class="step-desc">Click sets to add them. Combine multiple sets for more colors and pieces.</p>
-            </div>
-            <div class="sets-grid" id="sets-grid">
-                <!-- Populated by JS -->
-            </div>
-            <div class="selected-sets-panel hidden" id="selected-sets-panel">
-                <h3>Selected Sets</h3>
-                <div id="selected-sets-list"></div>
-                <div class="selected-sets-summary" id="selected-sets-summary"></div>
-                <button class="btn btn-primary" id="btn-continue-sets">Continue →</button>
-            </div>
-        </section>
-
-        <!-- Step 2: Upload Image -->
-        <section class="step hidden" id="step-upload">
-            <div class="step-header">
-                <span class="step-number">2</span>
-                <h2>Upload Your Image</h2>
-            </div>
-            <div class="upload-zone" id="upload-zone">
-                <div class="upload-icon">
-                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                        <polyline points="17 8 12 3 7 8"/>
-                        <line x1="12" y1="3" x2="12" y2="15"/>
-                    </svg>
-                </div>
-                <p class="upload-text">Drag & drop your image here</p>
-                <p class="upload-subtext">or click to browse • JPG, PNG, WebP</p>
-                <input type="file" id="file-input" accept="image/jpeg,image/png,image/webp" hidden>
-            </div>
-        </section>
-
-        <!-- Step 2b: Crop Tool -->
-        <section class="step hidden" id="step-crop">
-            <div class="step-header">
-                <span class="step-number">2</span>
-                <h2>Crop to Square</h2>
-                <p class="step-desc">Your image isn't square. Drag the crop area to select the region you want.</p>
-            </div>
-            <div class="crop-container">
-                <div class="crop-wrapper" id="crop-wrapper">
-                    <canvas id="crop-canvas"></canvas>
-                    <div class="crop-overlay" id="crop-overlay"></div>
-                </div>
-                <div class="crop-zoom-bar">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
-                    <input type="range" id="crop-zoom-slider" class="range-slider" min="10" max="100" value="100" step="1">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
-                    <span id="crop-zoom-value" class="slider-value">100%</span>
-                </div>
-                <div class="crop-actions">
-                    <button class="btn btn-secondary" id="btn-reset-crop">Reset</button>
-                    <button class="btn btn-primary" id="btn-apply-crop">Apply Crop</button>
-                </div>
-            </div>
-        </section>
-
-        <!-- Step 3: Generate Options -->
-        <section class="step hidden" id="step-options">
-            <div class="step-header">
-                <span class="step-number">3</span>
-                <h2>Generate Mosaic</h2>
-            </div>
-            <div class="options-panel">
-                <div class="preview-comparison">
-                    <div class="preview-source">
-                        <div class="preview-label">Original</div>
-                        <img id="source-preview" alt="Source image">
-                    </div>
-                    <div class="preview-palette-wrap">
-                        <div class="preview-label">Palette Preview</div>
-                        <div class="palette-preview-container" id="palette-preview-container">
-                            <div class="palette-preview-placeholder">
-                                <span>Adjust settings below,<br>then click Preview</span>
-                            </div>
-                            <img id="palette-preview" alt="Palette preview" style="display:none">
-                        </div>
-                    </div>
-                </div>
-                <div class="preview-info">
-                    <span id="set-name-label"></span>
-                    <span id="grid-size-label"></span>
-                </div>
-
-                <div class="options-divider"></div>
-
-                <div class="option-group">
-                    <label class="toggle-label">
-                        <span>🎨 Palette-Aware Preprocessing</span>
-                        <span class="toggle-desc">Adjusts image colors to better match the LEGO palette</span>
-                    </label>
-                    <label class="toggle">
-                        <input type="checkbox" id="preprocessing-toggle" checked>
-                        <span class="toggle-slider"></span>
-                    </label>
-                </div>
-                <div class="option-group" id="contrast-group">
-                    <label class="slider-label" for="contrast-slider">
-                        <span>Contrast Boost</span>
-                        <span class="slider-value" id="contrast-value">1.0×</span>
-                    </label>
-                    <input type="range" id="contrast-slider" min="0" max="2" step="0.1" value="1.0" class="range-slider">
-                    <div class="slider-hints">
-                        <span>Subtle</span>
-                        <span>Strong</span>
-                    </div>
-                </div>
-                <div class="option-group">
-                    <label class="toggle-label">
-                        <span>Floyd-Steinberg Dithering</span>
-                        <span class="toggle-desc">Blends colors via error diffusion for smoother gradients</span>
-                    </label>
-                    <label class="toggle">
-                        <input type="checkbox" id="dithering-toggle">
-                        <span class="toggle-slider"></span>
-                    </label>
-                </div>
-
-                <div class="options-actions">
-                    <button class="btn btn-secondary" id="btn-preview-palette">
-                        <span class="btn-text">Preview Palette</span>
-                        <span class="btn-loader hidden">
-                            <span class="spinner"></span>
-                            Loading...
-                        </span>
-                    </button>
-                    <button class="btn btn-generate" id="btn-generate">
-                        <span class="btn-text">Generate Mosaic</span>
-                        <span class="btn-loader hidden">
-                            <span class="spinner"></span>
-                            Processing...
-                        </span>
-                    </button>
-                </div>
-            </div>
-        </section>
-
-        <!-- Step 4: Result -->
-        <section class="step hidden" id="step-result">
-            <div class="step-header">
-                <span class="step-number">4</span>
-                <h2>Your LEGO Mosaic</h2>
-            </div>
-            <div class="result-panel">
-                <div class="mosaic-view">
-                    <div class="mosaic-toolbar">
-                        <button class="btn btn-icon" id="btn-zoom-in" title="Zoom in">+</button>
-                        <button class="btn btn-icon" id="btn-zoom-out" title="Zoom out">−</button>
-                        <button class="btn btn-icon" id="btn-zoom-reset" title="Reset zoom">⟲</button>
-                        <div class="toolbar-spacer"></div>
-                        <button class="btn btn-secondary btn-sm" id="btn-download">Download PNG</button>
-                    </div>
-                    <div class="mosaic-canvas-wrapper" id="mosaic-canvas-wrapper">
-                        <canvas id="mosaic-canvas"></canvas>
-                    </div>
-                </div>
-                <div class="color-legend" id="color-legend">
-                    <h3>Color Palette</h3>
-                    <div class="legend-items" id="legend-items">
-                        <!-- Populated by JS -->
-                    </div>
-                    <div class="total-pieces" id="total-pieces"></div>
-                </div>
-            </div>
-            <div class="result-actions">
-                <button class="btn btn-secondary" id="btn-start-over">Start Over</button>
-                <button class="btn btn-secondary" id="btn-change-set">Change Set</button>
-                <button class="btn btn-primary" id="btn-download-instructions">Download Building Guide</button>
-            </div>
-        </section>
+      <!-- Footer links -->
+      <div class="mt-8 text-center">
+        <div class="flex justify-center gap-6 opacity-40">
+          <a class="font-label text-[10px] uppercase tracking-widest hover:opacity-100 transition-opacity" href="#">Privacy</a>
+          <a class="font-label text-[10px] uppercase tracking-widest hover:opacity-100 transition-opacity" href="#">Terms</a>
+          <a class="font-label text-[10px] uppercase tracking-widest hover:opacity-100 transition-opacity" href="#">Support</a>
+        </div>
+      </div>
     </main>
 
-    <footer class="footer">
-        <p>LEGO® is a trademark of the LEGO Group. This app is not sponsored or endorsed by the LEGO Group.</p>
-    </footer>
+    <!-- Corner decoration -->
+    <div class="fixed bottom-0 right-0 p-8 pointer-events-none opacity-20">
+      <span class="material-symbols-outlined text-tertiary text-6xl">grid_view</span>
+    </div>
+  </div>
 
-    <script src="app.js"></script>
+  <!-- ═══════════════════════════════════════════════
+       MAIN APP  (hidden until authenticated)
+  ════════════════════════════════════════════════════ -->
+  <div id="app-container" class="hidden flex-col min-h-screen">
+
+    <!-- TOP NAVIGATION BAR -->
+    <nav id="top-nav" class="sticky top-0 z-50 bg-background/95 border-b border-primary/30 backdrop-blur-md shadow-[0_0_15px_rgba(255,45,120,0.1)] flex justify-between items-center w-full px-6 py-4">
+      <div class="flex items-center gap-8">
+        <span class="text-2xl font-black text-primary drop-shadow-[0_0_8px_rgba(255,45,120,0.8)] font-headline tracking-tight">BRICKIFY</span>
+        <div class="hidden md:flex items-center gap-6 font-label font-bold tracking-tight text-sm">
+          <button class="nav-tab active" data-tab="sets">Sets</button>
+          <button class="nav-tab" data-tab="editor">Editor</button>
+          <button class="nav-tab" data-tab="build-plan">Build Plan</button>
+        </div>
+      </div>
+      <div class="flex items-center gap-4">
+        <div class="relative hidden sm:block">
+          <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-sm">search</span>
+          <input id="set-search" class="bg-surface-container border-none text-on-surface-variant text-sm pl-10 pr-4 py-2 rounded-lg focus:ring-1 focus:ring-primary w-56 outline-none" placeholder="Search sets..." type="text"/>
+        </div>
+        <button id="btn-user-menu" class="text-on-surface-variant hover:text-primary transition-all duration-200">
+          <span class="material-symbols-outlined text-3xl">account_circle</span>
+        </button>
+      </div>
+    </nav>
+
+    <!-- ── TAB: SETS ── -->
+    <div id="tab-sets" class="tab-panel flex-1 flex flex-col">
+      <main class="container mx-auto px-6 py-8 pb-40">
+        <header class="mb-10">
+          <h1 class="text-4xl font-black font-headline text-on-background mb-2">INVENTORY SELECTION</h1>
+          <p class="font-label text-secondary uppercase tracking-widest text-xs neon-text-glow-secondary">Select official LEGO Art sets to merge into your build plan</p>
+        </header>
+
+        <!-- Sets Grid -->
+        <div id="sets-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+          <!-- Populated by JS -->
+          <div class="col-span-full flex items-center justify-center py-16">
+            <div class="flex flex-col items-center gap-4 text-on-surface-variant">
+              <span class="material-symbols-outlined text-5xl animate-pulse text-primary">inventory_2</span>
+              <p class="font-label text-sm uppercase tracking-widest">Loading sets…</p>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <!-- Sticky Bottom: Selected Sets Summary -->
+      <footer id="selected-sets-panel" class="hidden fixed bottom-0 left-0 right-0 z-40 bg-background/95 backdrop-blur-xl border-t border-outline-variant shadow-[0_-10px_30px_rgba(0,0,0,0.5)]">
+        <div class="container mx-auto px-6 py-4 flex flex-col md:flex-row items-center justify-between gap-4">
+          <div class="flex flex-wrap items-center gap-6 md:gap-8">
+            <div class="flex flex-col">
+              <span class="font-label text-[10px] uppercase text-on-surface-variant tracking-tighter">Total Colors</span>
+              <span id="summary-colors" class="font-headline font-bold text-lg text-secondary neon-text-glow-secondary">0</span>
+            </div>
+            <div class="h-8 w-px bg-outline-variant hidden md:block"></div>
+            <div class="flex flex-col">
+              <span class="font-label text-[10px] uppercase text-on-surface-variant tracking-tighter">Total Pieces</span>
+              <span id="summary-pieces" class="font-headline font-bold text-lg text-on-background">0</span>
+            </div>
+            <div class="h-8 w-px bg-outline-variant hidden md:block"></div>
+            <div class="flex flex-col">
+              <span class="font-label text-[10px] uppercase text-on-surface-variant tracking-tighter">Grid Size</span>
+              <span id="summary-grid" class="font-headline font-bold text-lg text-on-background">—</span>
+            </div>
+          </div>
+          <!-- Selected set thumbnails -->
+          <div class="flex items-center gap-4">
+            <div id="selected-sets-thumbs" class="flex -space-x-3 overflow-hidden"></div>
+            <div id="selected-sets-list" class="hidden"></div><!-- kept for JS compat -->
+            <div id="selected-sets-summary" class="hidden"></div><!-- kept for JS compat -->
+            <button id="btn-continue-sets" class="px-8 py-3 bg-primary text-on-primary font-headline font-extrabold uppercase tracking-widest rounded-lg flex items-center justify-center gap-2 hover:brightness-110 shadow-[0_0_20px_rgba(255,45,120,0.5)] transition-all active:scale-95 text-sm">
+              Continue <span class="material-symbols-outlined text-sm">arrow_forward</span>
+            </button>
+          </div>
+        </div>
+      </footer>
+    </div>
+
+    <!-- ── TAB: EDITOR (Upload + Crop + Config) ── -->
+    <div id="tab-editor" class="tab-panel hidden flex-1 flex overflow-hidden">
+      <!-- Main canvas area -->
+      <main class="flex-1 flex flex-col p-8 lg:p-10 relative overflow-hidden">
+        <div class="scanline-overlay absolute inset-0 z-0 opacity-10 pointer-events-none"></div>
+        <div class="z-10 flex flex-col h-full max-w-[1400px] mx-auto w-full">
+
+          <!-- Editor header -->
+          <div class="mb-8 flex justify-between items-end">
+            <div>
+              <h2 class="text-3xl font-headline font-bold neon-text-glow text-primary tracking-tight" id="editor-title">Image Editor</h2>
+              <p class="text-on-surface-variant font-label text-xs uppercase tracking-[0.2em] mt-2" id="editor-subtitle">Upload an image to begin</p>
+            </div>
+            <div class="flex items-center gap-3 bg-surface-container/50 px-4 py-2.5 rounded-lg border border-outline-variant/30 backdrop-blur-sm">
+              <span class="material-symbols-outlined text-secondary text-base">info</span>
+              <span id="editor-hint" class="text-[11px] font-label text-on-surface-variant uppercase tracking-wider">Drop an image or click to browse</span>
+            </div>
+          </div>
+
+          <!-- Upload Zone (Step 2) -->
+          <div id="step-upload" class="flex-1 flex flex-col items-center justify-center">
+            <div id="upload-zone" class="w-full max-w-2xl border-2 border-dashed border-primary/30 rounded-xl p-16 flex flex-col items-center justify-center gap-6 cursor-pointer hover:border-primary/60 hover:bg-surface-container/30 transition-all group neon-border-glow-hover">
+              <div id="upload-main-content" class="flex flex-col items-center gap-6 w-full">
+              <span class="material-symbols-outlined text-primary/50 group-hover:text-primary transition-colors" style="font-size: 72px;">cloud_upload</span>
+              <div class="text-center">
+                <p class="font-headline font-bold text-lg text-on-surface mb-1">Drop your image here</p>
+                <p class="font-label text-xs uppercase tracking-widest text-on-surface-variant">or click to browse • JPG, PNG, WebP</p>
+              </div>
+              </div>
+              <!-- Dev bypass: direct path input -->
+              <div id="dev-path-upload" class="hidden w-full max-w-md">
+                <div class="border-t border-outline-variant/40 pt-4 mt-2 flex flex-col gap-2">
+                  <p class="font-label text-[10px] uppercase tracking-widest text-tertiary/70 text-center">Dev: Direct file path</p>
+                  <div class="flex gap-2">
+                    <input id="dev-file-path" type="text" value="/Users/amura/Downloads/macho.jpg" placeholder="/path/to/image.jpg" class="flex-1 bg-surface-container border border-outline-variant rounded px-3 py-2 text-xs font-label text-on-surface outline-none focus:border-primary/60"/>
+                    <button id="btn-upload-path" class="px-4 py-2 bg-primary/10 border border-primary/50 text-primary font-label text-xs uppercase tracking-wider rounded hover:bg-primary/20 transition-all whitespace-nowrap">Upload</button>
+                  </div>
+                </div>
+              </div>
+              <input type="file" id="file-input" accept="image/jpeg,image/png,image/webp" class="hidden"/>
+            </div>
+          </div>
+
+          <!-- Crop Tool (Step 2b) -->
+          <div id="step-crop" class="hidden flex-1 flex flex-col gap-4">
+            <div class="flex-1 bg-surface-container-lowest border border-outline-variant/20 rounded-2xl relative overflow-hidden shadow-2xl">
+              <div id="crop-wrapper" class="absolute inset-0 flex items-center justify-center p-8 bg-[#050508]">
+                <div class="relative w-full h-full flex items-center justify-center">
+                  <div id="crop-container" class="relative">
+                    <canvas id="crop-canvas" class="block"></canvas>
+                    <div id="crop-overlay" class="absolute border-2 border-primary shadow-[0_0_25px_rgba(255,45,120,0.5)] cursor-move select-none">
+                      <div class="absolute -top-1.5 -left-1.5 w-4 h-4 bg-primary shadow-[0_0_8px_#ff2d78]"></div>
+                      <div class="absolute -top-1.5 -right-1.5 w-4 h-4 bg-primary shadow-[0_0_8px_#ff2d78]"></div>
+                      <div class="absolute -bottom-1.5 -left-1.5 w-4 h-4 bg-primary shadow-[0_0_8px_#ff2d78]"></div>
+                      <div class="absolute -bottom-1.5 -right-1.5 w-4 h-4 bg-primary shadow-[0_0_8px_#ff2d78]"></div>
+                      <!-- Rule of thirds -->
+                      <div class="absolute inset-0 pointer-events-none grid grid-cols-3 grid-rows-3">
+                        <div class="border-r border-b border-primary/20"></div><div class="border-r border-b border-primary/20"></div><div class="border-b border-primary/20"></div>
+                        <div class="border-r border-b border-primary/20"></div><div class="border-r border-b border-primary/20"></div><div class="border-b border-primary/20"></div>
+                        <div class="border-r border-primary/20"></div><div class="border-r border-primary/20"></div><div></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <!-- Floating crop controls -->
+            <div class="flex items-center justify-between gap-4 bg-background/90 border border-primary/30 backdrop-blur-md px-6 py-3 rounded-full shadow-[0_15px_40px_rgba(0,0,0,0.6)] mx-auto">
+              <div class="flex items-center gap-4">
+                <span class="material-symbols-outlined text-primary text-base cursor-pointer hover:scale-110 transition-transform">zoom_out</span>
+                <input type="range" id="crop-zoom-slider" class="neon-slider w-48" min="10" max="100" value="100" step="1"/>
+                <span class="material-symbols-outlined text-primary text-base cursor-pointer hover:scale-110 transition-transform">zoom_in</span>
+                <span id="crop-zoom-value" class="font-label text-sm text-on-surface min-w-[3ch]">100%</span>
+              </div>
+              <div class="h-6 w-px bg-outline-variant/50"></div>
+              <div class="flex gap-4">
+                <button id="btn-reset-crop" class="px-4 py-1.5 border border-outline-variant text-on-surface-variant font-label text-xs uppercase tracking-wider rounded hover:border-primary/50 hover:text-primary transition-all">Reset</button>
+                <button id="btn-apply-crop" class="px-6 py-1.5 bg-primary text-on-primary font-label text-xs uppercase tracking-wider rounded shadow-[0_0_16px_rgba(255,45,120,0.4)] hover:brightness-110 transition-all">Apply Crop</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <!-- RIGHT SIDEBAR: Mosaic Config (Step 3 / Options) -->
+      <aside id="step-options" class="hidden w-[360px] h-full bg-surface-container border-l border-outline-variant/30 p-8 flex flex-col gap-8 z-40 overflow-y-auto">
+
+        <!-- Source image preview -->
+        <div>
+          <h3 class="font-headline font-bold text-lg text-secondary neon-text-glow-secondary flex items-center gap-2 mb-4">
+            <span class="material-symbols-outlined text-base">image</span>
+            Source Image
+          </h3>
+          <div class="rounded-lg overflow-hidden border border-outline-variant/30 aspect-square bg-surface-container-lowest">
+            <img id="source-preview" class="w-full h-full object-cover" alt="Source image"/>
+          </div>
+          <div class="flex gap-2 mt-2 text-[11px] font-label text-on-surface-variant">
+            <span id="set-name-label"></span>
+            <span id="grid-size-label"></span>
+          </div>
+        </div>
+
+        <div class="h-px bg-outline-variant/40"></div>
+
+        <!-- Config section -->
+        <div>
+          <h3 class="font-headline font-bold text-xl text-secondary neon-text-glow-secondary flex items-center gap-3 mb-1">
+            <span class="material-symbols-outlined">settings_input_component</span>
+            Mosaic Config
+          </h3>
+          <div class="h-px w-full bg-gradient-to-r from-secondary/50 to-transparent mt-3"></div>
+        </div>
+
+        <!-- Toggles -->
+        <div class="space-y-8">
+          <div class="flex items-center justify-between group">
+            <div class="flex flex-col">
+              <span class="font-label text-xs uppercase tracking-widest text-on-surface font-bold">Preprocessing</span>
+              <span class="text-[10px] text-on-surface-variant uppercase mt-1">AI-Driven Detail Optimization</span>
+            </div>
+            <label class="relative w-12 h-6 cursor-pointer">
+              <input type="checkbox" id="preprocessing-toggle" checked class="sr-only peer"/>
+              <div class="w-12 h-6 bg-surface-container-highest rounded-full border border-outline-variant peer-checked:border-secondary/50 transition-colors"></div>
+              <div class="absolute top-1 left-1 w-4 h-4 bg-on-surface-variant peer-checked:bg-secondary peer-checked:shadow-[0_0_8px_#00ffcc] rounded-full peer-checked:translate-x-6 transition-all duration-200"></div>
+            </label>
+          </div>
+
+          <div id="contrast-group" class="space-y-3">
+            <div class="flex justify-between items-center">
+              <span class="font-label text-xs uppercase tracking-widest text-on-surface font-bold">Contrast Boost</span>
+              <span id="contrast-value" class="font-label text-xs text-tertiary font-bold">1.0×</span>
+            </div>
+            <input type="range" id="contrast-slider" min="0" max="2" step="0.1" value="1.0" class="neon-slider w-full"/>
+            <div class="flex justify-between font-label text-[9px] text-on-surface-variant uppercase tracking-tighter">
+              <span>Subtle</span><span>Normal</span><span>Strong</span>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between group">
+            <div class="flex flex-col">
+              <span class="font-label text-xs uppercase tracking-widest text-on-surface font-bold">Dithering</span>
+              <span class="text-[10px] text-on-surface-variant uppercase mt-1">Simulate Smooth Gradients</span>
+            </div>
+            <label class="relative w-12 h-6 cursor-pointer">
+              <input type="checkbox" id="dithering-toggle" class="sr-only peer"/>
+              <div class="w-12 h-6 bg-surface-container-highest rounded-full border border-outline-variant peer-checked:border-secondary/50 transition-colors"></div>
+              <div class="absolute top-1 left-1 w-4 h-4 bg-on-surface-variant peer-checked:bg-secondary peer-checked:shadow-[0_0_8px_#00ffcc] rounded-full peer-checked:translate-x-6 transition-all duration-200"></div>
+            </label>
+          </div>
+        </div>
+
+        <!-- Palette preview -->
+        <div class="bg-background border border-secondary/20 rounded-xl p-4">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-2 h-2 rounded-full bg-secondary animate-pulse shadow-[0_0_8px_#00ffcc]"></div>
+            <span class="font-label text-[10px] uppercase text-secondary tracking-[0.2em] font-bold">Palette Engine</span>
+          </div>
+          <div id="palette-preview-container" class="relative">
+            <div class="palette-preview-placeholder grid grid-cols-5 gap-2">
+              <div class="h-8 bg-surface-container-high rounded-sm animate-pulse"></div>
+              <div class="h-8 bg-surface-container-high rounded-sm animate-pulse"></div>
+              <div class="h-8 bg-surface-container-high rounded-sm animate-pulse"></div>
+              <div class="h-8 bg-surface-container-high rounded-sm animate-pulse"></div>
+              <div class="h-8 bg-surface-container-high rounded-sm animate-pulse"></div>
+            </div>
+            <img id="palette-preview" alt="Palette preview" class="w-full rounded-sm hidden"/>
+          </div>
+        </div>
+
+        <!-- CTA Buttons -->
+        <div class="space-y-4 mt-auto">
+          <button id="btn-preview-palette" class="w-full py-3 px-6 border-2 border-secondary/50 text-secondary font-headline font-bold uppercase tracking-[0.15em] text-xs hover:bg-secondary/10 hover:shadow-[0_0_20px_rgba(0,255,204,0.3)] transition-all flex items-center justify-center gap-3 group rounded-lg">
+            <span class="material-symbols-outlined text-lg group-hover:rotate-12 transition-transform">palette</span>
+            <span class="btn-text">Palette Preview</span>
+            <span class="btn-loader hidden flex items-center gap-2"><span class="spinner"></span>Loading…</span>
+          </button>
+          <button id="btn-generate" class="w-full py-4 px-6 bg-primary text-on-primary font-headline font-extrabold uppercase tracking-[0.15em] text-sm shadow-[0_0_20px_rgba(255,45,120,0.5)] hover:scale-[1.02] transition-transform active:scale-95 rounded-lg flex items-center justify-center gap-2">
+            <span class="btn-text">Generate Mosaic</span>
+            <span class="btn-loader hidden flex items-center gap-2"><span class="spinner"></span>Processing…</span>
+          </button>
+        </div>
+      </aside>
+    </div>
+
+    <!-- ── TAB: BUILD PLAN (Result) ── -->
+    <div id="tab-build-plan" class="tab-panel hidden flex-1 flex overflow-hidden">
+      <main class="flex-1 p-8 lg:p-12 flex flex-col lg:flex-row gap-8 overflow-y-auto">
+
+        <!-- Left: Mosaic viewer -->
+        <section class="flex-1 flex flex-col gap-6">
+          <div class="flex justify-between items-end flex-wrap gap-4">
+            <div>
+              <h2 id="mosaic-title" class="font-headline text-3xl font-bold neon-text-glow text-primary">YOUR MOSAIC</h2>
+              <p id="mosaic-subtitle" class="font-label text-secondary text-xs tracking-widest uppercase mt-1">—</p>
+            </div>
+            <div class="flex items-center gap-4">
+              <!-- Comparison toggle -->
+              <div class="flex items-center gap-2">
+                <span class="font-label text-[10px] uppercase tracking-widest text-on-surface-variant">Comparison</span>
+                <button id="btn-comparison-toggle" class="w-10 h-5 bg-surface-container-high border border-outline-variant rounded-full relative transition-colors duration-200">
+                  <div id="comparison-dot" class="absolute top-0.5 left-0.5 w-3.5 h-3.5 bg-on-surface-variant rounded-full transition-all duration-200"></div>
+                </button>
+              </div>
+              <!-- 2D / 3D toggle -->
+              <div class="flex bg-surface-container-high border border-outline-variant p-1 rounded-xl">
+                <button id="btn-2d" class="px-3 py-1 text-xs font-label uppercase tracking-wider rounded-lg transition-all bg-primary text-on-primary shadow-[0_0_10px_rgba(255,45,120,0.4)]">2D</button>
+                <button id="btn-3d" class="px-3 py-1 text-xs font-label uppercase tracking-wider rounded-lg transition-all text-on-surface-variant hover:text-on-surface">3D</button>
+              </div>
+              <!-- Zoom controls -->
+              <div class="flex items-center gap-1 bg-surface-container-high border border-outline-variant p-1 rounded-xl">
+                <button id="btn-zoom-out" class="p-2 text-on-surface hover:text-primary transition-colors"><span class="material-symbols-outlined text-lg">zoom_out</span></button>
+                <span id="zoom-label" class="px-3 font-label text-sm text-on-surface-variant">100%</span>
+                <button id="btn-zoom-in" class="p-2 text-on-surface hover:text-primary transition-colors"><span class="material-symbols-outlined text-lg">zoom_in</span></button>
+                <div class="w-px h-6 bg-outline-variant mx-1"></div>
+                <button id="btn-zoom-reset" class="p-2 text-on-surface hover:text-primary transition-colors"><span class="material-symbols-outlined text-lg">fullscreen</span></button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Mosaic canvas with comparison -->
+          <div id="mosaic-canvas-wrapper" class="relative group aspect-square max-w-[800px] w-full mx-auto bg-surface-container-lowest border border-primary/20 p-2 shadow-2xl transition-all duration-700 overflow-hidden rounded">
+            <div class="relative w-full h-full overflow-hidden" id="comparison-wrapper">
+              <!-- Mosaic layer -->
+              <canvas id="mosaic-canvas" class="absolute inset-0 w-full h-full object-contain"></canvas>
+              <!-- Reference layer (split view) -->
+              <div id="reference-layer" class="absolute inset-0 w-full h-full z-10 hidden" style="clip-path: inset(0 50% 0 0);">
+                <img id="reference-image" alt="Original Reference" class="w-full h-full object-cover"/>
+                <div class="absolute top-4 left-4 bg-black/60 backdrop-blur-md border border-white/20 px-3 py-1 text-[10px] font-label tracking-widest text-white uppercase pointer-events-none">Reference</div>
+                <div class="absolute top-4 right-4 bg-black/60 backdrop-blur-md border border-white/20 px-3 py-1 text-[10px] font-label tracking-widest text-white uppercase pointer-events-none">Mosaic</div>
+              </div>
+              <!-- Comparison slider -->
+              <input id="comparison-slider" class="absolute inset-0 cursor-pointer hidden z-20 comparison-slider-input" max="100" min="0" type="range" value="50"/>
+            </div>
+            <!-- 3D perspective overlay hint -->
+            <div id="perspective-3d-overlay" class="absolute inset-0 pointer-events-none hidden bg-gradient-to-br from-primary/5 to-transparent"></div>
+          </div>
+        </section>
+
+        <!-- Right: Legend + actions -->
+        <aside id="color-legend" class="w-full lg:w-[400px] flex flex-col gap-6">
+          <!-- Stats card -->
+          <div class="bg-surface-container border border-secondary/20 p-6 rounded-xl relative overflow-hidden">
+            <div class="absolute top-0 right-0 w-32 h-32 bg-secondary/5 blur-3xl -mr-16 -mt-16"></div>
+            <div class="flex justify-between items-start mb-4">
+              <div>
+                <p class="font-label text-xs text-secondary uppercase tracking-widest">Build Stats</p>
+                <h3 id="total-pieces" class="font-headline text-2xl font-bold text-on-surface">0 pieces</h3>
+              </div>
+              <span class="material-symbols-outlined text-secondary text-3xl">layers</span>
+            </div>
+          </div>
+
+          <!-- Color legend list -->
+          <div class="bg-surface-container border border-outline-variant rounded-xl flex flex-col overflow-hidden flex-1">
+            <div class="px-6 py-4 border-b border-outline-variant bg-surface-container-high flex justify-between items-center">
+              <h4 class="font-label text-xs uppercase tracking-widest font-bold text-on-surface">Color Legend</h4>
+              <span id="legend-color-count" class="font-label text-[10px] text-on-surface-variant"></span>
+            </div>
+            <div id="legend-items" class="p-4 flex flex-col gap-3 max-h-[400px] overflow-y-auto">
+              <!-- Populated by JS -->
+            </div>
+            <div class="p-4 bg-surface-container-high border-t border-outline-variant">
+              <button id="btn-download" class="w-full bg-primary/10 border-2 border-primary text-primary hover:bg-primary hover:text-on-primary transition-all duration-300 py-3 rounded-lg font-headline font-bold flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(255,45,120,0.3)] text-sm uppercase tracking-wider">
+                <span class="material-symbols-outlined">download</span>
+                Download PNG
+              </button>
+            </div>
+          </div>
+
+          <!-- Actions -->
+          <div class="flex gap-3">
+            <button id="btn-start-over" class="flex-1 py-3 border border-outline-variant text-on-surface-variant font-label text-xs uppercase tracking-wider rounded-lg hover:border-primary/50 hover:text-primary transition-all">Start Over</button>
+            <button id="btn-change-set" class="flex-1 py-3 border border-outline-variant text-on-surface-variant font-label text-xs uppercase tracking-wider rounded-lg hover:border-secondary/50 hover:text-secondary transition-all">Change Sets</button>
+            <button id="btn-download-instructions" class="flex-1 py-3 bg-primary/10 border border-primary/50 text-primary font-label text-xs uppercase tracking-wider rounded-lg hover:bg-primary/20 transition-all">Build Guide</button>
+          </div>
+        </aside>
+      </main>
+    </div>
+
+    <!-- Bottom footer bar -->
+    <footer class="bg-background border-t border-outline-variant/30 py-4 px-8 flex justify-between items-center text-on-surface-variant mt-auto">
+      <div class="font-label text-[10px] uppercase tracking-widest">© 2024 BRICKIFY NEON. NOT AN OFFICIAL LEGO PRODUCT.</div>
+      <div class="flex gap-6 font-label text-[10px] uppercase tracking-widest">
+        <a class="hover:text-tertiary transition-colors" href="#">Terms</a>
+        <a class="hover:text-tertiary transition-colors" href="#">Privacy</a>
+        <a class="hover:text-tertiary transition-colors" href="#">Support</a>
+      </div>
+    </footer>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>

@@ -82,6 +82,38 @@ async def upload_image(file: UploadFile = File(...)):
     }
 
 
+class UploadPathRequest(BaseModel):
+    file_path: str
+
+
+@app.post("/api/upload-path")
+def upload_from_path(req: UploadPathRequest):
+    """DEV ONLY: Upload an image from a local file path (bypasses file picker)."""
+    file_path = Path(req.file_path)
+    if not file_path.exists():
+        raise HTTPException(404, f"File not found: {req.file_path}")
+    if not file_path.is_file():
+        raise HTTPException(400, f"Not a file: {req.file_path}")
+
+    try:
+        img = Image.open(str(file_path)).convert("RGB")
+    except Exception:
+        raise HTTPException(400, f"Cannot open image: {req.file_path}")
+
+    image_id = str(uuid.uuid4())
+    _images[image_id] = img
+
+    w, h = img.size
+    is_square = w == h
+
+    return {
+        "image_id": image_id,
+        "width": w,
+        "height": h,
+        "is_square": is_square,
+    }
+
+
 @app.get("/api/image/{image_id}")
 def get_image(image_id: str):
     """Return uploaded image as JPEG."""
