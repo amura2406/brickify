@@ -400,3 +400,209 @@
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 45, 120, 0.4);
 }
+
+/* ══════════════════════════════════════════════════════════════
+   MOBILE / RESPONSIVE STYLES
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── Safe Area Support (iPhone notch / home indicator) ── */
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.safe-area-x {
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+}
+
+/* ── Touch-Friendly Tap Targets ── */
+.touch-target {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* ── Mobile Step Indicator ── */
+.mobile-step {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  opacity: 0.4;
+  transition: opacity 0.3s, transform 0.3s;
+}
+.mobile-step.active {
+  opacity: 1;
+}
+.mobile-step.completed {
+  opacity: 0.7;
+}
+.mobile-step-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--md-sys-color-outline-variant, #45364c);
+  transition: all 0.3s;
+}
+.mobile-step.active .mobile-step-dot {
+  width: 10px;
+  height: 10px;
+  background: var(--md-sys-color-primary, #ff2d78);
+  box-shadow: 0 0 8px rgba(255, 45, 120, 0.6);
+}
+.mobile-step.completed .mobile-step-dot {
+  background: var(--md-sys-color-secondary, #00ffcc);
+  box-shadow: 0 0 6px rgba(0, 255, 204, 0.4);
+}
+.mobile-step-label {
+  font-family: 'Space Grotesk', monospace;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--md-sys-color-on-surface-variant, #c5b8c9);
+}
+.mobile-step.active .mobile-step-label {
+  color: var(--md-sys-color-primary, #ff2d78);
+  font-weight: 700;
+}
+.mobile-step-line {
+  width: 16px;
+  height: 1px;
+  background: var(--md-sys-color-outline-variant, #45364c);
+}
+
+/* ── Crop Handles – touch-sized on mobile ── */
+.crop-handle {
+  touch-action: none;
+}
+
+/* ── Prevent overscroll / pull-to-refresh on interactive areas ── */
+#crop-wrapper,
+#mosaic-canvas-wrapper,
+.touch-none {
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* ── Mobile-specific breakpoints ── */
+
+/* Small phones (< 640px) */
+@media (max-width: 639px) {
+  /* Sets grid: 1 column */
+  #sets-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Upload zone smaller padding */
+  #upload-zone {
+    padding: 2rem !important;
+  }
+  
+  /* Editor sidebar: full-width stacked below canvas */
+  #step-options {
+    max-height: 60vh;
+    border-top: 1px solid var(--md-sys-color-outline-variant, #45364c);
+    border-left: none;
+  }
+
+  /* Comparison slider needs full width */
+  .comparison-slider-container {
+    width: 100%;
+  }
+
+  /* Action buttons stack vertically on small screens */
+  .flex.gap-3 button {
+    font-size: 10px;
+  }
+}
+
+/* Tablets in portrait (640px - 1023px) */
+@media (min-width: 640px) and (max-width: 1023px) {
+  /* Sets grid: 2 columns */
+  #sets-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  /* Editor sidebar: stacked below in portrait */
+  #step-options {
+    max-height: 50vh;
+    border-top: 1px solid var(--md-sys-color-outline-variant, #45364c);
+    border-left: none;
+  }
+}
+
+/* iPad landscape and larger (≥1024px) — side-by-side layout */
+@media (min-width: 1024px) {
+  /* Sets grid: 3 columns */
+  #sets-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+  }
+
+  /* Editor sidebar is side-by-side on large screens */
+  #step-options {
+    max-height: none;
+  }
+}
+
+/* Desktop (≥1280px) */
+@media (min-width: 1280px) {
+  /* Sets grid: 4 columns */
+  #sets-grid {
+    grid-template-columns: repeat(4, 1fr) !important;
+  }
+}
+
+/* ── Hover-less devices (touch) ── */
+@media (hover: none) {
+  /* Remove hover-dependent neon glows that flash on tap */
+  .neon-border-glow-hover:hover {
+    box-shadow: none;
+  }
+
+  /* Larger crop handles for finger precision */
+  .crop-handle {
+    min-width: 28px !important;
+    min-height: 28px !important;
+  }
+
+  /* Larger scrollbar for touch */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+}
+
+/* ── Landscape orientation on mobile ── */
+@media (max-height: 500px) and (orientation: landscape) {
+  #top-nav {
+    padding-top: 4px;
+    padding-bottom: 4px;
+  }
+  #mobile-steps {
+    display: none !important;
+  }
+}
+
+/* ── Neon slider style override for touch ── */
+.neon-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  background: var(--md-sys-color-surface-container-high, #302840);
+  border-radius: 2px;
+  outline: none;
+}
+.neon-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--md-sys-color-primary, #ff2d78);
+  box-shadow: 0 0 8px rgba(255, 45, 120, 0.5);
+  cursor: pointer;
+}
+@media (hover: none) {
+  .neon-slider::-webkit-slider-thumb {
+    width: 28px;
+    height: 28px;
+  }
+}

@@ -2,7 +2,7 @@
 <html class="dark" lang="en">
 <head>
   <meta charset="utf-8"/>
-  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <meta content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no" name="viewport"/>
   <title>BRICKIFY — Turn Photos into LEGO Art</title>
   <meta name="description" content="Transform your photos into buildable LEGO Art mosaics using official LEGO Art set color palettes."/>
   <link rel="icon" type="image/x-icon" href="assets/sets/favicon.ico"/>
@@ -184,53 +184,83 @@
   <div id="app-container" class="hidden flex-col min-h-screen">
 
     <!-- TOP NAVIGATION BAR -->
-    <nav id="top-nav" class="sticky top-0 z-50 bg-background/95 border-b border-primary/30 backdrop-blur-md shadow-[0_0_15px_rgba(255,45,120,0.1)] flex justify-between items-center w-full px-6 py-4">
-      <div class="flex items-center gap-8">
-        <span class="text-2xl font-black text-primary drop-shadow-[0_0_8px_rgba(255,45,120,0.8)] font-headline tracking-tight">BRICKIFY</span>
-        <div class="hidden md:flex items-center gap-4 font-label font-bold tracking-tight text-sm text-on-surface-variant transition-all duration-300">
-          <div id="step-sets" class="step-indicator flex items-center gap-2 text-primary drop-shadow-[0_0_8px_rgba(255,45,120,0.8)]">
-            <span class="step-num w-6 h-6 rounded-full bg-primary text-on-primary flex items-center justify-center text-xs">1</span> Select Sets
+    <nav id="top-nav" class="sticky top-0 z-50 bg-background/95 border-b border-primary/30 backdrop-blur-md shadow-[0_0_15px_rgba(255,45,120,0.1)] flex flex-col w-full safe-area-x">
+      <div class="flex justify-between items-center px-4 sm:px-6 py-3 sm:py-4">
+        <div class="flex items-center gap-4 sm:gap-8">
+          <span class="text-xl sm:text-2xl font-black text-primary drop-shadow-[0_0_8px_rgba(255,45,120,0.8)] font-headline tracking-tight">BRICKIFY</span>
+          <div class="hidden md:flex items-center gap-4 font-label font-bold tracking-tight text-sm text-on-surface-variant transition-all duration-300">
+            <div id="step-sets" class="step-indicator flex items-center gap-2 text-primary drop-shadow-[0_0_8px_rgba(255,45,120,0.8)]">
+              <span class="step-num w-6 h-6 rounded-full bg-primary text-on-primary flex items-center justify-center text-xs">1</span> Select Sets
+            </div>
+            <div class="w-8 h-[2px] bg-outline-variant"></div>
+            <div id="step-editor" class="step-indicator flex items-center gap-2">
+              <span class="step-num w-6 h-6 rounded-full bg-surface-container border border-outline-variant text-on-surface flex items-center justify-center text-xs">2</span> Image & Crop
+            </div>
+            <div class="w-8 h-[2px] bg-outline-variant"></div>
+            <div id="step-build-plan" class="step-indicator flex items-center gap-2">
+              <span class="step-num w-6 h-6 rounded-full bg-surface-container border border-outline-variant text-on-surface flex items-center justify-center text-xs">3</span> View Mosaic
+            </div>
           </div>
-          <div class="w-8 h-[2px] bg-outline-variant"></div>
-          <div id="step-editor" class="step-indicator flex items-center gap-2">
-            <span class="step-num w-6 h-6 rounded-full bg-surface-container border border-outline-variant text-on-surface flex items-center justify-center text-xs">2</span> Image & Crop
+        </div>
+        <div class="flex items-center gap-3 sm:gap-4">
+          <!-- Mobile search button -->
+          <button id="btn-mobile-search" class="sm:hidden p-2 text-on-surface-variant hover:text-primary transition-colors touch-target">
+            <span class="material-symbols-outlined text-xl">search</span>
+          </button>
+          <div class="relative hidden sm:block">
+            <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-sm">search</span>
+            <input id="set-search" class="bg-surface-container border-none text-on-surface-variant text-sm pl-10 pr-4 py-2 rounded-lg focus:ring-1 focus:ring-primary w-56 outline-none" placeholder="Search sets..." type="text"/>
           </div>
-          <div class="w-8 h-[2px] bg-outline-variant"></div>
-          <div id="step-build-plan" class="step-indicator flex items-center gap-2">
-            <span class="step-num w-6 h-6 rounded-full bg-surface-container border border-outline-variant text-on-surface flex items-center justify-center text-xs">3</span> View Mosaic
+          <div class="relative">
+            <button id="btn-user-menu" class="flex items-center gap-2 text-on-surface-variant hover:text-primary transition-all duration-200 group touch-target">
+              <span id="nav-user-avatar" class="w-8 h-8 rounded-full bg-surface-container border border-outline-variant flex items-center justify-center text-xs font-bold text-primary uppercase overflow-hidden"></span>
+            </button>
+            <!-- User dropdown -->
+            <div id="user-menu-dropdown" class="hidden absolute right-0 top-11 w-48 bg-surface-container border border-outline-variant rounded-xl shadow-xl z-50 overflow-hidden">
+              <div class="px-4 py-3 border-b border-outline-variant">
+                <p id="nav-user-name" class="text-xs font-bold text-on-surface truncate"></p>
+                <p id="nav-user-email" class="text-[10px] text-on-surface-variant truncate mt-0.5"></p>
+              </div>
+              <button id="btn-nav-signout" class="w-full flex items-center gap-2 px-4 py-3 text-xs text-on-surface-variant hover:text-error hover:bg-error/5 transition-colors">
+                <span class="material-symbols-outlined" style="font-size:15px">logout</span>
+                Sign out
+              </button>
+            </div>
           </div>
         </div>
       </div>
-      <div class="flex items-center gap-4">
-        <div class="relative hidden sm:block">
-          <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-sm">search</span>
-          <input id="set-search" class="bg-surface-container border-none text-on-surface-variant text-sm pl-10 pr-4 py-2 rounded-lg focus:ring-1 focus:ring-primary w-56 outline-none" placeholder="Search sets..." type="text"/>
+      <!-- Mobile step indicator -->
+      <div id="mobile-steps" class="flex md:hidden items-center justify-center gap-2 pb-2 px-4">
+        <div class="mobile-step active" data-step="sets">
+          <span class="mobile-step-dot"></span>
+          <span class="mobile-step-label">Sets</span>
         </div>
+        <div class="mobile-step-line"></div>
+        <div class="mobile-step" data-step="editor">
+          <span class="mobile-step-dot"></span>
+          <span class="mobile-step-label">Edit</span>
+        </div>
+        <div class="mobile-step-line"></div>
+        <div class="mobile-step" data-step="build-plan">
+          <span class="mobile-step-dot"></span>
+          <span class="mobile-step-label">Mosaic</span>
+        </div>
+      </div>
+      <!-- Mobile search bar (toggle) -->
+      <div id="mobile-search-bar" class="hidden sm:hidden px-4 pb-3">
         <div class="relative">
-          <button id="btn-user-menu" class="flex items-center gap-2 text-on-surface-variant hover:text-primary transition-all duration-200 group">
-            <span id="nav-user-avatar" class="w-8 h-8 rounded-full bg-surface-container border border-outline-variant flex items-center justify-center text-xs font-bold text-primary uppercase overflow-hidden"></span>
-          </button>
-          <!-- User dropdown -->
-          <div id="user-menu-dropdown" class="hidden absolute right-0 top-11 w-48 bg-surface-container border border-outline-variant rounded-xl shadow-xl z-50 overflow-hidden">
-            <div class="px-4 py-3 border-b border-outline-variant">
-              <p id="nav-user-name" class="text-xs font-bold text-on-surface truncate"></p>
-              <p id="nav-user-email" class="text-[10px] text-on-surface-variant truncate mt-0.5"></p>
-            </div>
-            <button id="btn-nav-signout" class="w-full flex items-center gap-2 px-4 py-3 text-xs text-on-surface-variant hover:text-error hover:bg-error/5 transition-colors">
-              <span class="material-symbols-outlined" style="font-size:15px">logout</span>
-              Sign out
-            </button>
-          </div>
+          <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-sm">search</span>
+          <input id="set-search-mobile" class="bg-surface-container border-none text-on-surface-variant text-sm pl-10 pr-4 py-2.5 rounded-lg focus:ring-1 focus:ring-primary w-full outline-none" placeholder="Search sets..." type="text"/>
         </div>
-
+      </div>
     </nav>
 
     <!-- ── TAB: SETS ── -->
     <div id="tab-sets" class="tab-panel flex-1 flex flex-col">
-      <main class="container mx-auto px-6 py-8 pb-40">
-        <header class="mb-10">
-          <h1 class="text-4xl font-black font-headline text-on-background mb-2">INVENTORY SELECTION</h1>
-          <p class="font-label text-secondary uppercase tracking-widest text-xs neon-text-glow-secondary">Select official LEGO Art sets to merge into your build plan</p>
+      <main class="container mx-auto px-4 sm:px-6 py-6 sm:py-8 pb-40">
+        <header class="mb-6 sm:mb-10">
+          <h1 class="text-2xl sm:text-4xl font-black font-headline text-on-background mb-2">INVENTORY SELECTION</h1>
+          <p class="font-label text-secondary uppercase tracking-widest text-[10px] sm:text-xs neon-text-glow-secondary">Select official LEGO Art sets to merge into your build plan</p>
         </header>
 
         <!-- Sets Grid -->
@@ -246,30 +276,30 @@
       </main>
 
       <!-- Sticky Bottom: Selected Sets Summary -->
-      <footer id="selected-sets-panel" class="hidden fixed bottom-0 left-0 right-0 z-40 bg-background/95 backdrop-blur-xl border-t border-outline-variant shadow-[0_-10px_30px_rgba(0,0,0,0.5)]">
-        <div class="container mx-auto px-6 py-4 flex flex-col md:flex-row items-center justify-between gap-4">
-          <div class="flex flex-wrap items-center gap-6 md:gap-8">
+      <footer id="selected-sets-panel" class="hidden fixed bottom-0 left-0 right-0 z-40 bg-background/95 backdrop-blur-xl border-t border-outline-variant shadow-[0_-10px_30px_rgba(0,0,0,0.5)] safe-area-bottom">
+        <div class="container mx-auto px-4 sm:px-6 py-3 sm:py-4 flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4">
+          <div class="flex flex-wrap items-center gap-4 sm:gap-6 md:gap-8 w-full sm:w-auto justify-between sm:justify-start">
             <div class="flex flex-col">
-              <span class="font-label text-[10px] uppercase text-on-surface-variant tracking-tighter">Total Colors</span>
-              <span id="summary-colors" class="font-headline font-bold text-lg text-secondary neon-text-glow-secondary">0</span>
+              <span class="font-label text-[9px] sm:text-[10px] uppercase text-on-surface-variant tracking-tighter">Colors</span>
+              <span id="summary-colors" class="font-headline font-bold text-base sm:text-lg text-secondary neon-text-glow-secondary">0</span>
             </div>
-            <div class="h-8 w-px bg-outline-variant hidden md:block"></div>
+            <div class="h-6 w-px bg-outline-variant"></div>
             <div class="flex flex-col">
-              <span class="font-label text-[10px] uppercase text-on-surface-variant tracking-tighter">Total Pieces</span>
-              <span id="summary-pieces" class="font-headline font-bold text-lg text-on-background">0</span>
+              <span class="font-label text-[9px] sm:text-[10px] uppercase text-on-surface-variant tracking-tighter">Pieces</span>
+              <span id="summary-pieces" class="font-headline font-bold text-base sm:text-lg text-on-background">0</span>
             </div>
-            <div class="h-8 w-px bg-outline-variant hidden md:block"></div>
+            <div class="h-6 w-px bg-outline-variant"></div>
             <div class="flex flex-col">
-              <span class="font-label text-[10px] uppercase text-on-surface-variant tracking-tighter">Grid Size</span>
-              <span id="summary-grid" class="font-headline font-bold text-lg text-on-background">—</span>
+              <span class="font-label text-[9px] sm:text-[10px] uppercase text-on-surface-variant tracking-tighter">Grid</span>
+              <span id="summary-grid" class="font-headline font-bold text-base sm:text-lg text-on-background">—</span>
             </div>
           </div>
-          <!-- Selected set thumbnails -->
-          <div class="flex items-center gap-4">
+          <!-- Selected set thumbnails + continue -->
+          <div class="flex items-center gap-3 sm:gap-4 w-full sm:w-auto">
             <div id="selected-sets-thumbs" class="flex -space-x-3 overflow-hidden"></div>
-            <div id="selected-sets-list" class="hidden"></div><!-- kept for JS compat -->
-            <div id="selected-sets-summary" class="hidden"></div><!-- kept for JS compat -->
-            <button id="btn-continue-sets" class="px-8 py-3 bg-primary text-on-primary font-headline font-extrabold uppercase tracking-widest rounded-lg flex items-center justify-center gap-2 hover:brightness-110 shadow-[0_0_20px_rgba(255,45,120,0.5)] transition-all active:scale-95 text-sm">
+            <div id="selected-sets-list" class="hidden"></div>
+            <div id="selected-sets-summary" class="hidden"></div>
+            <button id="btn-continue-sets" class="flex-1 sm:flex-none px-6 sm:px-8 py-3 bg-primary text-on-primary font-headline font-extrabold uppercase tracking-widest rounded-lg flex items-center justify-center gap-2 hover:brightness-110 shadow-[0_0_20px_rgba(255,45,120,0.5)] transition-all active:scale-95 text-sm touch-target">
               Continue <span class="material-symbols-outlined text-sm">arrow_forward</span>
             </button>
           </div>
@@ -278,23 +308,23 @@
     </div>
 
     <!-- ── TAB: EDITOR (Upload + Crop + Config) ── -->
-    <div id="tab-editor" class="tab-panel hidden flex-1 flex overflow-hidden">
+    <div id="tab-editor" class="tab-panel hidden flex-1 flex flex-col lg:flex-row overflow-hidden">
       <!-- Main canvas area -->
-      <main class="flex-1 flex flex-col p-8 lg:p-10 relative overflow-hidden">
+      <main class="flex-1 flex flex-col p-4 sm:p-6 lg:p-10 relative overflow-hidden">
         <div class="scanline-overlay absolute inset-0 z-0 opacity-10 pointer-events-none"></div>
-        <div class="z-10 flex flex-col h-full max-w-[1400px] mx-auto w-full">
+        <div class="z-10 flex-1 flex flex-col max-w-[1400px] mx-auto w-full">
 
           <!-- Editor header -->
-          <div class="mb-8 flex justify-between items-end">
+          <div class="mb-4 sm:mb-8 flex flex-col sm:flex-row sm:justify-between sm:items-end gap-3">
             <div>
-              <button id="btn-back-to-sets" class="flex items-center gap-2 mb-3 text-secondary hover:text-primary transition-all duration-300 font-label text-sm font-bold p-1 group">
+              <button id="btn-back-to-sets" class="flex items-center gap-2 mb-2 sm:mb-3 text-secondary hover:text-primary transition-all duration-300 font-label text-sm font-bold p-1 group touch-target">
                 <span class="material-symbols-outlined text-lg group-hover:-translate-x-1 transition-transform">arrow_back</span>
                 Back to Sets
               </button>
-              <h2 class="text-3xl font-headline font-bold neon-text-glow text-primary tracking-tight" id="editor-title">Image Editor</h2>
-              <p class="text-on-surface-variant font-label text-xs uppercase tracking-[0.2em] mt-2" id="editor-subtitle">Upload an image to begin</p>
+              <h2 class="text-xl sm:text-3xl font-headline font-bold neon-text-glow text-primary tracking-tight" id="editor-title">Image Editor</h2>
+              <p class="text-on-surface-variant font-label text-[10px] sm:text-xs uppercase tracking-[0.2em] mt-1 sm:mt-2" id="editor-subtitle">Upload an image to begin</p>
             </div>
-            <div class="flex items-center gap-3 bg-surface-container/50 px-4 py-2.5 rounded-lg border border-outline-variant/30 backdrop-blur-sm">
+            <div class="hidden sm:flex items-center gap-3 bg-surface-container/50 px-4 py-2.5 rounded-lg border border-outline-variant/30 backdrop-blur-sm">
               <span class="material-symbols-outlined text-secondary text-base">info</span>
               <span id="editor-hint" class="text-[11px] font-label text-on-surface-variant uppercase tracking-wider">Drop an image or click to browse</span>
             </div>
@@ -302,7 +332,7 @@
 
           <!-- Upload Zone (Step 2) -->
           <div id="step-upload" class="flex-1 flex flex-col items-center justify-center">
-            <div id="upload-zone" class="w-full max-w-2xl border-2 border-dashed border-primary/30 rounded-xl p-16 flex flex-col items-center justify-center gap-6 cursor-pointer hover:border-primary/60 hover:bg-surface-container/30 transition-all group neon-border-glow-hover">
+            <div id="upload-zone" class="w-full max-w-2xl border-2 border-dashed border-primary/30 rounded-xl p-8 sm:p-16 flex flex-col items-center justify-center gap-4 sm:gap-6 cursor-pointer hover:border-primary/60 hover:bg-surface-container/30 transition-all group neon-border-glow-hover touch-target">
               <div id="upload-main-content" class="flex flex-col items-center gap-6 w-full">
               <span class="material-symbols-outlined text-primary/50 group-hover:text-primary transition-colors" style="font-size: 72px;">cloud_upload</span>
               <div class="text-center">
@@ -331,11 +361,11 @@
                 <div class="relative w-full h-full flex items-center justify-center">
                   <div id="crop-container" class="relative">
                     <canvas id="crop-canvas" class="block"></canvas>
-                    <div id="crop-overlay" class="absolute border-2 border-primary shadow-[0_0_25px_rgba(255,45,120,0.5)] cursor-move select-none">
-                      <div class="absolute -top-1.5 -left-1.5 w-4 h-4 bg-primary shadow-[0_0_8px_#ff2d78]"></div>
-                      <div class="absolute -top-1.5 -right-1.5 w-4 h-4 bg-primary shadow-[0_0_8px_#ff2d78]"></div>
-                      <div class="absolute -bottom-1.5 -left-1.5 w-4 h-4 bg-primary shadow-[0_0_8px_#ff2d78]"></div>
-                      <div class="absolute -bottom-1.5 -right-1.5 w-4 h-4 bg-primary shadow-[0_0_8px_#ff2d78]"></div>
+                    <div id="crop-overlay" class="absolute border-2 border-primary shadow-[0_0_25px_rgba(255,45,120,0.5)] cursor-move select-none touch-none">
+                      <div class="crop-handle absolute -top-3 -left-3 w-7 h-7 sm:w-4 sm:h-4 sm:-top-1.5 sm:-left-1.5 bg-primary shadow-[0_0_8px_#ff2d78] rounded-sm"></div>
+                      <div class="crop-handle absolute -top-3 -right-3 w-7 h-7 sm:w-4 sm:h-4 sm:-top-1.5 sm:-right-1.5 bg-primary shadow-[0_0_8px_#ff2d78] rounded-sm"></div>
+                      <div class="crop-handle absolute -bottom-3 -left-3 w-7 h-7 sm:w-4 sm:h-4 sm:-bottom-1.5 sm:-left-1.5 bg-primary shadow-[0_0_8px_#ff2d78] rounded-sm"></div>
+                      <div class="crop-handle absolute -bottom-3 -right-3 w-7 h-7 sm:w-4 sm:h-4 sm:-bottom-1.5 sm:-right-1.5 bg-primary shadow-[0_0_8px_#ff2d78] rounded-sm"></div>
                       <!-- Rule of thirds -->
                       <div class="absolute inset-0 pointer-events-none grid grid-cols-3 grid-rows-3">
                         <div class="border-r border-b border-primary/20"></div><div class="border-r border-b border-primary/20"></div><div class="border-b border-primary/20"></div>
@@ -348,17 +378,17 @@
               </div>
             </div>
             <!-- Floating crop controls -->
-            <div class="flex items-center justify-between gap-4 bg-background/90 border border-primary/30 backdrop-blur-md px-6 py-3 rounded-full shadow-[0_15px_40px_rgba(0,0,0,0.6)] mx-auto">
-              <div class="flex items-center gap-4">
-                <span class="material-symbols-outlined text-primary text-base cursor-pointer hover:scale-110 transition-transform">zoom_out</span>
-                <input type="range" id="crop-zoom-slider" class="neon-slider w-48" min="10" max="100" value="100" step="1"/>
-                <span class="material-symbols-outlined text-primary text-base cursor-pointer hover:scale-110 transition-transform">zoom_in</span>
+            <div class="flex flex-col sm:flex-row items-center justify-between gap-2 sm:gap-4 bg-background/90 border border-primary/30 backdrop-blur-md px-4 sm:px-6 py-3 rounded-2xl sm:rounded-full shadow-[0_15px_40px_rgba(0,0,0,0.6)] mx-auto w-full sm:w-auto safe-area-bottom">
+              <div class="flex items-center gap-3 sm:gap-4 w-full sm:w-auto justify-center">
+                <span class="material-symbols-outlined text-primary text-base cursor-pointer hover:scale-110 transition-transform touch-target">zoom_out</span>
+                <input type="range" id="crop-zoom-slider" class="neon-slider flex-1 sm:w-48" min="10" max="100" value="100" step="1"/>
+                <span class="material-symbols-outlined text-primary text-base cursor-pointer hover:scale-110 transition-transform touch-target">zoom_in</span>
                 <span id="crop-zoom-value" class="font-label text-sm text-on-surface min-w-[3ch]">100%</span>
               </div>
-              <div class="h-6 w-px bg-outline-variant/50"></div>
-              <div class="flex gap-4">
-                <button id="btn-reset-crop" class="px-4 py-1.5 border border-outline-variant text-on-surface-variant font-label text-xs uppercase tracking-wider rounded hover:border-primary/50 hover:text-primary transition-all">Reset</button>
-                <button id="btn-apply-crop" class="px-6 py-1.5 bg-primary text-on-primary font-label text-xs uppercase tracking-wider rounded shadow-[0_0_16px_rgba(255,45,120,0.4)] hover:brightness-110 transition-all">Apply Crop</button>
+              <div class="h-px w-full sm:h-6 sm:w-px bg-outline-variant/50"></div>
+              <div class="flex gap-3 sm:gap-4 w-full sm:w-auto">
+                <button id="btn-reset-crop" class="flex-1 sm:flex-none px-4 py-2.5 sm:py-1.5 border border-outline-variant text-on-surface-variant font-label text-xs uppercase tracking-wider rounded hover:border-primary/50 hover:text-primary transition-all touch-target">Reset</button>
+                <button id="btn-apply-crop" class="flex-1 sm:flex-none px-6 py-2.5 sm:py-1.5 bg-primary text-on-primary font-label text-xs uppercase tracking-wider rounded shadow-[0_0_16px_rgba(255,45,120,0.4)] hover:brightness-110 transition-all touch-target">Apply Crop</button>
               </div>
             </div>
           </div>
@@ -366,7 +396,7 @@
       </main>
 
       <!-- RIGHT SIDEBAR: Mosaic Config (Step 3 / Options) -->
-      <aside id="step-options" class="hidden w-[360px] h-full bg-surface-container border-l border-outline-variant/30 p-8 flex flex-col gap-8 z-40 overflow-y-auto">
+      <aside id="step-options" class="hidden w-full lg:w-[360px] bg-surface-container border-t lg:border-t-0 lg:border-l border-outline-variant/30 p-4 sm:p-6 lg:p-8 flex flex-col gap-6 sm:gap-8 z-40 overflow-y-auto lg:h-full">
 
         <!-- Source image preview -->
         <div>
@@ -467,45 +497,45 @@
 
     <!-- ── TAB: BUILD PLAN (Result) ── -->
     <div id="tab-build-plan" class="tab-panel hidden flex-1 flex overflow-hidden">
-      <main class="flex-1 p-8 lg:p-12 flex flex-col lg:flex-row gap-8 overflow-y-auto">
+      <main class="flex-1 p-4 sm:p-6 lg:p-12 flex flex-col lg:flex-row gap-6 sm:gap-8 overflow-y-auto">
 
         <!-- Left: Mosaic viewer -->
         <section class="flex-1 flex flex-col gap-6">
-          <div class="flex justify-between items-end flex-wrap gap-4">
+          <div class="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-3 sm:gap-4">
             <div>
-              <button id="btn-back-to-editor" class="flex items-center gap-2 mb-3 text-secondary hover:text-primary transition-all duration-300 font-label text-sm font-bold p-1 group">
+              <button id="btn-back-to-editor" class="flex items-center gap-2 mb-2 sm:mb-3 text-secondary hover:text-primary transition-all duration-300 font-label text-sm font-bold p-1 group touch-target">
                 <span class="material-symbols-outlined text-lg group-hover:-translate-x-1 transition-transform">arrow_back</span>
                 Back to Image & Crop
               </button>
-              <h2 id="mosaic-title" class="font-headline text-3xl font-bold neon-text-glow text-primary">YOUR MOSAIC</h2>
-              <p id="mosaic-subtitle" class="font-label text-secondary text-xs tracking-widest uppercase mt-1">—</p>
+              <h2 id="mosaic-title" class="font-headline text-xl sm:text-3xl font-bold neon-text-glow text-primary">YOUR MOSAIC</h2>
+              <p id="mosaic-subtitle" class="font-label text-secondary text-[10px] sm:text-xs tracking-widest uppercase mt-1">—</p>
             </div>
-            <div class="flex items-center gap-4">
+            <div class="flex items-center gap-2 sm:gap-4 flex-wrap">
               <!-- Comparison toggle -->
               <div class="flex items-center gap-2">
-                <span class="font-label text-[10px] uppercase tracking-widest text-on-surface-variant">Comparison</span>
-                <button id="btn-comparison-toggle" class="w-10 h-5 bg-surface-container-high border border-outline-variant rounded-full relative transition-colors duration-200">
-                  <div id="comparison-dot" class="absolute top-0.5 left-0.5 w-3.5 h-3.5 bg-on-surface-variant rounded-full transition-all duration-200"></div>
+                <span class="font-label text-[10px] uppercase tracking-widest text-on-surface-variant hidden sm:inline">Comparison</span>
+                <button id="btn-comparison-toggle" class="w-10 h-6 sm:h-5 bg-surface-container-high border border-outline-variant rounded-full relative transition-colors duration-200 touch-target" title="Comparison">
+                  <div id="comparison-dot" class="absolute top-0.5 sm:top-0.5 left-0.5 w-4 h-4 sm:w-3.5 sm:h-3.5 bg-on-surface-variant rounded-full transition-all duration-200"></div>
                 </button>
               </div>
               <!-- 2D / 3D toggle -->
               <div class="flex bg-surface-container-high border border-outline-variant p-1 rounded-xl">
-                <button id="btn-2d" class="px-3 py-1 text-xs font-label uppercase tracking-wider rounded-lg transition-all bg-primary text-on-primary shadow-[0_0_10px_rgba(255,45,120,0.4)]">2D</button>
-                <button id="btn-3d" class="px-3 py-1 text-xs font-label uppercase tracking-wider rounded-lg transition-all text-on-surface-variant hover:text-on-surface">3D</button>
+                <button id="btn-2d" class="px-3 py-1.5 sm:py-1 text-xs font-label uppercase tracking-wider rounded-lg transition-all bg-primary text-on-primary shadow-[0_0_10px_rgba(255,45,120,0.4)] touch-target">2D</button>
+                <button id="btn-3d" class="px-3 py-1.5 sm:py-1 text-xs font-label uppercase tracking-wider rounded-lg transition-all text-on-surface-variant hover:text-on-surface touch-target">3D</button>
               </div>
               <!-- Zoom controls -->
               <div class="flex items-center gap-1 bg-surface-container-high border border-outline-variant p-1 rounded-xl">
-                <button id="btn-zoom-out" class="p-2 text-on-surface hover:text-primary transition-colors"><span class="material-symbols-outlined text-lg">zoom_out</span></button>
-                <span id="zoom-label" class="px-3 font-label text-sm text-on-surface-variant">100%</span>
-                <button id="btn-zoom-in" class="p-2 text-on-surface hover:text-primary transition-colors"><span class="material-symbols-outlined text-lg">zoom_in</span></button>
-                <div class="w-px h-6 bg-outline-variant mx-1"></div>
-                <button id="btn-zoom-reset" class="p-2 text-on-surface hover:text-primary transition-colors"><span class="material-symbols-outlined text-lg">fullscreen</span></button>
+                <button id="btn-zoom-out" class="p-2 text-on-surface hover:text-primary transition-colors touch-target"><span class="material-symbols-outlined text-lg">zoom_out</span></button>
+                <span id="zoom-label" class="px-2 sm:px-3 font-label text-xs sm:text-sm text-on-surface-variant">100%</span>
+                <button id="btn-zoom-in" class="p-2 text-on-surface hover:text-primary transition-colors touch-target"><span class="material-symbols-outlined text-lg">zoom_in</span></button>
+                <div class="w-px h-6 bg-outline-variant mx-0.5 sm:mx-1 hidden sm:block"></div>
+                <button id="btn-zoom-reset" class="p-2 text-on-surface hover:text-primary transition-colors touch-target hidden sm:block"><span class="material-symbols-outlined text-lg">fullscreen</span></button>
               </div>
             </div>
           </div>
 
           <!-- Container for standard 2D view -->
-          <div id="mosaic-canvas-wrapper" class="relative group aspect-square max-w-[800px] w-full mx-auto bg-surface-container-lowest border border-primary/20 p-2 shadow-2xl transition-all duration-700 overflow-hidden rounded">
+          <div id="mosaic-canvas-wrapper" class="relative group aspect-square max-w-[800px] w-full mx-auto bg-surface-container-lowest border border-primary/20 p-1 sm:p-2 shadow-2xl transition-all duration-700 overflow-hidden rounded touch-none" style="touch-action: none;">
             <div class="relative w-full h-full overflow-hidden" id="comparison-wrapper">
               <!-- Mosaic layer -->
               <canvas id="mosaic-canvas" class="absolute inset-0 w-full h-full object-contain"></canvas>
@@ -525,7 +555,7 @@
         </section>
 
         <!-- Right: Legend + actions -->
-        <aside id="color-legend" class="w-full lg:w-[400px] flex flex-col gap-6">
+        <aside id="color-legend" class="w-full lg:w-[400px] flex flex-col gap-4 sm:gap-6">
           <!-- Stats card -->
           <div class="bg-surface-container border border-secondary/20 p-6 rounded-xl relative overflow-hidden">
             <div class="absolute top-0 right-0 w-32 h-32 bg-secondary/5 blur-3xl -mr-16 -mt-16"></div>
@@ -605,19 +635,19 @@
           </div>
 
           <!-- Actions -->
-          <div class="flex gap-3">
-            <button id="btn-start-over" class="flex-1 py-3 border border-outline-variant text-on-surface-variant font-label text-xs uppercase tracking-wider rounded-lg hover:border-primary/50 hover:text-primary transition-all">Start Over</button>
-            <button id="btn-change-set" class="flex-1 py-3 border border-outline-variant text-on-surface-variant font-label text-xs uppercase tracking-wider rounded-lg hover:border-secondary/50 hover:text-secondary transition-all">Change Sets</button>
-            <button id="btn-download-instructions" class="flex-1 py-3 bg-primary/10 border border-primary/50 text-primary font-label text-xs uppercase tracking-wider rounded-lg hover:bg-primary/20 transition-all">Build Guide</button>
+          <div class="flex flex-col sm:flex-row gap-2 sm:gap-3">
+            <button id="btn-start-over" class="flex-1 py-3 border border-outline-variant text-on-surface-variant font-label text-xs uppercase tracking-wider rounded-lg hover:border-primary/50 hover:text-primary transition-all touch-target">Start Over</button>
+            <button id="btn-change-set" class="flex-1 py-3 border border-outline-variant text-on-surface-variant font-label text-xs uppercase tracking-wider rounded-lg hover:border-secondary/50 hover:text-secondary transition-all touch-target">Change Sets</button>
+            <button id="btn-download-instructions" class="flex-1 py-3 bg-primary/10 border border-primary/50 text-primary font-label text-xs uppercase tracking-wider rounded-lg hover:bg-primary/20 transition-all touch-target">Build Guide</button>
           </div>
         </aside>
       </main>
     </div>
 
     <!-- Bottom footer bar -->
-    <footer class="bg-background border-t border-outline-variant/30 py-4 px-8 flex justify-between items-center text-on-surface-variant mt-auto">
-      <div class="font-label text-[10px] uppercase tracking-widest">© 2024 BRICKIFY NEON. NOT AN OFFICIAL LEGO PRODUCT. <span class="ml-2 opacity-50">v0.3.0</span></div>
-      <div class="flex gap-6 font-label text-[10px] uppercase tracking-widest">
+    <footer class="bg-background border-t border-outline-variant/30 py-3 sm:py-4 px-4 sm:px-8 flex flex-col sm:flex-row justify-between items-center text-on-surface-variant mt-auto gap-2 safe-area-bottom">
+      <div class="font-label text-[9px] sm:text-[10px] uppercase tracking-widest text-center sm:text-left">© 2024 BRICKIFY NEON. NOT AN OFFICIAL LEGO PRODUCT. <span class="ml-2 opacity-50">v0.4.0</span></div>
+      <div class="flex gap-4 sm:gap-6 font-label text-[9px] sm:text-[10px] uppercase tracking-widest">
         <a class="hover:text-tertiary transition-colors" href="#">Terms</a>
         <a class="hover:text-tertiary transition-colors" href="#">Privacy</a>
         <a class="hover:text-tertiary transition-colors" href="#">Support</a>

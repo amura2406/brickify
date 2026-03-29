@@ -684,6 +684,13 @@ let cropState = {
     displayScale: 1, canvasOffsetX: 0, maxSize: 0,
 };
 
+let mosaicState = {
+    panX: 0, panY: 0,
+    dragging: false, dragStartX: 0, dragStartY: 0,
+    initialPanX: 0, initialPanY: 0,
+    pinchDistance: null, initialZoom: 1
+};
+
 function setupCrop() {
     btnApplyCrop.addEventListener('click', applyCrop);
     btnResetCrop.addEventListener('click', resetCrop);
@@ -699,6 +706,38 @@ function setupCrop() {
         cropZoomSlider.value = newPct;
         setCropZoom(newPct);
     }, { passive: false });
+
+    let initialPinchDistance = null;
+    let initialZoomValue = null;
+
+    cropWrapper.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 2 && e.target.id !== 'comparison-slider') {
+            e.preventDefault();
+            const t1 = e.touches[0];
+            const t2 = e.touches[1];
+            initialPinchDistance = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+            initialZoomValue = parseInt(cropZoomSlider.value);
+        }
+    }, { passive: false });
+
+    cropWrapper.addEventListener('touchmove', (e) => {
+        if (e.touches.length === 2 && initialPinchDistance !== null) {
+            e.preventDefault();
+            const t1 = e.touches[0];
+            const t2 = e.touches[1];
+            const currentDistance = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+            const zoomDelta = (currentDistance - initialPinchDistance) / 2;
+            const newPct = Math.max(10, Math.min(100, initialZoomValue + zoomDelta));
+            cropZoomSlider.value = newPct;
+            setCropZoom(newPct);
+        }
+    }, { passive: false });
+
+    cropWrapper.addEventListener('touchend', (e) => {
+        if (e.touches.length < 2) {
+            initialPinchDistance = null;
+        }
+    });
 }
 
 function setCropZoom(pct) {
@@ -1028,6 +1067,10 @@ function renderMosaic() {
     const wrapperWidth = mosaicWrapper.clientWidth - 32;
     state.baseScale = Math.min(1, wrapperWidth / mosaicCanvas.width);
     state.zoom = 1;
+    if (typeof mosaicState !== 'undefined') {
+        mosaicState.panX = 0;
+        mosaicState.panY = 0;
+    }
     applyZoom();
 }
 
@@ -1041,9 +1084,11 @@ function applyZoom() {
     mosaicCanvas.style.height = ch + 'px';
     
     // Exact match for the comparison slider container so it shrinks naturally
-    $('#comparison-wrapper').style.width = cw + 'px';
-    $('#comparison-wrapper').style.height = ch + 'px';
-    $('#comparison-wrapper').style.margin = '0 auto';
+    const wrapper = $('#comparison-wrapper');
+    wrapper.style.width = cw + 'px';
+    wrapper.style.height = ch + 'px';
+    wrapper.style.margin = '0 auto';
+    wrapper.style.transform = `translate(${mosaicState.panX}px, ${mosaicState.panY}px)`;
 
     $('#zoom-label').textContent = `${Math.round(scale * 100)}%`;
 }
@@ -1107,7 +1152,76 @@ function setupResult() {
     });
     $('#btn-zoom-reset').addEventListener('click', () => {
         state.zoom = 1;
+        mosaicState.panX = 0;
+        mosaicState.panY = 0;
         applyZoom();
+    });
+
+    // Mosaic Canvas interactions (pan / pinch zoom)
+    const mw = $('#mosaic-canvas-wrapper');
+    mw.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const delta = e.deltaY > 0 ? -0.1 : 0.1;
+        state.zoom = Math.max(0.3, Math.min(5, state.zoom + delta));
+        applyZoom();
+    }, { passive: false });
+
+    mw.addEventListener('mousedown', (e) => {
+        if (e.target.id === 'comparison-slider') return;
+        mosaicState.dragging = true;
+        mosaicState.dragStartX = e.clientX;
+        mosaicState.dragStartY = e.clientY;
+        mosaicState.initialPanX = mosaicState.panX;
+        mosaicState.initialPanY = mosaicState.panY;
+    });
+
+    mw.addEventListener('touchstart', (e) => {
+        if (e.target.id === 'comparison-slider') return;
+        if (e.touches.length === 1) {
+            mosaicState.dragging = true;
+            mosaicState.dragStartX = e.touches[0].clientX;
+            mosaicState.dragStartY = e.touches[0].clientY;
+            mosaicState.initialPanX = mosaicState.panX;
+            mosaicState.initialPanY = mosaicState.panY;
+        } else if (e.touches.length === 2) {
+            mosaicState.dragging = false; 
+            const t1 = e.touches[0];
+            const t2 = e.touches[1];
+            mosaicState.pinchDistance = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+            mosaicState.initialZoom = state.zoom;
+            e.preventDefault();
+        }
+    }, { passive: false });
+
+    window.addEventListener('mousemove', (e) => {
+        if (!mosaicState.dragging) return;
+        mosaicState.panX = mosaicState.initialPanX + (e.clientX - mosaicState.dragStartX);
+        mosaicState.panY = mosaicState.initialPanY + (e.clientY - mosaicState.dragStartY);
+        applyZoom();
+    });
+
+    window.addEventListener('touchmove', (e) => {
+        if (e.target.id === 'comparison-slider') return; // let native range work
+        if (mosaicState.dragging && e.touches.length === 1) {
+            mosaicState.panX = mosaicState.initialPanX + (e.touches[0].clientX - mosaicState.dragStartX);
+            mosaicState.panY = mosaicState.initialPanY + (e.touches[0].clientY - mosaicState.dragStartY);
+            applyZoom();
+            e.preventDefault();
+        } else if (e.touches.length === 2 && mosaicState.pinchDistance !== null) {
+            const t1 = e.touches[0];
+            const t2 = e.touches[1];
+            const dist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+            const delta = dist - mosaicState.pinchDistance;
+            state.zoom = Math.max(0.3, Math.min(5, mosaicState.initialZoom + delta * 0.01));
+            applyZoom();
+            e.preventDefault();
+        }
+    }, { passive: false });
+
+    window.addEventListener('mouseup', () => mosaicState.dragging = false);
+    window.addEventListener('touchend', (e) => {
+        if (e.touches.length < 2) mosaicState.pinchDistance = null;
+        if (e.touches.length === 0) mosaicState.dragging = false;
     });
 
     // ─── Quick Config: multi-set chip UI ───────────────────────────────────────
