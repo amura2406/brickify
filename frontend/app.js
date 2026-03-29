@@ -13,12 +13,12 @@ const API = '';
 let state = {
     setSelections: [],  // [{set, qty}]
     allSets: [],
-    imageId: null,
+    imageUrl: null,
     imageWidth: 0,
     imageHeight: 0,
     isSquare: false,
-    croppedImageId: null,
-    mosaicId: null,
+    croppedImageUrl: null,
+    mosaicUrl: null,
     mosaicData: null,
     zoom: 1,
     baseScale: 1,
@@ -124,36 +124,128 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // ═════════════════════════════════════════════════
 //  AUTH FLOW
-//  bypass_login=true: always bypass (dev + you)
-//  Normal: show login, sign-in dismisses it
+//  bypass_login=true  → skip auth (local dev only)
+//  Normal             → Firebase Google SSO + approval check
 // ═════════════════════════════════════════════════
+
+const pendingScreen    = $('#pending-screen');
+const pendingUserEmail = $('#pending-user-email');
+const btnPendingSignOut = $('#btn-pending-signout');
+
+function _showOnly(screen) {
+    // screen = 'login' | 'pending' | 'app'
+    loginScreen.classList.add('hidden');
+    pendingScreen.classList.add('hidden');
+    appContainer.classList.add('hidden');
+    if (screen === 'login')   loginScreen.classList.remove('hidden');
+    if (screen === 'pending') pendingScreen.classList.remove('hidden');
+    if (screen === 'app')     appContainer.classList.remove('hidden');
+}
+
+function _setNavUser(user) {
+    const avatar = $('#nav-user-avatar');
+    const name   = $('#nav-user-name');
+    const email  = $('#nav-user-email');
+    if (!user) return;
+    const initials = (user.displayName || user.email || '?').slice(0, 2).toUpperCase();
+    if (user.photoURL && avatar) {
+        avatar.innerHTML = `<img src="${user.photoURL}" class="w-full h-full object-cover" alt="avatar">`;
+    } else if (avatar) {
+        avatar.textContent = initials;
+    }
+    if (name)  name.textContent  = user.displayName || '';
+    if (email) email.textContent = user.email || '';
+}
+
+function _setupUserMenu() {
+    const menuBtn      = $('#btn-user-menu');
+    const menuDropdown = $('#user-menu-dropdown');
+    const signOutBtn   = $('#btn-nav-signout');
+
+    menuBtn?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        menuDropdown?.classList.toggle('hidden');
+    });
+    document.addEventListener('click', () => menuDropdown?.classList.add('hidden'));
+    signOutBtn?.addEventListener('click', () => window.BrickifyAuth.signOut());
+    btnPendingSignOut?.addEventListener('click', () => window.BrickifyAuth.signOut());
+}
+
 function initAppFlow() {
     const params = new URLSearchParams(window.location.search);
     const bypass = params.get('bypass_login') === 'true';
     state.isDev = bypass;
 
     if (bypass) {
-        loginScreen.classList.add('hidden');
-        showApp();
+        _showOnly('app');
         devBypassNotice.classList.remove('hidden');
         devPathUpload.classList.remove('hidden');
-    } else {
-        // Normal login: show screen, sign-in via Google (Firebase SSO)
-        loginScreen.classList.remove('hidden');
-        appContainer.classList.add('hidden');
-
-        btnLoginGoogle.addEventListener('click', () => {
-            // TODO: Replace with firebase.auth().signInWithPopup(googleProvider)
-            loginScreen.classList.add('hidden');
-            showApp();
-        });
+        _setupUserMenu();
+        showApp();
+        return;
     }
+
+    _showOnly('login');
+    _setupUserMenu();
+
+    // Wire sign-in button
+    btnLoginGoogle?.addEventListener('click', async () => {
+        try {
+            btnLoginGoogle.disabled = true;
+            btnLoginGoogle.textContent = 'Signing in…';
+            await window.BrickifyAuth.signInWithGoogle();
+            // onAuthStateChanged callback handles the rest
+        } catch (err) {
+            console.error('Sign-in error:', err);
+            btnLoginGoogle.disabled = false;
+            btnLoginGoogle.innerHTML = `
+                <svg class="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24">
+                    <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                    <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                    <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
+                    <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                </svg>
+                Sign in with Google`;
+        }
+    });
+
+    window.BrickifyAuth.initFirebaseAuth(
+        // onReady — signed in + approved
+        (user) => {
+            _setNavUser(user);
+            _showOnly('app');
+            showApp();
+        },
+        // onPendingApproval
+        (user) => {
+            if (pendingUserEmail) pendingUserEmail.textContent = user.email || '';
+            _showOnly('pending');
+        },
+        // onSignOut
+        () => {
+            _showOnly('login');
+        }
+    );
 }
 
 function showApp() {
     appContainer.classList.remove('hidden');
     showTab('sets');
 }
+
+// ── Authenticated fetch helper ────────────────────────────────────────────────
+// All API calls should use authFetch() instead of bare fetch() in production.
+async function authFetch(url, options = {}) {
+    if (!state.isDev && window.BrickifyAuth) {
+        const token = await window.BrickifyAuth.getIdToken();
+        if (token) {
+            options.headers = options.headers || {};
+            options.headers['Authorization'] = `Bearer ${token}`;
+        }
+    }
+    return fetch(url, options);
+}
+
 
 // ═════════════════════════════════════════════════
 //  TAB NAVIGATION
@@ -516,7 +608,7 @@ function setupUpload() {
 async function uploadByPath(filePath) {
     setUploadLoading(true);
     try {
-        const res = await fetch(`${API}/api/upload-path`, {
+        const res = await authFetch(`${API}/api/upload-path`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ file_path: filePath }),
@@ -526,8 +618,9 @@ async function uploadByPath(filePath) {
         handleUploadResponse(data);
     } catch (e) {
         console.error('Upload-path failed:', e);
-        setUploadLoading(false);
         alert(`Upload failed: ${e.message}`);
+    } finally {
+        setUploadLoading(false);
     }
 }
 
@@ -536,30 +629,39 @@ async function uploadFile(file) {
     formData.append('file', file);
     setUploadLoading(true);
     try {
-        const res = await fetch(`${API}/api/upload`, { method: 'POST', body: formData });
+        const res = await authFetch(`${API}/api/upload`, { method: 'POST', body: formData });
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || 'Upload failed');
         handleUploadResponse(data);
     } catch (e) {
         console.error('Upload failed:', e);
-        setUploadLoading(false);
         alert(`Upload failed: ${e.message}`);
+    } finally {
+        setUploadLoading(false);
     }
 }
 
 function setUploadLoading(loading) {
-    const uploadContent = uploadZone.querySelector('.upload-main-content');
+    const uploadContent = uploadZone.querySelector('#upload-main-content');
     if (!uploadContent) return;
     if (loading) {
         uploadContent.innerHTML = `
             <span class="spinner" style="width:40px;height:40px;border-width:3px;color:#ff2d78"></span>
             <p class="font-label text-xs uppercase tracking-widest text-on-surface-variant mt-4">Uploading…</p>
         `;
+    } else {
+        uploadContent.innerHTML = `
+            <span class="material-symbols-outlined text-primary/50 group-hover:text-primary transition-colors" style="font-size: 72px;">cloud_upload</span>
+            <div class="text-center">
+                <p class="font-headline font-bold text-lg text-on-surface mb-1">Drop your image here</p>
+                <p class="font-label text-xs uppercase tracking-widest text-on-surface-variant">or click to browse • JPG, PNG, WebP</p>
+            </div>
+        `;
     }
 }
 
 function handleUploadResponse(data) {
-    state.imageId = data.image_id;
+    state.imageUrl = data.url;
     state.imageWidth = data.width;
     state.imageHeight = data.height;
     state.isSquare = data.is_square;
@@ -568,7 +670,7 @@ function handleUploadResponse(data) {
         showEditorStep('crop');
         initCropTool();
     } else {
-        state.croppedImageId = data.image_id;
+        state.croppedImageUrl = data.url;
         showEditorStep('options');
     }
 }
@@ -620,8 +722,14 @@ function updateZoomLabel() {
 function initCropTool() {
     const ctx = cropCanvas.getContext('2d');
     const img = new window.Image();
-    img.crossOrigin = 'anonymous';
-    img.src = `${API}/api/image/${state.imageId}`;
+    
+    img.onerror = (e) => {
+        console.error("Failed to load image for cropping:", state.imageUrl, e);
+        alert("Failed to load the uploaded image for cropping. This may be a networking issue or CORS block.");
+    };
+    
+    img.src = state.imageUrl;
+    
     img.onload = () => {
         const wrapperW = cropWrapper.clientWidth - 64;
         const maxH = 500;
@@ -734,14 +842,14 @@ async function applyCrop() {
 
     setBtnLoading(btnApplyCrop, true, 'Cropping…');
     try {
-        const res = await fetch(`${API}/api/crop`, {
+        const res = await authFetch(`${API}/api/crop`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ image_id: state.imageId, x, y, size }),
+            body: JSON.stringify({ url: state.imageUrl, x, y, size }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || 'Crop failed');
-        state.croppedImageId = data.image_id;
+        state.croppedImageUrl = data.url;
         showEditorStep('options');
     } catch (e) {
         console.error('Crop failed:', e);
@@ -756,8 +864,8 @@ async function applyCrop() {
 // ═════════════════════════════════════════════════
 function updateOptionsPanel() {
     const srcImg = $('#source-preview');
-    if (srcImg && state.croppedImageId) {
-        srcImg.src = `${API}/api/image/${state.croppedImageId}`;
+    if (srcImg && state.croppedImageUrl) {
+        srcImg.src = state.croppedImageUrl;
     }
     const info = getMergedSetInfo();
     const setNameLabel = $('#set-name-label');
@@ -785,20 +893,19 @@ function setupPreprocessingControls() {
 async function previewPalette() {
     setBtnLoading(btnPreviewPalette, true, 'Loading…');
     try {
-        const res = await fetch(`${API}/api/preview-palette`, {
+        const res = await authFetch(`${API}/api/preview-palette`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                image_id: state.croppedImageId,
+                url: state.croppedImageUrl,
                 set_selections: getSetSelectionsPayload(),
                 preprocessing: preprocessingToggle.checked,
                 contrast_boost: parseFloat(contrastSlider.value),
             }),
         });
         if (!res.ok) { const err = await res.json(); throw new Error(err.detail || 'Preview failed'); }
-        const blob = await res.blob();
-        const url = URL.createObjectURL(blob);
-        palettePreview.src = url;
+        const data = await res.json();
+        palettePreview.src = data.url;
         palettePreview.classList.remove('hidden');
         const placeholder = palettePreviewContainer.querySelector('.palette-preview-placeholder');
         if (placeholder) placeholder.style.display = 'none';
@@ -821,11 +928,11 @@ async function generateMosaic() {
     }
 
     try {
-        const res = await fetch(`${API}/api/generate`, {
+        const res = await authFetch(`${API}/api/generate`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                image_id: state.croppedImageId,
+                url: state.croppedImageUrl,
                 set_selections: getSetSelectionsPayload(),
                 dithering: $('#dithering-toggle').checked,
                 preprocessing: preprocessingToggle.checked,
@@ -835,11 +942,11 @@ async function generateMosaic() {
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || JSON.stringify(data));
 
-        state.mosaicId = data.mosaic_id;
+        state.mosaicUrl = data.preview_url;
         state.mosaicData = data;
 
         // Set reference image for comparison
-        referenceImage.src = `${API}/api/image/${state.croppedImageId}`;
+        referenceImage.src = state.croppedImageUrl;
 
         showTab('build-plan');
         
@@ -952,7 +1059,7 @@ function renderLegend() {
         if (c.used === 0 && c.count === 0) return;
         totalUsed += c.used;
 
-        const countLabel = isFreeMode ? `${c.used} pcs` : `${c.used} / ${c.count} pcs`;
+        const countLabel = isFreeMode ? `${c.used} used` : `${c.used} / ${c.count} used`;
         const pct = isFreeMode ? 100 : Math.round((c.used / c.count) * 100);
 
         const item = document.createElement('div');
@@ -966,7 +1073,7 @@ function renderLegend() {
                 </div>
                 <div class="flex items-center gap-2">
                     <div class="flex-1 bg-surface-container-highest h-1 rounded-full">
-                        <div class="h-full rounded-full" style="width:${pct}%;background:${c.hex}"></div>
+                        <div class="h-full rounded-full" style="width:${pct}%;background:${c.hex};box-shadow: inset 0 0 0 1px rgba(255,255,255,0.1), inset 0 1px 2px rgba(0,0,0,0.3)"></div>
                     </div>
                 </div>
             </div>
@@ -1003,37 +1110,141 @@ function setupResult() {
         applyZoom();
     });
 
-    // Populate Quick Config sets
-    quickSetPicker.innerHTML = state.allSets.filter(s => s.id !== 'free').map(s => `<option value="${s.id}">${s.name}</option>`).join('');
-    // Free mode gets appended explicitly
-    quickSetPicker.innerHTML += `<option value="free">Free Mode (All Colors)</option>`;
+    // ─── Quick Config: multi-set chip UI ───────────────────────────────────────
+    const quickSetChips    = document.getElementById('quick-set-chips');
+    const quickAddSetBtn   = document.getElementById('quick-add-set-btn');
+    const quickAddPopover  = document.getElementById('quick-add-set-popover');
+    const quickAddSearch   = document.getElementById('quick-add-set-search');
+    const quickAddSetList  = document.getElementById('quick-add-set-list');
 
-    // Sync Quick Config values initially
-    function syncQuickConfigUI() {
-        if (state.setSelections.length > 0) {
-            quickSetPicker.value = state.setSelections[0].set ? state.setSelections[0].set.id : 'free';
-        } else {
-            quickSetPicker.value = 'free';
+    let _quickRegenTimer = null;
+    function scheduleRegen() {
+        clearTimeout(_quickRegenTimer);
+        _quickRegenTimer = setTimeout(() => { if (state.croppedImageUrl) generateMosaic(); }, 400);
+    }
+
+    function renderQuickChips() {
+        quickSetChips.innerHTML = '';
+        if (state.setSelections.length === 0) {
+            // Free mode chip
+            quickSetChips.innerHTML = `
+                <div class="flex items-center gap-2 bg-surface-container-high border border-outline-variant rounded-lg px-3 py-1.5 text-xs">
+                    <span class="text-secondary font-bold flex-1">Free Mode (All Colors)</span>
+                    <span class="material-symbols-outlined text-on-surface-variant cursor-pointer hover:text-primary transition-colors" style="font-size:15px" data-action="remove-free">close</span>
+                </div>`;
+            quickSetChips.querySelector('[data-action="remove-free"]').addEventListener('click', () => {
+                // Nothing to remove in free mode — prompt user to add a set
+                quickAddPopover.classList.remove('hidden');
+                quickAddPopover.style.display = 'flex';
+            });
+            return;
         }
+        state.setSelections.forEach((sel, idx) => {
+            const chip = document.createElement('div');
+            chip.className = 'flex items-center gap-1 bg-primary/10 border border-primary/30 rounded-lg px-2 py-1 text-xs group';
+            chip.innerHTML = `
+                <span class="flex-1 text-on-surface font-bold truncate" title="${sel.set.name}">${sel.set.name}</span>
+                <div class="flex items-center gap-0.5 ml-1 shrink-0">
+                    <button class="w-5 h-5 flex items-center justify-center rounded hover:bg-surface-container text-on-surface-variant hover:text-primary transition-colors" data-action="dec" data-idx="${idx}">
+                        <span class="material-symbols-outlined" style="font-size:12px">remove</span>
+                    </button>
+                    <span class="text-primary font-bold w-5 text-center" data-qty="${idx}">×${sel.qty}</span>
+                    <button class="w-5 h-5 flex items-center justify-center rounded hover:bg-surface-container text-on-surface-variant hover:text-primary transition-colors" data-action="inc" data-idx="${idx}">
+                        <span class="material-symbols-outlined" style="font-size:12px">add</span>
+                    </button>
+                    <button class="w-5 h-5 flex items-center justify-center rounded hover:bg-surface-container text-on-surface-variant hover:text-error transition-colors ml-0.5" data-action="remove" data-idx="${idx}">
+                        <span class="material-symbols-outlined" style="font-size:12px">close</span>
+                    </button>
+                </div>`;
+            chip.querySelectorAll('[data-action]').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const i = parseInt(btn.dataset.idx);
+                    if (btn.dataset.action === 'inc') {
+                        state.setSelections[i].qty = Math.min(state.setSelections[i].qty + 1, 9);
+                    } else if (btn.dataset.action === 'dec') {
+                        state.setSelections[i].qty = Math.max(state.setSelections[i].qty - 1, 1);
+                    } else if (btn.dataset.action === 'remove') {
+                        state.setSelections.splice(i, 1);
+                    }
+                    renderSelectedSets();
+                    renderQuickChips();
+                    scheduleRegen();
+                });
+            });
+            quickSetChips.appendChild(chip);
+        });
+    }
+
+    function buildQuickAddList(filterText = '') {
+        const q = filterText.toLowerCase();
+        const allSets = state.allSets;
+        quickAddSetList.innerHTML = allSets
+            .filter(s => !filterText || s.name.toLowerCase().includes(q) || s.id.includes(q))
+            .map(s => {
+                const inCart = state.setSelections.some(sel => sel.set.id === s.id);
+                return `
+                <button class="flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs text-left hover:bg-surface-container transition-colors w-full ${inCart ? 'text-primary' : 'text-on-surface'}"
+                    data-set-id="${s.id}">
+                    <span class="material-symbols-outlined" style="font-size:14px">${inCart ? 'check_circle' : 'add_circle'}</span>
+                    <span class="flex-1">${s.name}</span>
+                    <span class="text-on-surface-variant">#${s.id}</span>
+                </button>`;
+            }).join('');
+        quickAddSetList.querySelectorAll('[data-set-id]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const setId = btn.dataset.setId;
+                const existing = state.setSelections.find(s => s.set.id === setId);
+                if (existing) {
+                    // Toggle off
+                    state.setSelections = state.setSelections.filter(s => s.set.id !== setId);
+                } else {
+                    const setObj = state.allSets.find(s => s.id === setId);
+                    if (setObj) state.setSelections.push({ set: setObj, qty: 1 });
+                }
+                renderSelectedSets();
+                renderQuickChips();
+                buildQuickAddList(quickAddSearch.value);
+                scheduleRegen();
+            });
+        });
+    }
+
+    // Toggle popover
+    quickAddSetBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isHidden = quickAddPopover.classList.contains('hidden');
+        if (isHidden) {
+            quickAddPopover.classList.remove('hidden');
+            quickAddPopover.style.display = 'flex';
+            quickAddSearch.value = '';
+            buildQuickAddList();
+            quickAddSearch.focus();
+        } else {
+            quickAddPopover.classList.add('hidden');
+            quickAddPopover.style.display = '';
+        }
+    });
+    // Close popover when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!quickAddPopover.contains(e.target) && e.target !== quickAddSetBtn && !quickAddSetBtn.contains(e.target)) {
+            quickAddPopover.classList.add('hidden');
+            quickAddPopover.style.display = '';
+        }
+    });
+    // Search filter
+    quickAddSearch.addEventListener('input', () => buildQuickAddList(quickAddSearch.value));
+    // ───────────────────────────────────────────────────────────────────────────
+
+    function syncQuickConfigUI() {
+        renderQuickChips();
         quickDitherToggle.checked = $('#dithering-toggle').checked;
         quickContrastSlider.value = contrastSlider.value;
-        quickContrastValue.textContent = contrastSlider.value;
+        quickContrastValue.textContent = parseFloat(contrastSlider.value).toFixed(1);
     }
     window.syncQuickConfigUI = syncQuickConfigUI;
     syncQuickConfigUI();
-    
-    // Bind Quick Config listeners to trigger regeneration
-    quickSetPicker.addEventListener('change', () => {
-        const setId = quickSetPicker.value;
-        if (setId === 'free') {
-            state.setSelections = []; // Empty signifies free mode to the backend
-        } else {
-            const setObj = state.allSets.find(s => s.id === setId);
-            if (setObj) state.setSelections = [{ set: setObj, qty: 1 }];
-        }
-        renderSelectedSets(); // Update underlying logic
-        generateMosaic();
-    });
+
     quickDitherToggle.addEventListener('change', () => {
         $('#dithering-toggle').checked = quickDitherToggle.checked;
         generateMosaic();
@@ -1107,7 +1318,7 @@ function toggleComparison() {
 }
 
 function startOver() {
-    state = { setSelections: [], allSets: state.allSets, imageId: null, imageWidth: 0, imageHeight: 0, isSquare: false, croppedImageId: null, mosaicId: null, mosaicData: null, zoom: 1, baseScale: 1, isDev: state.isDev };
+    state = { setSelections: [], allSets: state.allSets, imageUrl: null, imageWidth: 0, imageHeight: 0, isSquare: false, croppedImageUrl: null, mosaicUrl: null, mosaicData: null, zoom: 1, baseScale: 1, isDev: state.isDev };
     renderSelectedSets();
     showTab('sets');
 }

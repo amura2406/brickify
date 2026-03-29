@@ -22,3 +22,9 @@ uv.lock
 
 # AI agent working files
 .agents/
+
+# Secrets
+.env
+.firebase/
+.env
+.serena/

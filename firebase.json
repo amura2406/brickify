@@ -1,0 +1,39 @@
+{
+  "hosting": {
+    "public": "frontend",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "/api/**",
+        "run": {
+          "serviceId": "brickify-backend",
+          "region": "asia-southeast2"
+        }
+      },
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ],
+    "headers": [
+      {
+        "source": "**",
+        "headers": [
+          { "key": "X-Frame-Options", "value": "SAMEORIGIN" },
+          { "key": "X-Content-Type-Options", "value": "nosniff" },
+          { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
+        ]
+      },
+      {
+        "source": "**/*.@(js|css|png|jpg|jpeg|gif|webp|svg|ico|woff2)",
+        "headers": [
+          { "key": "Cache-Control", "value": "public, max-age=604800, immutable" }
+        ]
+      }
+    ]
+  }
+}

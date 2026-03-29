@@ -313,6 +313,9 @@ def generate_palette_preview(
     but without piece count constraints.
     """
     processed = img.copy()
+    if processed.width > 1024 or processed.height > 1024:
+        processed.thumbnail((1024, 1024), Image.Resampling.LANCZOS)
+
     if preprocessing:
         processed = preprocess_image(processed, palette_rgb,
                                      contrast_boost=contrast_boost)
@@ -405,6 +408,10 @@ def generate_mosaic(
         y = int(crop_box["y"])
         size = int(crop_box["size"])
         img = img.crop((x, y, x + size, y + size))
+
+    # Limit maximum image size to prevent OOM during CLAHE preprocessing
+    if img.width > 1024 or img.height > 1024:
+        img.thumbnail((1024, 1024), Image.Resampling.LANCZOS)
 
     palette_rgb = [c["rgb"] for c in set_data["colors"]]
     grid_w, grid_h = set_data["grid"]

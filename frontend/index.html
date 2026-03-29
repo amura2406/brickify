@@ -5,6 +5,7 @@
   <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
   <title>BRICKIFY — Turn Photos into LEGO Art</title>
   <meta name="description" content="Transform your photos into buildable LEGO Art mosaics using official LEGO Art set color palettes."/>
+  <link rel="icon" type="image/x-icon" href="assets/sets/favicon.ico"/>
   <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;700;800&family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet"/>
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
@@ -78,10 +79,14 @@
       },
     }
   </script>
-  <link rel="stylesheet" href="styles.css"/>
+  <link rel="stylesheet" href="styles.css?v=2.0"/>
   <!-- Three.js for 3D Mode -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <!-- Firebase SDK (v9 compat) -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="auth.js"></script>
 </head>
 <body class="bg-background text-on-background font-body min-h-screen flex flex-col selection:bg-primary/30">
 
@@ -102,6 +107,7 @@
     <main class="relative z-10 w-full max-w-[440px] px-6">
       <!-- Brand -->
       <div class="text-center mb-10">
+        <img src="assets/sets/favicon.ico" alt="Brickify Logo" class="w-24 h-24 mx-auto mb-4 drop-shadow-[0_0_15px_rgba(255,45,120,0.4)]" />
         <h1 class="font-headline font-black text-5xl tracking-tighter text-primary neon-text-glow mb-2">BRICKIFY</h1>
         <p class="font-label uppercase tracking-widest text-secondary text-xs neon-text-glow-secondary mb-4">LOG IN TO YOUR NEON WORKSHOP</p>
         <p class="text-on-surface-variant text-sm font-medium tracking-tight max-w-[280px] mx-auto opacity-80">Transform photos into buildable LEGO Art mosaics</p>
@@ -146,6 +152,33 @@
   </div>
 
   <!-- ═══════════════════════════════════════════════
+       PENDING APPROVAL SCREEN
+       Shown when user is signed in but not yet approved
+  ════════════════════════════════════════════════════ -->
+  <div id="pending-screen" class="hidden fixed inset-0 z-[998] bg-background flex flex-col items-center justify-center overflow-hidden">
+    <div class="absolute inset-0 bg-grid-pattern opacity-100 pointer-events-none"></div>
+    <div class="absolute inset-0 lego-studs opacity-50 pointer-events-none"></div>
+    <main class="relative z-10 w-full max-w-[440px] px-6 text-center">
+      <div class="mb-10">
+        <h1 class="font-headline font-black text-5xl tracking-tighter text-primary neon-text-glow mb-2">BRICKIFY</h1>
+      </div>
+      <div class="bg-surface-container border border-outline-variant rounded-xl p-8 flex flex-col items-center gap-5">
+        <span class="material-symbols-outlined text-secondary text-5xl" style="font-size:48px">pending</span>
+        <h2 class="font-headline font-bold text-xl text-on-surface">Account Pending Approval</h2>
+        <p class="text-on-surface-variant text-sm leading-relaxed max-w-[280px]">
+          You're signed in, but your account needs to be approved by an admin before you can use Brickify.
+          Check back soon!
+        </p>
+        <span id="pending-user-email" class="font-label text-xs text-primary/80"></span>
+        <button id="btn-pending-signout" class="mt-2 flex items-center gap-2 text-xs font-label text-on-surface-variant hover:text-primary transition-colors">
+          <span class="material-symbols-outlined" style="font-size:15px">logout</span>
+          Sign out
+        </button>
+      </div>
+    </main>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════
        MAIN APP  (hidden until authenticated)
   ════════════════════════════════════════════════════ -->
   <div id="app-container" class="hidden flex-col min-h-screen">
@@ -173,10 +206,23 @@
           <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-sm">search</span>
           <input id="set-search" class="bg-surface-container border-none text-on-surface-variant text-sm pl-10 pr-4 py-2 rounded-lg focus:ring-1 focus:ring-primary w-56 outline-none" placeholder="Search sets..." type="text"/>
         </div>
-        <button id="btn-user-menu" class="text-on-surface-variant hover:text-primary transition-all duration-200">
-          <span class="material-symbols-outlined text-3xl">account_circle</span>
-        </button>
-      </div>
+        <div class="relative">
+          <button id="btn-user-menu" class="flex items-center gap-2 text-on-surface-variant hover:text-primary transition-all duration-200 group">
+            <span id="nav-user-avatar" class="w-8 h-8 rounded-full bg-surface-container border border-outline-variant flex items-center justify-center text-xs font-bold text-primary uppercase overflow-hidden"></span>
+          </button>
+          <!-- User dropdown -->
+          <div id="user-menu-dropdown" class="hidden absolute right-0 top-11 w-48 bg-surface-container border border-outline-variant rounded-xl shadow-xl z-50 overflow-hidden">
+            <div class="px-4 py-3 border-b border-outline-variant">
+              <p id="nav-user-name" class="text-xs font-bold text-on-surface truncate"></p>
+              <p id="nav-user-email" class="text-[10px] text-on-surface-variant truncate mt-0.5"></p>
+            </div>
+            <button id="btn-nav-signout" class="w-full flex items-center gap-2 px-4 py-3 text-xs text-on-surface-variant hover:text-error hover:bg-error/5 transition-colors">
+              <span class="material-symbols-outlined" style="font-size:15px">logout</span>
+              Sign out
+            </button>
+          </div>
+        </div>
+
     </nav>
 
     <!-- ── TAB: SETS ── -->
@@ -496,13 +542,31 @@
           <div class="bg-surface-container border border-outline-variant p-5 rounded-xl flex flex-col gap-4">
             <h4 class="font-label text-xs uppercase tracking-widest font-bold text-on-surface">Quick Config</h4>
             
+            <!-- Multi-set selector -->
             <div class="flex flex-col gap-2">
-              <label class="font-label text-xs text-on-surface-variant flex justify-between">
-                <span>LEGO Set</span>
-              </label>
-              <select id="quick-set-picker" class="bg-surface-container-high border border-outline-variant rounded-lg p-2 text-sm text-on-surface focus:outline-none focus:border-primary transition-colors appearance-none cursor-pointer">
+              <div class="font-label text-xs text-on-surface-variant flex justify-between items-center">
+                <span>LEGO Sets</span>
+                <button id="quick-add-set-btn" class="flex items-center gap-1 text-primary font-bold text-xs hover:text-primary/80 transition-colors" title="Add a set">
+                  <span class="material-symbols-outlined" style="font-size:14px">add_circle</span>
+                  Add
+                </button>
+              </div>
+
+              <!-- Chips container -->
+              <div id="quick-set-chips" class="flex flex-col gap-2 min-h-[36px]">
                 <!-- Filled dynamically by JS -->
-              </select>
+              </div>
+
+              <!-- Add Set popover -->
+              <div id="quick-add-set-popover" class="hidden flex-col gap-2 bg-surface-container-high border border-outline-variant rounded-lg p-3 mt-1">
+                <input id="quick-add-set-search" type="text" placeholder="Search set…"
+                  class="bg-surface-container border border-outline-variant rounded-lg px-3 py-1.5 text-xs text-on-surface focus:outline-none focus:border-primary placeholder-on-surface-variant/50 w-full"/>
+                <div id="quick-add-set-list" class="flex flex-col gap-1 max-h-48 overflow-y-auto">
+                  <!-- Filled dynamically by JS -->
+                </div>
+              </div>
+              <!-- hidden select kept for legacy compat -->
+              <select id="quick-set-picker" class="hidden"></select>
             </div>
 
             <div class="flex items-center justify-between">
@@ -521,6 +585,7 @@
               <input type="range" id="quick-contrast-slider" min="0.5" max="2.0" step="0.1" value="1.0" class="w-full h-1 bg-surface-container-high rounded-lg appearance-none cursor-pointer accent-primary">
             </div>
           </div>
+
 
           <!-- Color legend list -->
           <div class="bg-surface-container border border-outline-variant rounded-xl flex flex-col overflow-hidden flex-1 min-h-[250px]">
@@ -551,7 +616,7 @@
 
     <!-- Bottom footer bar -->
     <footer class="bg-background border-t border-outline-variant/30 py-4 px-8 flex justify-between items-center text-on-surface-variant mt-auto">
-      <div class="font-label text-[10px] uppercase tracking-widest">© 2024 BRICKIFY NEON. NOT AN OFFICIAL LEGO PRODUCT.</div>
+      <div class="font-label text-[10px] uppercase tracking-widest">© 2024 BRICKIFY NEON. NOT AN OFFICIAL LEGO PRODUCT. <span class="ml-2 opacity-50">v0.2.0</span></div>
       <div class="flex gap-6 font-label text-[10px] uppercase tracking-widest">
         <a class="hover:text-tertiary transition-colors" href="#">Terms</a>
         <a class="hover:text-tertiary transition-colors" href="#">Privacy</a>
@@ -560,6 +625,6 @@
     </footer>
   </div>
 
-  <script src="app.js"></script>
+  <script src="app.js?v=2.1"></script>
 </body>
 </html>

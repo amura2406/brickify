@@ -15,6 +15,7 @@ Turn any photo into a buildable LEGO Art mosaic. Pick from official LEGO Art set
 - **Image Preprocessing** — Optional contrast enhancement and palette-aware color quantization before mosaic generation, dramatically improving results for low-contrast photos.
 - **Interactive Crop & Zoom** — Drag-to-crop with a zoom slider (or mousewheel) to frame your subject precisely before converting.
 - **Palette Preview** — See exactly how your image maps to the selected LEGO colors before committing to a full mosaic generation.
+- **Cloud Infrastructure** — Authenticated Firebase integration with Serverless Cloud Run generation for robust high-res processing and cloud-stored generated media.
 
 ## 🛠 Tech Stack
 
