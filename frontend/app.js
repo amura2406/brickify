@@ -88,6 +88,7 @@ const cropZoomValue = $('#crop-zoom-value');
 const btnApplyCrop = $('#btn-apply-crop');
 const btnResetCrop = $('#btn-reset-crop');
 const targetResolutionSelect = $('#target-resolution-select');
+const btnRotateCrop = $('#btn-rotate-crop');
 const preprocessingToggle = $('#preprocessing-toggle');
 const contrastSlider = $('#contrast-slider');
 const contrastValue = $('#contrast-value');
@@ -623,6 +624,7 @@ function getMergedSetInfo() {
         totalColors: colors.length,
         totalPieces: colors.reduce((s, c) => s + c.count, 0),
         totalStuds: maxGw * maxGh,
+        colors: colors,
     };
 }
 
@@ -919,17 +921,58 @@ function populateTargetResolutions() {
     if (targetResolutionSelect) {
         targetResolutionSelect.innerHTML = optionsHtml;
         targetResolutionSelect.value = `${baseW}x${baseH}`;
+        
+        const updateRotationButton = () => {
+            if (btnRotateCrop) {
+                if (state.targetW !== state.targetH) {
+                    btnRotateCrop.classList.remove('hidden');
+                } else {
+                    btnRotateCrop.classList.add('hidden');
+                }
+            }
+        };
+
         targetResolutionSelect.onchange = () => {
              const [tw, th] = targetResolutionSelect.value.split('x').map(Number);
              cropState.targetRatio = tw / th;
              state.targetW = tw;
              state.targetH = th;
+             updateRotationButton();
              recalcCropMaxSize();
         };
         const [tw, th] = targetResolutionSelect.value.split('x').map(Number);
         cropState.targetRatio = tw / th;
         state.targetW = tw;
         state.targetH = th;
+        updateRotationButton();
+        
+        if (btnRotateCrop) {
+            btnRotateCrop.onclick = () => {
+                const temp = state.targetW;
+                state.targetW = state.targetH;
+                state.targetH = temp;
+                cropState.targetRatio = state.targetW / state.targetH;
+                
+                const newOptionVal = `${state.targetW}x${state.targetH}`;
+                let found = false;
+                Array.from(targetResolutionSelect.options).forEach(opt => {
+                     if (opt.value === newOptionVal) {
+                         targetResolutionSelect.value = newOptionVal;
+                         found = true;
+                     }
+                });
+                if (!found) {
+                     const opt = document.createElement('option');
+                     opt.value = newOptionVal;
+                     opt.text = `${state.targetW}×${state.targetH} (Rotated)`;
+                     targetResolutionSelect.add(opt);
+                     targetResolutionSelect.value = newOptionVal;
+                }
+                recalcCropMaxSize();
+                updateCropOverlay();
+                updateZoomLabel();
+            };
+        }
     }
 }
 
@@ -1122,41 +1165,133 @@ function setupGenerate() {
     }
     syncGradientConfigUI();
 
+    window.activePickerBtn = null;
+    window.colorPopover = null;
+
+    window.createColorPopover = function() {
+        if (window.colorPopover) return window.colorPopover;
+        const popover = document.createElement('div');
+        popover.className = 'fixed z-[100] bg-surface-container-highest border border-outline-variant rounded-lg p-2 shadow-xl flex flex-wrap gap-2 w-64 max-h-64 overflow-y-auto hidden';
+        document.body.appendChild(popover);
+
+        // Click outside to close
+        document.addEventListener('mousedown', (e) => {
+            if (window.activePickerBtn && !popover.contains(e.target) && !window.activePickerBtn.contains(e.target)) {
+                popover.classList.add('hidden');
+                window.activePickerBtn = null;
+            }
+        });
+        window.colorPopover = popover;
+        return popover;
+    }
+
+    // Exposed globally so it can be called from Arena Column's inline onclick
+    window.showColorPopover = function(btn, currentColors, availableColors, onSelect) {
+        window.activePickerBtn = btn;
+        window.colorPopover = window.createColorPopover();
+        window.colorPopover.innerHTML = '';
+        
+        if (!availableColors || availableColors.length === 0) {
+            window.colorPopover.innerHTML = '<p class="text-xs text-on-surface-variant p-2">No sets selected.</p>';
+        } else {
+            availableColors.forEach(c => {
+                const hexColor = '#' + c.hex;
+                const isSelected = currentColors.includes(hexColor) && btn.dataset.color !== hexColor;
+                
+                const swatch = document.createElement('button');
+                swatch.className = `w-8 h-8 rounded-full border-2 transition-transform ${isSelected ? 'opacity-20 cursor-not-allowed' : 'hover:scale-110 cursor-pointer'}`;
+                swatch.style.backgroundColor = hexColor;
+                swatch.style.borderColor = btn.dataset.color === hexColor ? '#fff' : 'transparent';
+                swatch.title = c.name;
+                
+                if (!isSelected) {
+                    swatch.addEventListener('click', () => {
+                        btn.dataset.color = hexColor;
+                        btn.style.backgroundColor = hexColor;
+                        window.colorPopover.classList.add('hidden');
+                        window.activePickerBtn = null;
+                        if (onSelect) onSelect(hexColor);
+                    });
+                }
+                window.colorPopover.appendChild(swatch);
+            });
+        }
+
+        const rect = btn.getBoundingClientRect();
+        window.colorPopover.style.top = `${rect.bottom + window.scrollY + 8}px`;
+        window.colorPopover.style.left = `${Math.min(rect.left + window.scrollX, window.innerWidth - 260)}px`;
+        window.colorPopover.classList.remove('hidden');
+    }
+
+    window.handleArenaColorClick = function(btn, colId, index) {
+        const col = state.compareColumns.find(c => c.id === colId);
+        if (!col) return;
+        
+        const availableColors = col.setSelections.length > 0 
+            ? col.setSelections.flatMap(s => s.set.colors || []) 
+            : [{hex:'000000', name:'Black'}, {hex:'FFFFFF', name:'White'}];
+            
+        const uniqueColors = Array.from(new Map(availableColors.map(c => [c.hex, c])).values());
+        const currentColors = col.gradientColors;
+        
+        window.showColorPopover(btn, currentColors, uniqueColors, (newHex) => {
+            window.updateCompareGradient(colId, index, newHex);
+        });
+    }
+        
+    // Ensure sets are selected, otherwise use fallback colors or warn.
     function setupPickers(btnAdd, container) {
         if (!btnAdd || !container) return;
+        
+        function openPickerWithContext(btn) {
+            const setInfo = getMergedSetInfo();
+            const availableColors = setInfo.colors.length > 0 ? setInfo.colors : [
+                { hex: '000000', name: 'Black' }, { hex: 'FFFFFF', name: 'White' }, { hex: 'FF2D78', name: 'Pink' }
+            ];
+            const currentColors = Array.from(container.querySelectorAll('button[data-color]')).map(b => b.dataset.color);
+            window.showColorPopover(btn, currentColors, availableColors, null);
+        }
+
+        function createColorButton(initialHex) {
+            const btn = document.createElement('button');
+            btn.dataset.color = initialHex;
+            btn.style.backgroundColor = initialHex;
+            btn.className = container.id.includes('quick') 
+                ? 'w-6 h-6 rounded cursor-pointer border border-outline-variant p-0 shadow-sm' 
+                : 'w-8 h-8 rounded cursor-pointer border border-outline-variant p-0 shadow-sm';
+            
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                openPickerWithContext(btn);
+            });
+
+            btn.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                if (container.querySelectorAll('button[data-color]').length > 2) {
+                    if (window.activePickerBtn === btn) {
+                        if (window.colorPopover) window.colorPopover.classList.add('hidden');
+                        window.activePickerBtn = null;
+                    }
+                    btn.remove();
+                } else {
+                    alert('Minimum 2 colors required.');
+                }
+            });
+            container.appendChild(btn);
+        }
+
+        const initialInputs = container.querySelectorAll('input[type="color"]');
+        const initialColors = Array.from(initialInputs).map(i => i.value);
+        container.innerHTML = '';
+        initialColors.forEach(hex => createColorButton(hex));
+
         btnAdd.addEventListener('click', () => {
-            const current = container.querySelectorAll('input[type="color"]').length;
+            const current = container.querySelectorAll('button[data-color]').length;
             if (current >= 5) {
                 alert('Maximum 5 colors allowed for gradient mapping.');
                 return;
             }
-            const input = document.createElement('input');
-            input.type = 'color';
-            input.value = '#cccccc';
-            input.className = container.id.includes('quick') 
-                ? 'w-6 h-6 rounded cursor-pointer border-none p-0' 
-                : 'w-8 h-8 rounded cursor-pointer border-none p-0';
-            
-            input.addEventListener('contextmenu', (e) => {
-                e.preventDefault();
-                if (container.querySelectorAll('input[type="color"]').length > 2) {
-                    input.remove();
-                } else {
-                    alert('Minimum 2 colors required.');
-                }
-            });
-            container.appendChild(input);
-        });
-        
-        container.querySelectorAll('input[type="color"]').forEach(inp => {
-            inp.addEventListener('contextmenu', (e) => {
-                e.preventDefault();
-                if (container.querySelectorAll('input[type="color"]').length > 2) {
-                    inp.remove();
-                } else {
-                    alert('Minimum 2 colors required.');
-                }
-            });
+            createColorButton('#cccccc');
         });
     }
 
@@ -1167,7 +1302,7 @@ function setupGenerate() {
 function getGradientColors(isQuick = false) {
     const container = isQuick ? quickGradientPickers : gradientColorPickers;
     if (!container) return ['#000000', '#ffffff'];
-    return Array.from(container.querySelectorAll('input[type="color"]')).map(el => el.value);
+    return Array.from(container.querySelectorAll('button[data-color]')).map(el => el.dataset.color);
 }
 
 function setupPreprocessingControls() {
@@ -2106,6 +2241,7 @@ function addCompareColumn() {
         contrast: lastCol ? lastCol.contrast : parseFloat(contrastSlider.value),
         preprocessing: lastCol ? lastCol.preprocessing : preprocessingToggle.checked,
         gradientColors: lastCol ? [...lastCol.gradientColors] : getGradientColors(),
+        setSelections: (lastCol ? lastCol.setSelections : state.setSelections).map(s => ({ set: s.set, qty: s.qty })),
         mosaicUrl: null,
         mosaicData: null,
         loading: false,
@@ -2177,7 +2313,7 @@ function renderCompareColumns() {
         if (col.mosaicData) {
             const numColors = col.mosaicData.colors.filter(c => c.used > 0).length;
             const totalPiecesUsed = col.mosaicData.colors.reduce((sum, c) => sum + (c.used || 0), 0);
-            const isFreeMode = state.setSelections.length === 0;
+            const isFreeMode = col.setSelections && col.setSelections.length === 0;
             const piecesLabel = isFreeMode ? 'Total Pieces' : 'Stock Used';
             const warningInfo = col.mosaicData.warnings && col.mosaicData.warnings.length > 0 
                 ? `<div class="col-span-2 mt-2 px-2 py-1 bg-error-container text-on-error-container text-[10px] font-label rounded font-bold">${col.mosaicData.warnings.length} constraint warnings!</div>`
@@ -2201,13 +2337,31 @@ function renderCompareColumns() {
         let gradPickers = '';
         if (col.colorMode === 'gradient') {
             const inputs = col.gradientColors.map((hex, i) => 
-                `<input type="color" value="${hex}" class="w-5 h-5 rounded cursor-pointer border-none p-0 inline-block" onchange="window.updateCompareGradient('${col.id}', ${i}, this.value)">`
+                `<button data-color="${hex}" style="background-color: ${hex}" class="w-5 h-5 rounded cursor-pointer border border-outline-variant p-0 inline-block shadow-sm arena-gradient-btn" onclick="window.handleArenaColorClick(this, '${col.id}', ${i})"></button>`
             ).join('');
             gradPickers = `
             <div class="flex flex-col gap-1 mt-2">
                 <label class="font-label text-[9px] text-on-surface-variant uppercase tracking-widest">Gradient Palette</label>
                 <div class="flex gap-1 items-center">
                     ${inputs}
+                </div>
+            </div>`;
+        }
+
+        let setsPickers = '';
+        if (state.sets && state.sets.length > 0) {
+            const list = state.sets.map(s => {
+                const inCol = col.setSelections.some(sel => sel.set.id === s.id);
+                return `<label class="flex items-center gap-2 cursor-pointer p-1 hover:bg-on-surface/5 rounded transition-colors">
+                    <input type="checkbox" ${inCol ? 'checked' : ''} class="w-3.5 h-3.5 accent-primary border-outline-variant bg-surface-container" onchange="window.updateCompareSets('${col.id}', '${s.id}', this.checked)">
+                    <span class="text-[10px] text-on-surface whitespace-nowrap overflow-hidden text-ellipsis w-48 font-label" title="${s.name}">${s.name}</span>
+                </label>`;
+            }).join('');
+            setsPickers = `
+            <div class="flex flex-col gap-1 mt-2 p-2 bg-surface-container-low rounded-lg border border-outline-variant/30">
+                <label class="font-label text-[9px] text-on-surface-variant uppercase tracking-widest px-1">LEGO Sets Included</label>
+                <div class="flex flex-col gap-0 max-h-24 overflow-y-auto pr-1 custom-scrollbar">
+                    ${list}
                 </div>
             </div>`;
         }
@@ -2221,7 +2375,8 @@ function renderCompareColumns() {
             ${visualArea}
             ${specsMatrix}
             
-            <div class="flex flex-col gap-3 bg-surface-container-high border border-outline-variant p-4 rounded-xl mt-2">
+            <div class="flex flex-col gap-3 bg-surface-container-high border border-outline-variant p-4 rounded-xl mt-2 shadow-sm">
+                ${setsPickers}
                 <div class="flex flex-col gap-1">
                     <label class="font-label text-[10px] uppercase text-on-surface-variant">Color Mode</label>
                     <select class="bg-surface-container border border-outline-variant text-xs text-on-surface rounded px-2 py-1 outline-none" onchange="window.updateCompareConfig('${col.id}', 'colorMode', this.value)">
@@ -2259,6 +2414,23 @@ window.updateCompareConfig = function(id, key, value) {
         renderCompareColumns();
         generateCompareColumn(id);
     }
+}
+
+window.updateCompareSets = function(id, setId, checked) {
+    const col = state.compareColumns.find(c => c.id === id);
+    if (!col) return;
+    
+    if (checked) {
+        const setObj = state.sets.find(s => s.id === setId);
+        if (setObj && !col.setSelections.some(s => s.set.id === setId)) {
+            // Default 1 quantity for comparison testing
+            col.setSelections.push({ set: setObj, qty: 1 });
+        }
+    } else {
+        col.setSelections = col.setSelections.filter(s => s.set.id !== setId);
+    }
+    renderCompareColumns();
+    generateCompareColumn(id);
 }
 
 window.updateCompareGradient = function(id, index, value) {
@@ -2305,18 +2477,24 @@ async function generateCompareColumn(id) {
     renderCompareColumns(); // shows loading state
     
     try {
+        const payload = {
+            url: state.croppedImageUrl,
+            set_selections: col.setSelections.map(s => ({ set_id: s.set.id, qty: s.qty })),
+            dithering: col.dithering,
+            preprocessing: col.preprocessing,
+            contrast_boost: col.contrast,
+            color_mode: col.colorMode,
+            gradient_colors: col.gradientColors,
+        };
+        
+        // Pass targets so rectangular mosaics are properly processed without squashing.
+        if (cropState.targetW) payload.target_width = cropState.targetW;
+        if (cropState.targetH) payload.target_height = cropState.targetH;
+
         const res = await authFetch(`${API}/api/generate`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                url: state.croppedImageUrl,
-                set_selections: getSetSelectionsPayload(),
-                dithering: col.dithering,
-                preprocessing: col.preprocessing,
-                contrast_boost: col.contrast,
-                color_mode: col.colorMode,
-                gradient_colors: col.gradientColors,
-            }),
+            body: JSON.stringify(payload),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || 'Generation failed');

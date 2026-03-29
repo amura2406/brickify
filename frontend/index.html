@@ -395,9 +395,14 @@
                 <span class="material-symbols-outlined text-secondary">crop</span>
                 <h3 class="font-headline font-bold text-lg text-on-surface">Target Resolution</h3>
               </div>
-              <select id="target-resolution-select" class="bg-background border border-outline-variant text-on-surface text-sm font-label rounded px-3 py-1.5 focus:border-primary focus:outline-none w-48 appearance-none cursor-pointer">
-                <!-- Options injected by JS -->
-              </select>
+              <div class="flex items-center gap-2">
+                <select id="target-resolution-select" class="bg-background border border-outline-variant text-on-surface text-sm font-label rounded px-3 py-1.5 focus:border-primary focus:outline-none w-48 appearance-none cursor-pointer">
+                  <!-- Options injected by JS -->
+                </select>
+                <button id="btn-rotate-crop" class="hidden p-1.5 text-secondary hover:bg-secondary/10 rounded transition-colors active:scale-95 flex items-center justify-center border border-outline-variant/30" title="Rotate Crop Box">
+                  <span class="material-symbols-outlined text-lg">screen_rotation</span>
+                </button>
+              </div>
             </div>
             <div class="flex-1 bg-surface-container-lowest border border-outline-variant/20 rounded-2xl relative overflow-hidden shadow-2xl">
               <div id="crop-wrapper" class="absolute inset-0 flex items-center justify-center p-8 bg-[#050508]">
@@ -748,7 +753,7 @@
 
     <!-- Bottom footer bar -->
     <footer class="bg-background border-t border-outline-variant/30 py-3 sm:py-4 px-4 sm:px-8 flex flex-col sm:flex-row justify-between items-center text-on-surface-variant mt-auto gap-2 safe-area-bottom">
-      <div class="font-label text-[9px] sm:text-[10px] uppercase tracking-widest text-center sm:text-left">© 2024 BRICKIFY NEON. NOT AN OFFICIAL LEGO PRODUCT. <span class="ml-2 opacity-50">v0.6.0</span></div>
+      <div class="font-label text-[9px] sm:text-[10px] uppercase tracking-widest text-center sm:text-left">© 2024 BRICKIFY NEON. NOT AN OFFICIAL LEGO PRODUCT. <span class="ml-2 opacity-50">v0.6.1</span></div>
       <div class="flex gap-4 sm:gap-6 font-label text-[9px] sm:text-[10px] uppercase tracking-widest">
         <a class="hover:text-tertiary transition-colors" href="#">Terms</a>
         <a class="hover:text-tertiary transition-colors" href="#">Privacy</a>

@@ -17,6 +17,8 @@ Turn any photo into a buildable LEGO Art mosaic. Pick from official LEGO Art set
 - **Interactive Crop & Zoom** — Drag-to-crop with a zoom slider (or mousewheel) to frame your subject precisely before converting.
 - **Responsive & Touch-Optimized** — Fully supports mobile and tablet devices with native-feeling multi-touch gestures (pinch-to-zoom, touch panning) and seamless side-by-side iPad layouts.
 - **Palette Preview** — See exactly how your image maps to the selected LEGO colors before committing to a full mosaic generation.
+- **Compare Arena** — Build variants of your photo simultaneously side-by-side. Track differing multi-set configurations, colors modes, preprocessing toggles, and robust gradient mapping with a native custom LEGO color picker.
+- **Dynamic Mosaic Resolution** — Intelligently detects and manages non-square target sets (like Floral Art 32x48) passing `target_width` and `target_height` so mosaics process seamlessly without being forced into an invisible 1:1 squashed bounding box.
 - **Admin Dashboard & Access Control** — Secure registration with an admin approval flow. App restricts functionality to approved accounts, and allows admins to review and approve users dynamically.
 - **Cloud Infrastructure** — Authenticated Firebase integration with Serverless Cloud Run generation for robust high-res processing and cloud-stored generated media.
 
