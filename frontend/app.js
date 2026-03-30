@@ -781,18 +781,8 @@ function setupSearch() {
 
 function continueFromSetSelection() {
     if (state.setSelections.length === 0) return;
-    clearPalettePreview();
     showTab('editor');
     showEditorStep('upload');
-}
-
-function clearPalettePreview() {
-    if (palettePreview) {
-        palettePreview.classList.add('hidden');
-        palettePreview.src = '';
-    }
-    const placeholder = palettePreviewContainer?.querySelector('.palette-preview-placeholder');
-    if (placeholder) placeholder.style.display = '';
 }
 
 // ═════════════════════════════════════════════════
