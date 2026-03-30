@@ -406,6 +406,37 @@
               <input type="file" id="file-input" accept="image/jpeg,image/png,image/webp" class="hidden"/>
             </div>
 
+            <!-- Google Photos Picker -->
+            <div id="google-photos-section" class="w-full max-w-2xl hidden">
+              <div class="flex items-center gap-3 my-4">
+                <div class="flex-1 h-px" style="background: var(--md-sys-color-outline-variant, #444); opacity: 0.4;"></div>
+                <span class="font-label text-xs uppercase tracking-widest text-on-surface-variant">or</span>
+                <div class="flex-1 h-px" style="background: var(--md-sys-color-outline-variant, #444); opacity: 0.4;"></div>
+              </div>
+              <button id="btn-google-photos" class="w-full py-4 px-6 rounded-xl border border-outline-variant/40 bg-surface-container hover:bg-surface-container-high hover:border-primary/40 transition-all flex items-center justify-center gap-3 group cursor-pointer">
+                <!-- Google Photos icon (simplified 4-petal windmill) -->
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12 2C8.13 2 5 5.13 5 9v3h7V2z" fill="#FF4D4D"/>
+                  <path d="M22 9c0-3.87-3.13-7-7-7h-3v10h10V9z" fill="#4285F4"/>
+                  <path d="M12 22c3.87 0 7-3.13 7-7v-3h-7v10z" fill="#0F9D58"/>
+                  <path d="M2 15c0 3.87 3.13 7 7 7h3V12H2v3z" fill="#FFBC00"/>
+                </svg>
+                <span class="font-label text-sm font-semibold text-on-surface group-hover:text-primary transition-colors">Choose from Google Photos</span>
+              </button>
+              <!-- Status / loading display -->
+              <div id="gphotos-status" class="hidden mt-3 text-center">
+                <div id="gphotos-loading" class="flex items-center justify-center gap-2">
+                  <span class="spinner" style="width:16px;height:16px;border-width:2px;color:#ff2d78"></span>
+                  <span id="gphotos-status-text" class="font-label text-xs text-on-surface-variant">Opening Google Photos...</span>
+                </div>
+                <button id="gphotos-cancel" class="mt-2 font-label text-xs text-error/80 hover:text-error underline cursor-pointer hidden">Cancel</button>
+              </div>
+              <!-- Error display -->
+              <div id="gphotos-error" class="hidden mt-3 text-center py-2 px-4 rounded-lg bg-error-container/20 border border-error/30">
+                <p id="gphotos-error-text" class="font-label text-xs text-error"></p>
+              </div>
+            </div>
+
             <!-- Recent Uploads Gallery -->
             <div id="recent-uploads-section" class="w-full max-w-2xl">
               <div class="flex items-center gap-2 mb-3">
@@ -785,7 +816,7 @@
 
     <!-- Bottom footer bar -->
     <footer class="bg-background border-t border-outline-variant/30 py-3 sm:py-4 px-4 sm:px-8 flex flex-col sm:flex-row justify-between items-center text-on-surface-variant mt-auto gap-2 safe-area-bottom">
-      <div class="font-label text-[9px] sm:text-[10px] uppercase tracking-widest text-center sm:text-left">© 2024 BRICKIFY NEON. NOT AN OFFICIAL LEGO PRODUCT. <span class="ml-2 opacity-50">v0.6.5</span></div>
+      <div class="font-label text-[9px] sm:text-[10px] uppercase tracking-widest text-center sm:text-left">© 2024 BRICKIFY NEON. NOT AN OFFICIAL LEGO PRODUCT. <span class="ml-2 opacity-50">v0.7.0</span></div>
       <div class="flex gap-4 sm:gap-6 font-label text-[9px] sm:text-[10px] uppercase tracking-widest">
         <a class="hover:text-tertiary transition-colors" href="#">Terms</a>
         <a class="hover:text-tertiary transition-colors" href="#">Privacy</a>

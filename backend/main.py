@@ -10,6 +10,7 @@ by an admin via POST /api/admin/approve-user.
 """
 
 import io
+import logging
 import os
 import uuid
 from pathlib import Path
@@ -25,6 +26,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from PIL import Image
+import httpx
 import urllib.parse
 import urllib.request
 from storage import StorageProvider, get_storage_provider
@@ -282,6 +284,171 @@ def generate(
         "height": mosaic_data["height"],
         "colors": mosaic_data["colors"],
         "grid": mosaic_data["grid"],
+    }
+
+
+# ── Google Photos Picker API proxy ─────────────────────────────
+
+logger = logging.getLogger(__name__)
+
+GPHOTOS_PICKER_BASE = "https://photospicker.googleapis.com/v1"
+
+
+class GooglePhotosUploadRequest(BaseModel):
+    access_token: str
+    base_url: str
+
+
+class CreateSessionRequest(BaseModel):
+    access_token: str
+
+
+@app.post("/api/google-photos/create-session")
+def gphotos_create_session(
+    req: CreateSessionRequest,
+    _user: dict = Depends(require_approved_user),
+):
+    """Create a Google Photos Picker session.
+
+    The frontend provides the user's Google OAuth access token (obtained via
+    incremental scope authorization). We proxy the call to the Picker API.
+    """
+    try:
+        with httpx.Client(timeout=15) as client:
+            resp = client.post(
+                f"{GPHOTOS_PICKER_BASE}/sessions",
+                headers={"Authorization": f"Bearer {req.access_token}"},
+                json={},
+            )
+        if resp.status_code == 400 and "FAILED_PRECONDITION" in resp.text:
+            raise HTTPException(
+                412,
+                "This Google account does not have an active Google Photos library. "
+                "Please make sure Google Photos is set up for your account.",
+            )
+        if resp.status_code != 200:
+            logger.warning("Picker session create failed: %s %s", resp.status_code, resp.text[:300])
+            raise HTTPException(502, f"Google Photos API error ({resp.status_code})")
+        data = resp.json()
+        return {
+            "id": data["id"],
+            "pickerUri": data["pickerUri"],
+        }
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Failed to create Google Photos session")
+        raise HTTPException(502, f"Google Photos API error: {exc}") from exc
+
+
+@app.get("/api/google-photos/session/{session_id}")
+def gphotos_get_session(
+    session_id: str,
+    google_access_token: str,
+    _user: dict = Depends(require_approved_user),
+):
+    """Poll a Google Photos Picker session status.
+
+    The google_access_token is passed as a query parameter.
+    Returns the session with mediaItemsSet boolean.
+    """
+    try:
+        with httpx.Client(timeout=10) as client:
+            resp = client.get(
+                f"{GPHOTOS_PICKER_BASE}/sessions/{session_id}",
+                headers={"Authorization": f"Bearer {google_access_token}"},
+            )
+        if resp.status_code != 200:
+            raise HTTPException(502, f"Google Photos API error ({resp.status_code})")
+        data = resp.json()
+        return {
+            "id": data.get("id"),
+            "mediaItemsSet": data.get("mediaItemsSet", False),
+            "pollingConfig": data.get("pollingConfig"),
+        }
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Failed to poll Google Photos session")
+        raise HTTPException(502, f"Google Photos API error: {exc}") from exc
+
+
+@app.get("/api/google-photos/session/{session_id}/media-items")
+def gphotos_list_media_items(
+    session_id: str,
+    google_access_token: str,
+    _user: dict = Depends(require_approved_user),
+):
+    """List picked media items from a completed Picker session.
+
+    Returns the first photo's metadata (baseUrl, dimensions, mimeType).
+    """
+    try:
+        with httpx.Client(timeout=15) as client:
+            resp = client.get(
+                f"{GPHOTOS_PICKER_BASE}/mediaItems",
+                params={"sessionId": session_id},
+                headers={"Authorization": f"Bearer {google_access_token}"},
+            )
+        if resp.status_code != 200:
+            raise HTTPException(502, f"Google Photos API error ({resp.status_code})")
+        data = resp.json()
+        items = data.get("pickedMediaItems", data.get("mediaItems", []))
+        # Filter to images only
+        images = [
+            item for item in items
+            if item.get("type", item.get("mimeType", "")).startswith("image")
+            or "mediaFile" in item  # Picker API wraps in mediaFile
+        ]
+        return {"items": images}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Failed to list Google Photos media items")
+        raise HTTPException(502, f"Google Photos API error: {exc}") from exc
+
+
+@app.post("/api/upload-from-google-photos")
+def upload_from_google_photos(
+    req: GooglePhotosUploadRequest,
+    _user: dict = Depends(require_approved_user),
+    provider: StorageProvider = Depends(get_storage_provider),
+):
+    """Download a photo from Google Photos and save it to our storage.
+
+    The baseUrl from the Picker API requires an Authorization header,
+    so the frontend cannot use it as a plain <img src>. This endpoint
+    downloads the image bytes, stores them, and returns a permanent URL.
+    """
+    # Append =d to download full resolution with EXIF (minus location)
+    download_url = req.base_url
+    if "=" not in download_url.split("/")[-1]:
+        download_url += "=d"
+
+    try:
+        with httpx.Client(timeout=30, follow_redirects=True) as client:
+            resp = client.get(
+                download_url,
+                headers={"Authorization": f"Bearer {req.access_token}"},
+            )
+        if resp.status_code != 200:
+            raise HTTPException(502, f"Failed to download photo from Google Photos ({resp.status_code})")
+
+        img = Image.open(io.BytesIO(resp.content)).convert("RGB")
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Failed to download Google Photos image")
+        raise HTTPException(502, f"Failed to download photo: {exc}") from exc
+
+    url = provider.upload_image(img, "uploads", fmt="JPEG")
+    w, h = img.size
+
+    return {
+        "url": url,
+        "width": w,
+        "height": h,
+        "is_square": w == h,
     }
 
 

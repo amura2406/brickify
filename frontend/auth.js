@@ -132,5 +132,62 @@ async function signOut() {
     await _auth.signOut();
 }
 
+// ── Google Photos incremental scope authorization ────────────────────────────
+
+/**
+ * Cached Google OAuth access token for the Picker API.
+ * @type {{ token: string, expiresAt: number } | null}
+ */
+let _gphotosToken = null;
+
+/**
+ * Request a Google OAuth access token with the `photospicker.mediaitems.readonly`
+ * scope via incremental authorization. This opens a popup asking for additional
+ * permissions beyond the base Google Sign-In.
+ *
+ * The token is cached for 50 minutes (the Picker API baseUrl validity is 60 min).
+ *
+ * @returns {Promise<string>} The Google OAuth2 access token.
+ * @throws {Error} If not signed in or authorization is denied.
+ */
+async function getGooglePhotosAccessToken() {
+    if (isBypassMode()) {
+        throw new Error("Google Photos is not available in local dev mode.");
+    }
+
+    // Return cached token if still valid
+    if (_gphotosToken && Date.now() < _gphotosToken.expiresAt) {
+        return _gphotosToken.token;
+    }
+
+    await _ensureInit();
+
+    const user = _auth.currentUser;
+    if (!user) {
+        throw new Error("Not signed in. Please sign in first.");
+    }
+
+    // Create a new provider with the Photos Picker scope
+    const pickerProvider = new firebase.auth.GoogleAuthProvider();
+    pickerProvider.addScope("https://www.googleapis.com/auth/photospicker.mediaitems.readonly");
+
+    // Use signInWithPopup to do incremental authorization.
+    // This will show a consent screen for the new scope only.
+    const result = await _auth.signInWithPopup(pickerProvider);
+
+    const credential = result.credential;
+    if (!credential || !credential.accessToken) {
+        throw new Error("Failed to obtain Google access token. Please try again.");
+    }
+
+    // Cache for 50 minutes (Picker API tokens are valid for 60 min)
+    _gphotosToken = {
+        token: credential.accessToken,
+        expiresAt: Date.now() + (50 * 60 * 1000),
+    };
+
+    return _gphotosToken.token;
+}
+
 // Expose on window so app.js can use without import()
-window.BrickifyAuth = { initFirebaseAuth, signInWithGoogle, getIdToken, signOut };
+window.BrickifyAuth = { initFirebaseAuth, signInWithGoogle, getIdToken, signOut, getGooglePhotosAccessToken };
