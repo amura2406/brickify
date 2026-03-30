@@ -20,7 +20,6 @@ Turn any photo into a buildable LEGO Art mosaic. Pick from official LEGO Art set
 - **Image Preprocessing** — Optional contrast enhancement and palette-aware color quantization before mosaic generation, dramatically improving results for low-contrast photos.
 - **Interactive Crop & Zoom** — Drag-to-crop with an ultra-precise proportional scroll wheel zoom (desktop) and pinch-to-zoom (mobile). Includes automatic pan boundaries preventing image gap bleed.
 - **Responsive & Touch-Optimized** — Fully supports mobile and tablet devices with native-feeling multi-touch gestures and a full-screen, distraction-free crop workspace.
-- **Palette Preview** — See exactly how your image maps to the selected LEGO colors before committing to a full mosaic generation.
 - **Project Saving & Gallery** — Save your progress, including all settings and crop data, to a personal, secure project gallery backed by Firebase Firestore. Return later to tweak or refine your mosaic.
 - **Google Photos Picker** — Directly import photos from your Google Photos library with a seamless, privacy-centric OAuth integration.
 - **Compare Arena** — Build variants of your photo simultaneously side-by-side. Track differing multi-set configurations, colors modes, preprocessing toggles, and robust gradient mapping with a native custom LEGO color picker.
@@ -86,7 +85,7 @@ flowchart LR
 1. **Choose sets** — Click to add LEGO Art sets to your cart. Combine sets for more colors. Use Free Mode for maximum fidelity.
 2. **Upload image** — Drop or select a photo.
 3. **Crop** — Frame the area you want. Zoom in for detail.
-4. **Configure** — Toggle preprocessing, adjust contrast, enable dithering, and preview the palette mapping.
+4. **Configure** — Select Color Mode, toggle preprocessing, adjust contrast, and enable dithering.
 5. **Generate** — The engine maps each pixel to the nearest LEGO color (in CIELAB space), applies optional dithering, and renders a stud-by-stud mosaic.
 
 ## 📂 Project Structure
@@ -114,7 +113,6 @@ lego-mosaic-maker/
 | POST   | `/api/upload`          | Upload a reference image             |
 | POST   | `/api/upload/google-photos` | Import image from Google Photos |
 | POST   | `/api/crop`            | Crop uploaded image to square        |
-| POST   | `/api/preview-palette` | Preview palette mapping              |
 | POST   | `/api/generate`        | Generate mosaic from image + set(s)  |
 | GET    | `/api/mosaic/{id}`     | Get generated mosaic image           |
 | GET    | `/api/projects`        | List saved projects                  |

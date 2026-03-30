@@ -543,12 +543,18 @@
         <div class="space-y-8">
           <div class="flex flex-col gap-3">
             <div class="flex flex-col">
-              <span class="font-label text-xs uppercase tracking-widest text-on-surface font-bold">Color Mode</span>
+              <div class="flex items-center gap-1.5 w-max group relative cursor-help">
+                <span class="font-label text-xs uppercase tracking-widest text-on-surface font-bold">Color Mode</span>
+                <span class="material-symbols-outlined text-[14px] text-on-surface-variant group-hover:text-primary transition-colors">info</span>
+                <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-3 bg-surface-container-highest border border-outline-variant rounded-lg text-xs text-on-surface-variant font-label opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none drop-shadow-xl z-50 text-center">
+                  Pop-Art replaces pixels by luminance ranking. Realistic finds the closest exact color match. Gradient customizes colors linearly.
+                </div>
+              </div>
               <span class="text-[10px] text-on-surface-variant uppercase mt-1">Algorithm Strategy</span>
             </div>
             <select id="color-mode-select" class="bg-surface-container-highest border border-outline-variant text-sm text-on-surface rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-secondary focus:border-secondary transition-all">
               <option value="realistic">Realistic (Color Match)</option>
-              <option value="pop_art">Pop-Art (Luminance Match)</option>
+              <option value="pop_art" selected>Pop-Art (Luminance Match)</option>
               <option value="gradient">Gradient Mapping</option>
             </select>
             <!-- Gradient Colors Config (Hidden by default) -->
@@ -565,7 +571,13 @@
 
           <div class="flex items-center justify-between group">
             <div class="flex flex-col">
-              <span class="font-label text-xs uppercase tracking-widest text-on-surface font-bold">Preprocessing</span>
+              <div class="flex items-center gap-1.5 w-max group/tt relative cursor-help">
+                <span class="font-label text-xs uppercase tracking-widest text-on-surface font-bold">Preprocessing</span>
+                <span class="material-symbols-outlined text-[14px] text-on-surface-variant group-hover/tt:text-primary transition-colors">info</span>
+                <div class="absolute bottom-full left-0 mb-2 w-64 p-3 bg-surface-container-highest border border-outline-variant rounded-lg text-xs text-on-surface-variant font-label opacity-0 group-hover/tt:opacity-100 transition-opacity pointer-events-none drop-shadow-xl z-50">
+                  Applies AI-tuned local contrast enhancement (CLAHE) before mapping. Helps preserve fine details like facial features in your reference image.
+                </div>
+              </div>
               <span class="text-[10px] text-on-surface-variant uppercase mt-1">AI-Driven Detail Optimization</span>
             </div>
             <label class="relative w-12 h-6 cursor-pointer">
@@ -586,44 +598,30 @@
             </div>
           </div>
 
-          <div class="flex items-center justify-between group">
+          <div class="flex items-center justify-between group" id="dithering-wrapper">
             <div class="flex flex-col">
-              <span class="font-label text-xs uppercase tracking-widest text-on-surface font-bold">Dithering</span>
-              <span class="text-[10px] text-on-surface-variant uppercase mt-1">Simulate Smooth Gradients</span>
+              <div class="flex items-center gap-1.5 w-max group/tt relative cursor-help">
+                <span class="font-label text-xs uppercase tracking-widest text-on-surface font-bold" id="dithering-label">Dithering</span>
+                <span class="material-symbols-outlined text-[14px] text-on-surface-variant group-hover/tt:text-primary transition-colors">info</span>
+                <div class="absolute bottom-full left-0 mb-2 w-64 p-3 bg-surface-container-highest border border-outline-variant rounded-lg text-xs text-on-surface-variant font-label opacity-0 group-hover/tt:opacity-100 transition-opacity pointer-events-none drop-shadow-xl z-50">
+                  Uses Floyd-Steinberg algorithm to diffuse color errors. Ideal for smooth gradients in Realistic mode. Native Pop-Art handles this automatically.
+                </div>
+              </div>
+              <span class="text-[10px] text-on-surface-variant uppercase mt-1" id="dithering-subtitle">Simulate Smooth Gradients</span>
             </div>
-            <label class="relative w-12 h-6 cursor-pointer">
+            <label class="relative w-12 h-6 cursor-pointer" id="dithering-toggle-label">
               <input type="checkbox" id="dithering-toggle" class="sr-only peer"/>
-              <div class="w-12 h-6 bg-surface-container-highest rounded-full border border-outline-variant peer-checked:border-secondary/50 transition-colors"></div>
-              <div class="absolute top-1 left-1 w-4 h-4 bg-on-surface-variant peer-checked:bg-secondary peer-checked:shadow-[0_0_8px_#00ffcc] rounded-full peer-checked:translate-x-6 transition-all duration-200"></div>
+              <div class="w-12 h-6 bg-surface-container-highest rounded-full border border-outline-variant peer-checked:border-secondary/50 transition-colors peer-disabled:opacity-50"></div>
+              <div class="absolute top-1 left-1 w-4 h-4 bg-on-surface-variant peer-checked:bg-secondary peer-checked:shadow-[0_0_8px_#00ffcc] rounded-full peer-checked:translate-x-6 transition-all duration-200 peer-disabled:bg-surface-container peer-disabled:shadow-none peer-disabled:translate-x-1"></div>
             </label>
           </div>
         </div>
 
-        <!-- Palette preview -->
-        <div class="bg-background border border-secondary/20 rounded-xl p-4">
-          <div class="flex items-center gap-3 mb-4">
-            <div class="w-2 h-2 rounded-full bg-secondary animate-pulse shadow-[0_0_8px_#00ffcc]"></div>
-            <span class="font-label text-[10px] uppercase text-secondary tracking-[0.2em] font-bold">Palette Engine</span>
-          </div>
-          <div id="palette-preview-container" class="relative">
-            <div class="palette-preview-placeholder grid grid-cols-5 gap-2">
-              <div class="h-8 bg-surface-container-high rounded-sm animate-pulse"></div>
-              <div class="h-8 bg-surface-container-high rounded-sm animate-pulse"></div>
-              <div class="h-8 bg-surface-container-high rounded-sm animate-pulse"></div>
-              <div class="h-8 bg-surface-container-high rounded-sm animate-pulse"></div>
-              <div class="h-8 bg-surface-container-high rounded-sm animate-pulse"></div>
-            </div>
-            <img id="palette-preview" alt="Palette preview" class="w-full rounded-sm hidden"/>
-          </div>
-        </div>
+
 
         <!-- CTA Buttons -->
         <div class="space-y-4 mt-auto">
-          <button id="btn-preview-palette" class="w-full py-3 px-6 border-2 border-secondary/50 text-secondary font-headline font-bold uppercase tracking-[0.15em] text-xs hover:bg-secondary/10 hover:shadow-[0_0_20px_rgba(0,255,204,0.3)] transition-all flex items-center justify-center gap-3 group rounded-lg">
-            <span class="material-symbols-outlined text-lg group-hover:rotate-12 transition-transform">palette</span>
-            <span class="btn-text">Palette Preview</span>
-            <span class="btn-loader hidden flex items-center gap-2"><span class="spinner"></span>Loading…</span>
-          </button>
+>
           <button id="btn-generate" class="w-full py-4 px-6 bg-primary text-on-primary font-headline font-extrabold uppercase tracking-[0.15em] text-sm shadow-[0_0_20px_rgba(255,45,120,0.5)] hover:scale-[1.02] transition-transform active:scale-95 rounded-lg flex items-center justify-center gap-2">
             <span class="btn-text">Generate Mosaic</span>
             <span class="btn-loader hidden flex items-center gap-2"><span class="spinner"></span>Processing…</span>
@@ -747,7 +745,7 @@
               <label class="font-label text-xs text-on-surface-variant">Color Mode</label>
               <select id="quick-color-mode-select" class="bg-surface-container-high border border-outline-variant text-xs text-on-surface rounded-md px-2 py-1 outline-none focus:ring-1 focus:ring-primary focus:border-primary">
                 <option value="realistic">Realistic</option>
-                <option value="pop_art">Pop-Art</option>
+                <option value="pop_art" selected>Pop-Art</option>
                 <option value="gradient">Gradient</option>
               </select>
             </div>
@@ -762,11 +760,11 @@
               <button id="btn-quick-add-gradient-color" class="text-[10px] font-label text-primary hover:text-white mt-1 text-left">+ Add Color (Max 5)</button>
             </div>
 
-            <div class="flex items-center justify-between">
-              <label class="font-label text-xs text-on-surface-variant">Dithering (Quality)</label>
-              <label class="relative inline-flex items-center cursor-pointer">
+            <div class="flex items-center justify-between" id="quick-dither-wrapper">
+              <label class="font-label text-xs text-on-surface-variant" id="quick-dither-label">Dithering (Quality)</label>
+              <label class="relative inline-flex items-center cursor-pointer" id="quick-dither-toggle-label">
                 <input type="checkbox" id="quick-dither-toggle" class="sr-only peer" checked>
-                <div class="w-9 h-5 bg-surface-container-high peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-on-surface after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary border border-outline-variant"></div>
+                <div class="w-9 h-5 bg-surface-container-high peer-focus:outline-none rounded-full peer peer-disabled:opacity-50 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-on-surface peer-disabled:after:bg-on-surface-variant/50 after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary border border-outline-variant"></div>
               </label>
             </div>
             
@@ -823,7 +821,7 @@
     </div>
 
     <footer class="bg-background border-t border-outline-variant/30 py-3 sm:py-4 px-4 sm:px-8 flex flex-col sm:flex-row justify-between items-center text-on-surface-variant mt-auto gap-2 safe-area-bottom">
-      <div class="font-label text-[9px] sm:text-[10px] uppercase tracking-widest text-center sm:text-left">© 2024 BRICKIFY NEON. NOT AN OFFICIAL LEGO PRODUCT. <span class="ml-2 opacity-50">v0.8.0</span></div>
+      <div class="font-label text-[9px] sm:text-[10px] uppercase tracking-widest text-center sm:text-left">© 2024 BRICKIFY NEON. NOT AN OFFICIAL LEGO PRODUCT. <span class="ml-2 opacity-50">v0.8.1</span></div>
       <div class="flex gap-4 sm:gap-6 font-label text-[9px] sm:text-[10px] uppercase tracking-widest">
         <a class="hover:text-tertiary transition-colors" href="/terms.html">Terms</a>
         <a class="hover:text-tertiary transition-colors" href="/privacy.html">Privacy</a>

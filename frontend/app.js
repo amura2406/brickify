@@ -94,9 +94,6 @@ const contrastSlider = $('#contrast-slider');
 const contrastValue = $('#contrast-value');
 const contrastGroup = $('#contrast-group');
 const colorModeSelect = $('#color-mode-select');
-const palettePreview = $('#palette-preview');
-const palettePreviewContainer = $('#palette-preview-container');
-const btnPreviewPalette = $('#btn-preview-palette');
 const btnGenerate = $('#btn-generate');
 
 // Build plan tab
@@ -1766,29 +1763,34 @@ function updateOptionsPanel() {
 
 function setupGenerate() {
     btnGenerate.addEventListener('click', generateMosaic);
-    btnPreviewPalette.addEventListener('click', previewPalette);
 
     if (colorModeSelect && quickColorModeSelect) {
         colorModeSelect.addEventListener('change', () => {
             quickColorModeSelect.value = colorModeSelect.value;
-            syncGradientConfigUI();
+            syncColorModeUI();
         });
         quickColorModeSelect.addEventListener('change', () => {
             colorModeSelect.value = quickColorModeSelect.value;
-            syncGradientConfigUI();
+            syncColorModeUI();
         });
     }
 
-    function syncGradientConfigUI() {
-        if (colorModeSelect && colorModeSelect.value === 'gradient') {
+    function syncColorModeUI() {
+        const mode = colorModeSelect ? colorModeSelect.value : 'realistic';
+        
+        if (mode === 'gradient') {
             if (gradientConfig) gradientConfig.classList.remove('hidden');
             if (quickGradientConfig) quickGradientConfig.classList.remove('hidden');
         } else {
             if (gradientConfig) gradientConfig.classList.add('hidden');
             if (quickGradientConfig) quickGradientConfig.classList.add('hidden');
         }
+
+        const ditheringToggle = $('#dithering-toggle');
+        if (ditheringToggle) ditheringToggle.disabled = (mode !== 'realistic');
+        if (quickDitherToggle) quickDitherToggle.disabled = (mode !== 'realistic');
     }
-    syncGradientConfigUI();
+    syncColorModeUI();
 
     window.activePickerBtn = null;
     window.colorPopover = null;
@@ -1954,36 +1956,7 @@ function setupPreprocessingControls() {
     });
 }
 
-async function previewPalette() {
-    setBtnLoading(btnPreviewPalette, true, 'Loading…');
-    try {
-        const res = await authFetch(`${API}/api/preview-palette`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                url: state.croppedImageUrl,
-                set_selections: getSetSelectionsPayload(),
-                preprocessing: preprocessingToggle.checked,
-                contrast_boost: parseFloat(contrastSlider.value),
-                color_mode: colorModeSelect ? colorModeSelect.value : 'realistic',
-                gradient_colors: getGradientColors(),
-                target_width: state.targetW || null,
-                target_height: state.targetH || null,
-            }),
-        });
-        if (!res.ok) { const err = await res.json(); throw new Error(err.detail || 'Preview failed'); }
-        const data = await res.json();
-        palettePreview.src = data.url;
-        palettePreview.classList.remove('hidden');
-        const placeholder = palettePreviewContainer.querySelector('.palette-preview-placeholder');
-        if (placeholder) placeholder.style.display = 'none';
-    } catch (e) {
-        console.error('Preview failed:', e);
-        alert('Palette preview failed: ' + e.message);
-    } finally {
-        setBtnLoading(btnPreviewPalette, false);
-    }
-}
+
 
 async function generateMosaic() {
     // Show a loading state gracefully whether on Editor or Build Plan
