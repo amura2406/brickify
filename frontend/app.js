@@ -83,12 +83,12 @@ const btnUploadPath = $('#btn-upload-path');
 const cropCanvas = $('#crop-canvas');
 const cropOverlay = $('#crop-overlay');
 const cropWrapper = $('#crop-wrapper');
-const cropZoomSlider = $('#crop-zoom-slider');
 const cropZoomValue = $('#crop-zoom-value');
 const btnApplyCrop = $('#btn-apply-crop');
 const btnResetCrop = $('#btn-reset-crop');
 const targetResolutionSelect = $('#target-resolution-select');
 const btnRotateCrop = $('#btn-rotate-crop');
+const btnRotateImage = $('#btn-rotate-image');
 const preprocessingToggle = $('#preprocessing-toggle');
 const contrastSlider = $('#contrast-slider');
 const contrastValue = $('#contrast-value');
@@ -222,7 +222,8 @@ function _setupUserMenu() {
 
 function initAppFlow() {
     const params = new URLSearchParams(window.location.search);
-    const bypass = params.get('bypass_login') === 'true';
+    const isLocalhost = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+    const bypass = isLocalhost && params.get('bypass_login') === 'true';
     state.isDev = bypass;
 
     if (bypass) {
@@ -280,6 +281,8 @@ function initAppFlow() {
 function showApp() {
     appContainer.classList.remove('hidden');
     showTab('sets');
+    // Once app is visible and user is definitely authenticated, fetch recent uploads
+    loadRecentUploads();
 }
 
 // ── Authenticated fetch helper ────────────────────────────────────────────────
@@ -301,7 +304,7 @@ async function authFetch(url, options = {}) {
 
 async function openAdminDashboard() {
     if (adminModal) adminModal.classList.remove('hidden');
-    await loadPendingUsers();
+    await Promise.all([loadPendingUsers(), loadStorageUsage()]);
 }
 
 async function loadPendingUsers() {
@@ -374,6 +377,114 @@ window.approveUser = async function(uid) {
         alert("Failed to approve: " + e.message);
     }
 };
+
+// ── Admin: Storage Management ─────────────────────────────────────────────────
+async function loadStorageUsage() {
+    const container = document.getElementById('admin-storage-info');
+    if (!container) return;
+
+    container.innerHTML = `
+        <div class="text-center py-4 text-on-surface-variant text-sm font-label flex flex-col items-center gap-3">
+          <span class="spinner" style="width:20px;height:20px;border-width:2px;color:#ff2d78"></span>
+          Loading usage…
+        </div>
+    `;
+
+    try {
+        const res = await authFetch(`${API}/api/admin/storage-usage`, {
+            cache: 'no-store'
+        });
+        if (!res.ok) throw new Error('Failed to load storage usage');
+        const data = await res.json();
+
+        const formatBytes = (bytes) => {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+        };
+
+        const FREE_TIER_LIMIT = 5 * 1024 * 1024 * 1024; // 5 GB
+        const usagePct = Math.min(100, Math.round((data.total_bytes / FREE_TIER_LIMIT) * 100));
+        const isWarning = usagePct > 70;
+
+        let prefixRows = '';
+        if (data.by_prefix) {
+            prefixRows = Object.entries(data.by_prefix).map(([prefix, info]) => `
+                <div class="flex justify-between items-center text-xs">
+                    <span class="font-label text-on-surface-variant"><code>${prefix}/</code></span>
+                    <span class="font-label text-on-surface">${info.files} files · ${formatBytes(info.bytes)}</span>
+                </div>
+            `).join('');
+        }
+
+        container.innerHTML = `
+            <div class="bg-surface-container-high border border-outline-variant rounded-lg p-4 flex flex-col gap-3">
+                <div class="flex justify-between items-center">
+                    <span class="font-label text-sm text-on-surface font-bold">Total Usage</span>
+                    <span class="font-headline font-bold text-lg ${isWarning ? 'text-error' : 'text-secondary'}">${formatBytes(data.total_bytes)}</span>
+                </div>
+                <div class="w-full bg-surface-container-lowest h-2 rounded-full overflow-hidden">
+                    <div class="h-full rounded-full transition-all ${isWarning ? 'bg-error' : 'bg-secondary'}" style="width: ${usagePct}%"></div>
+                </div>
+                <div class="flex justify-between text-[10px] font-label text-on-surface-variant">
+                    <span>${data.total_files} files across all prefixes</span>
+                    <span>${usagePct}% of 5 GB free tier</span>
+                </div>
+                <div class="border-t border-outline-variant/30 pt-2 flex flex-col gap-1">
+                    ${prefixRows}
+                </div>
+            </div>
+            <button id="btn-purge-storage" class="w-full mt-1 px-4 py-3 bg-error/10 border border-error/50 text-error hover:bg-error/20 transition-colors rounded-lg font-label text-xs uppercase tracking-wider font-bold flex items-center justify-center gap-2">
+                <span class="material-symbols-outlined text-sm">delete_sweep</span>
+                Purge All Storage (${data.total_files} files)
+            </button>
+        `;
+
+        const btnPurge = document.getElementById('btn-purge-storage');
+        if (btnPurge) {
+            btnPurge.addEventListener('click', async () => {
+                if (!confirm(`⚠️ This will permanently delete ALL ${data.total_files} stored files. This cannot be undone. Continue?`)) return;
+                
+                const originalContent = btnPurge.innerHTML;
+                btnPurge.innerHTML = '<span class="spinner" style="width:16px;height:16px;border-width:2px;border-color:currentcolor;border-bottom-color:transparent"></span> Purging...';
+                btnPurge.disabled = true;
+                btnPurge.classList.add('opacity-50', 'cursor-not-allowed');
+
+                try {
+                    const delRes = await authFetch(`${API}/api/admin/storage-clear`, { method: 'DELETE' });
+                    if (!delRes.ok) throw new Error('Failed to purge storage');
+                    const result = await delRes.json();
+                    
+                    // Show a temporary success message in the container before reloading stats
+                    container.innerHTML = `<div class="text-center py-4 text-secondary text-sm font-label flex flex-col items-center gap-2">
+                        <span class="material-symbols-outlined text-3xl">check_circle</span>
+                        Successfully purged ${result.deleted_count} files.
+                    </div>`;
+                    
+                    // Wait a moment then reload actual stats
+                    setTimeout(async () => {
+                        await loadStorageUsage();
+                    }, 1500);
+
+                } catch (e) {
+                    btnPurge.innerHTML = originalContent;
+                    btnPurge.disabled = false;
+                    btnPurge.classList.remove('opacity-50', 'cursor-not-allowed');
+                    alert('Purge failed: ' + e.message);
+                }
+            });
+        }
+    } catch (e) {
+        console.error('Storage usage error:', e);
+        container.innerHTML = `
+            <div class="text-center py-4 text-error text-sm font-label">
+                Failed to load storage usage: ${e.message}
+            </div>
+        `;
+    }
+}
 
 // ═════════════════════════════════════════════════
 //  TAB NAVIGATION
@@ -680,18 +791,20 @@ function showEditorStep(step) {
         $('#editor-hint').textContent = hints.upload;
         $('#editor-title').textContent = 'Image Editor';
         $('#editor-subtitle').textContent = 'Upload a photo to begin';
+        $('#editor-title-group').classList.remove('hidden');
     } else if (step === 'crop') {
         stepCrop.classList.remove('hidden');
         stepCrop.style.display = 'flex';
         $('#editor-hint').textContent = hints.crop;
-        $('#editor-title').textContent = 'Crop & Frame';
-        $('#editor-subtitle').textContent = 'Select the square region for your mosaic';
+        // Hide the title group to save vertical space
+        $('#editor-title-group').classList.add('hidden');
     } else if (step === 'options') {
         stepOptions.classList.remove('hidden');
         stepOptions.style.display = 'flex';
         $('#editor-hint').textContent = hints.options;
         $('#editor-title').textContent = 'Mosaic Config';
         $('#editor-subtitle').textContent = 'Fine-tune rendering settings';
+        $('#editor-title-group').classList.remove('hidden');
         updateOptionsPanel();
     }
 }
@@ -731,6 +844,55 @@ function setupUpload() {
             if (!path) return;
             await uploadByPath(path);
         });
+    }
+}
+
+async function loadRecentUploads() {
+    const grid = document.getElementById('recent-uploads-grid');
+    if (!grid) return;
+
+    try {
+        const res = await authFetch(`${API}/api/recent-uploads`);
+        if (!res.ok) throw new Error('Failed to load');
+        const data = await res.json();
+        const images = data.images || [];
+
+        if (images.length === 0) {
+            grid.innerHTML = '<div class="col-span-full text-center py-3 text-on-surface-variant text-xs font-label">No recent uploads</div>';
+            return;
+        }
+
+        grid.innerHTML = images.map(img => `
+            <button class="recent-upload-thumb aspect-square rounded-lg overflow-hidden border border-outline-variant/30 hover:border-primary/60 transition-all cursor-pointer group relative bg-surface-container-lowest" data-url="${img.url}">
+                <img src="${img.url}" class="w-full h-full object-cover group-hover:scale-105 transition-transform" loading="lazy" alt="Recent upload" />
+                <div class="absolute inset-0 bg-primary/0 group-hover:bg-primary/10 transition-colors"></div>
+            </button>
+        `).join('');
+
+        grid.querySelectorAll('.recent-upload-thumb').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const url = btn.dataset.url;
+                // Create an Image to get dimensions
+                const img = new window.Image();
+                img.crossOrigin = 'anonymous';
+                img.onload = () => {
+                    handleUploadResponse({
+                        url: url,
+                        width: img.naturalWidth,
+                        height: img.naturalHeight,
+                        is_square: img.naturalWidth === img.naturalHeight,
+                    });
+                };
+                img.onerror = () => {
+                    // If we can't load for dimensions, just proceed with crop
+                    handleUploadResponse({ url, width: 1000, height: 1000, is_square: false });
+                };
+                img.src = url;
+            });
+        });
+    } catch (e) {
+        console.error('Recent uploads load failed:', e);
+        grid.innerHTML = '<div class="col-span-full text-center py-3 text-on-surface-variant text-xs font-label">Could not load recent uploads</div>';
     }
 }
 
@@ -795,23 +957,35 @@ function handleUploadResponse(data) {
     state.imageHeight = data.height;
     state.isSquare = data.is_square;
 
-    if (!data.is_square) {
-        showEditorStep('crop');
-        initCropTool();
-    } else {
-        state.croppedImageUrl = data.url;
-        showEditorStep('options');
-    }
+    // Always show crop tool — even square images benefit from reframing
+    showEditorStep('crop');
+    initCropTool();
 }
 
 // ═════════════════════════════════════════════════
 //  STEP 2b: CROP TOOL
 // ═════════════════════════════════════════════════
 let cropState = {
-    x: 0, y: 0, size: 0, w: 0, h: 0,
-    dragging: false, dragStartX: 0, dragStartY: 0, startX: 0, startY: 0,
-    displayScale: 1, canvasOffsetX: 0, maxSize: 0, maxW: 0, maxH: 0,
-    targetRatio: 1
+    // Image transform state (NEW: fixed frame, movable image)
+    imgScale: 1,        // Current image zoom level (1 = fit-to-frame)
+    imgPanX: 0,         // Image pan offset X (in display px)
+    imgPanY: 0,         // Image pan offset Y (in display px)
+    imgRotation: 0,     // Image rotation in degrees (0, 90, 180, 270)
+    // Frame (crop area) dimensions — static, computed from target resolution
+    frameW: 0, frameH: 0,
+    frameX: 0, frameY: 0,
+    // Drawing/display
+    minImgScale: 0.1,   // Dynamic minimum scale calculated per image
+    displayScale: 1,    // Ratio of display size to original image
+    naturalW: 0,        // Original image natural width
+    naturalH: 0,        // Original image natural height
+    // Legacy compat (used by applyCrop and updateCropOverlay)
+    x: 0, y: 0, w: 0, h: 0,
+    maxW: 0, maxH: 0,
+    targetRatio: 1,
+    // Drag tracking
+    dragging: false, dragStartX: 0, dragStartY: 0,
+    startPanX: 0, startPanY: 0,
 };
 
 let mosaicState = {
@@ -825,28 +999,28 @@ function setupCrop() {
     btnApplyCrop.addEventListener('click', applyCrop);
     btnResetCrop.addEventListener('click', resetCrop);
 
-    cropZoomSlider.addEventListener('input', () => {
-        setCropZoom(parseInt(cropZoomSlider.value));
-    });
-
+    // Mouse wheel zoom on crop area — zooms the IMAGE, not the frame
     cropWrapper.addEventListener('wheel', (e) => {
         e.preventDefault();
-        const delta = e.deltaY > 0 ? -5 : 5;
-        const newPct = Math.max(10, Math.min(100, parseInt(cropZoomSlider.value) - delta));
-        cropZoomSlider.value = newPct;
-        setCropZoom(newPct);
+        // Use a proportional scale factor for much finer granularity (5% increments)
+        const scaleFactor = e.deltaY > 0 ? 0.95 : 1.05;
+        cropState.imgScale = Math.max(cropState.minImgScale, Math.min(5, cropState.imgScale * scaleFactor));
+        clampImagePan();
+        drawCropScene();
+        updateZoomLabel();
     }, { passive: false });
 
+    // Pinch-to-zoom on touch devices
     let initialPinchDistance = null;
-    let initialZoomValue = null;
+    let initialScale = null;
 
     cropWrapper.addEventListener('touchstart', (e) => {
-        if (e.touches.length === 2 && e.target.id !== 'comparison-slider') {
+        if (e.touches.length === 2) {
             e.preventDefault();
             const t1 = e.touches[0];
             const t2 = e.touches[1];
             initialPinchDistance = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
-            initialZoomValue = parseInt(cropZoomSlider.value);
+            initialScale = cropState.imgScale;
         }
     }, { passive: false });
 
@@ -856,10 +1030,11 @@ function setupCrop() {
             const t1 = e.touches[0];
             const t2 = e.touches[1];
             const currentDistance = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
-            const zoomDelta = (currentDistance - initialPinchDistance) / 2;
-            const newPct = Math.max(10, Math.min(100, initialZoomValue + zoomDelta));
-            cropZoomSlider.value = newPct;
-            setCropZoom(newPct);
+            const ratio = currentDistance / initialPinchDistance;
+            cropState.imgScale = Math.max(cropState.minImgScale, Math.min(5, initialScale * ratio));
+            clampImagePan();
+            drawCropScene();
+            updateZoomLabel();
         }
     }, { passive: false });
 
@@ -868,26 +1043,41 @@ function setupCrop() {
             initialPinchDistance = null;
         }
     });
-}
 
-function setCropZoom(pct) {
-    const minW = Math.max(20, cropState.maxW * 0.1);
-    const newW = minW + (cropState.maxW - minW) * (pct / 100);
-    const minH = Math.max(20, cropState.maxH * 0.1);
-    const newH = minH + (cropState.maxH - minH) * (pct / 100);
-    const centerX = cropState.x + cropState.w / 2;
-    const centerY = cropState.y + cropState.h / 2;
-    cropState.w = Math.round(newW);
-    cropState.h = Math.round(newH);
-    cropState.x = Math.max(0, Math.min(Math.round(centerX - cropState.w / 2), cropCanvas.width - cropState.w));
-    cropState.y = Math.max(0, Math.min(Math.round(centerY - cropState.h / 2), cropCanvas.height - cropState.h));
-    updateCropOverlay();
-    updateZoomLabel();
+    // Rotate image button
+    if (btnRotateImage) {
+        btnRotateImage.addEventListener('click', () => {
+            cropState.imgRotation = (cropState.imgRotation + 90) % 360;
+            // Reset pan and scale on rotation
+            cropState.imgScale = 1;
+            cropState.imgPanX = 0;
+            cropState.imgPanY = 0;
+            recalcCropFrame();
+            drawCropScene();
+            updateZoomLabel();
+        });
+    }
 }
 
 function updateZoomLabel() {
-    const zoom = cropState.maxW / cropState.w;
-    cropZoomValue.textContent = `${zoom.toFixed(1)}×`;
+    cropZoomValue.textContent = `${cropState.imgScale.toFixed(1)}×`;
+}
+
+function clampImagePan() {
+    // Nothing to clamp if frame is not set
+    if (!cropState.frameW) return;
+
+    const effW = (cropState.imgRotation % 180 === 0) ? cropState.naturalW : cropState.naturalH;
+    const effH = (cropState.imgRotation % 180 === 0) ? cropState.naturalH : cropState.naturalW;
+    
+    const renderedW = effW * cropState.displayScale * cropState.imgScale;
+    const renderedH = effH * cropState.displayScale * cropState.imgScale;
+    
+    const maxPanX = Math.max(0, (renderedW - cropState.frameW) / 2);
+    const maxPanY = Math.max(0, (renderedH - cropState.frameH) / 2);
+    
+    cropState.imgPanX = Math.max(-maxPanX, Math.min(maxPanX, cropState.imgPanX));
+    cropState.imgPanY = Math.max(-maxPanY, Math.min(maxPanY, cropState.imgPanY));
 }
 
 function populateTargetResolutions() {
@@ -976,30 +1166,61 @@ function populateTargetResolutions() {
     }
 }
 
-function recalcCropMaxSize() {
-    let mw = cropCanvas.width;
-    let mh = mw / cropState.targetRatio;
+function recalcCropFrame() {
+    // The frame (crop area) is STATIC and centered in the canvas.
+    // Sized to fill up to 90% of the canvas to leave breathing room around the edges.
+    const maxViewportW = cropCanvas.width * 0.9;
+    const maxViewportH = cropCanvas.height * 0.9;
     
-    if (mh > cropCanvas.height) {
-        mh = cropCanvas.height;
-        mw = mh * cropState.targetRatio;
+    let fw = maxViewportW;
+    let fh = fw / cropState.targetRatio;
+    
+    if (fh > maxViewportH) {
+        fh = maxViewportH;
+        fw = fh * cropState.targetRatio;
     }
     
-    cropState.maxW = mw;
-    cropState.maxH = mh;
-    cropState.w = mw;
-    cropState.h = mh;
-    cropState.x = (cropCanvas.width - mw) / 2;
-    cropState.y = (cropCanvas.height - mh) / 2;
-    cropZoomSlider.value = 100;
+    cropState.frameW = Math.round(fw);
+    cropState.frameH = Math.round(fh);
+    cropState.frameX = Math.round((cropCanvas.width - cropState.frameW) / 2);
+    cropState.frameY = Math.round((cropCanvas.height - cropState.frameH) / 2);
     
-    updateCropOverlay();
+    // Legacy compat
+    cropState.maxW = fw;
+    cropState.maxH = fh;
+    cropState.w = fw;
+    cropState.h = fh;
+    cropState.x = cropState.frameX;
+    cropState.y = cropState.frameY;
+
+    // Auto-fit image scale so image fills the frame
+    const effW = (cropState.imgRotation % 180 === 0) ? cropState.naturalW : cropState.naturalH;
+    const effH = (cropState.imgRotation % 180 === 0) ? cropState.naturalH : cropState.naturalW;
+    const scaleToFillW = fw / (effW * cropState.displayScale);
+    const scaleToFillH = fh / (effH * cropState.displayScale);
+    cropState.minImgScale = Math.max(scaleToFillW, scaleToFillH);
+    cropState.imgScale = cropState.minImgScale;
+    cropState.imgPanX = 0;
+    cropState.imgPanY = 0;
+
+    drawCropScene();
     updateZoomLabel();
 }
 
+function recalcCropMaxSize() {
+    // Backward compat alias
+    recalcCropFrame();
+}
+
 function initCropTool() {
-    const ctx = cropCanvas.getContext('2d');
+    // Reset rotation for new image
+    cropState.imgRotation = 0;
+    cropState.imgScale = 1;
+    cropState.imgPanX = 0;
+    cropState.imgPanY = 0;
+
     const img = new window.Image();
+    img.crossOrigin = 'anonymous';
     
     img.onerror = (e) => {
         console.error("Failed to load image for cropping:", state.imageUrl, e);
@@ -1009,108 +1230,218 @@ function initCropTool() {
     img.src = state.imageUrl;
     
     img.onload = () => {
-        const wrapperW = cropWrapper.clientWidth - 64;
-        const maxH = 500;
-        let scale = Math.min(wrapperW / img.width, maxH / img.height, 1);
-        const dispW = Math.round(img.width * scale);
-        const dispH = Math.round(img.height * scale);
+        // Auto-detect portrait images and set initial rotation if image is taller than wide
+        // (most phone photos come in landscape from the URL even if taken portrait)
+        // We don't rotate here — the backend handles EXIF. Just store natural dimensions.
+        cropState.naturalW = img.naturalWidth;
+        cropState.naturalH = img.naturalHeight;
 
+        // Use the maximum available screen real estate within crop-wrapper boundaries (minus the 32px padding).
+        const wrapperW = cropWrapper.clientWidth > 64 ? cropWrapper.clientWidth - 64 : cropWrapper.clientWidth;
+        const wrapperH = cropWrapper.clientHeight > 64 ? cropWrapper.clientHeight - 64 : cropWrapper.clientHeight;
+        const dispW = wrapperW;
+        const dispH = Math.max(wrapperH, 300); // minimum height so it doesn't collapse entirely
+        
         cropCanvas.width = dispW;
         cropCanvas.height = dispH;
         cropCanvas.style.width = dispW + 'px';
         cropCanvas.style.height = dispH + 'px';
+        
         const cropContainer = document.getElementById('crop-container');
         if (cropContainer) {
             cropContainer.style.width = dispW + 'px';
             cropContainer.style.height = dispH + 'px';
         }
 
-        ctx.drawImage(img, 0, 0, dispW, dispH);
-        cropState.displayScale = scale;
+        // We can just use displayScale = 1, as imgScale will automatically adjust to 
+        // fill the crop frame perfectly in recalcCropFrame().
+        cropState.displayScale = 1;
+
+        // Store the loaded image for redraws
+        cropState._img = img;
 
         populateTargetResolutions();
-        recalcCropMaxSize();
+        recalcCropFrame();
 
-        // Remove old listeners
-        cropOverlay.removeEventListener('mousedown', startCropDrag);
-        cropOverlay.removeEventListener('touchstart', startCropDragTouch);
-        document.removeEventListener('mousemove', moveCropDrag);
-        document.removeEventListener('touchmove', moveCropDragTouch);
-        document.removeEventListener('mouseup', endCropDrag);
-        document.removeEventListener('touchend', endCropDrag);
+        // Image drag (pan) listeners — user drags the IMAGE behind the fixed frame
+        cropOverlay.removeEventListener('mousedown', startImageDrag);
+        cropOverlay.removeEventListener('touchstart', startImageDragTouch);
+        document.removeEventListener('mousemove', moveImageDrag);
+        document.removeEventListener('touchmove', moveImageDragTouch);
+        document.removeEventListener('mouseup', endImageDrag);
+        document.removeEventListener('touchend', endImageDrag);
 
-        cropOverlay.addEventListener('mousedown', startCropDrag);
-        cropOverlay.addEventListener('touchstart', startCropDragTouch, { passive: false });
-        document.addEventListener('mousemove', moveCropDrag);
-        document.addEventListener('touchmove', moveCropDragTouch, { passive: false });
-        document.addEventListener('mouseup', endCropDrag);
-        document.addEventListener('touchend', endCropDrag);
+        cropOverlay.addEventListener('mousedown', startImageDrag);
+        cropOverlay.addEventListener('touchstart', startImageDragTouch, { passive: false });
+        document.addEventListener('mousemove', moveImageDrag);
+        document.addEventListener('touchmove', moveImageDragTouch, { passive: false });
+        document.addEventListener('mouseup', endImageDrag);
+        document.addEventListener('touchend', endImageDrag);
     };
 }
 
-function updateCropOverlay() {
-    cropOverlay.style.left = cropState.x + 'px';
-    cropOverlay.style.top = cropState.y + 'px';
-    cropOverlay.style.width = cropState.w + 'px';
-    cropOverlay.style.height = cropState.h + 'px';
+function drawCropScene() {
+    const ctx = cropCanvas.getContext('2d');
+    const img = cropState._img;
+    if (!img) return;
+
+    const cw = cropCanvas.width;
+    const ch = cropCanvas.height;
+    const s = cropState.displayScale;
+
+    // Clear canvas
+    ctx.clearRect(0, 0, cw, ch);
+
+    // Draw the image with current scale, pan, and rotation
+    ctx.save();
+    const centerX = cw / 2 + cropState.imgPanX;
+    const centerY = ch / 2 + cropState.imgPanY;
+    ctx.translate(centerX, centerY);
+    ctx.rotate((cropState.imgRotation * Math.PI) / 180);
+    ctx.scale(cropState.imgScale, cropState.imgScale);
+    const drawW = img.naturalWidth * s;
+    const drawH = img.naturalHeight * s;
+    ctx.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH);
+    ctx.restore();
+
+    // Draw dark overlay outside the frame
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
+    // Top
+    ctx.fillRect(0, 0, cw, cropState.frameY);
+    // Bottom
+    ctx.fillRect(0, cropState.frameY + cropState.frameH, cw, ch - cropState.frameY - cropState.frameH);
+    // Left
+    ctx.fillRect(0, cropState.frameY, cropState.frameX, cropState.frameH);
+    // Right
+    ctx.fillRect(cropState.frameX + cropState.frameW, cropState.frameY, cw - cropState.frameX - cropState.frameW, cropState.frameH);
+
+    // Update overlay position to match frame exactly
+    updateCropOverlay();
 }
 
-function startCropDrag(e) {
+function updateCropOverlay() {
+    cropOverlay.style.left = cropState.frameX + 'px';
+    cropOverlay.style.top = cropState.frameY + 'px';
+    cropOverlay.style.width = cropState.frameW + 'px';
+    cropOverlay.style.height = cropState.frameH + 'px';
+}
+
+// Image drag — moves the image behind the fixed frame
+function startImageDrag(e) {
     e.preventDefault();
     cropState.dragging = true;
     cropState.dragStartX = e.clientX;
     cropState.dragStartY = e.clientY;
-    cropState.startX = cropState.x;
-    cropState.startY = cropState.y;
+    cropState.startPanX = cropState.imgPanX;
+    cropState.startPanY = cropState.imgPanY;
 }
 
-function startCropDragTouch(e) {
+function startImageDragTouch(e) {
+    if (e.touches.length !== 1) return; // let pinch handler take over
     e.preventDefault();
     const t = e.touches[0];
     cropState.dragging = true;
     cropState.dragStartX = t.clientX;
     cropState.dragStartY = t.clientY;
-    cropState.startX = cropState.x;
-    cropState.startY = cropState.y;
+    cropState.startPanX = cropState.imgPanX;
+    cropState.startPanY = cropState.imgPanY;
 }
 
-function moveCropDrag(e) {
+function moveImageDrag(e) {
     if (!cropState.dragging) return;
-    moveCrop(e.clientX - cropState.dragStartX, e.clientY - cropState.dragStartY);
+    const dx = e.clientX - cropState.dragStartX;
+    const dy = e.clientY - cropState.dragStartY;
+    cropState.imgPanX = cropState.startPanX + dx;
+    cropState.imgPanY = cropState.startPanY + dy;
+    clampImagePan();
+    drawCropScene();
 }
 
-function moveCropDragTouch(e) {
-    if (!cropState.dragging) return;
+function moveImageDragTouch(e) {
+    if (!cropState.dragging || e.touches.length !== 1) return;
     e.preventDefault();
     const t = e.touches[0];
-    moveCrop(t.clientX - cropState.dragStartX, t.clientY - cropState.dragStartY);
+    const dx = t.clientX - cropState.dragStartX;
+    const dy = t.clientY - cropState.dragStartY;
+    cropState.imgPanX = cropState.startPanX + dx;
+    cropState.imgPanY = cropState.startPanY + dy;
+    clampImagePan();
+    drawCropScene();
 }
 
-function moveCrop(dx, dy) {
-    cropState.x = Math.max(0, Math.min(cropState.startX + dx, cropCanvas.width - cropState.w));
-    cropState.y = Math.max(0, Math.min(cropState.startY + dy, cropCanvas.height - cropState.h));
-    updateCropOverlay();
-}
-
-function endCropDrag() { cropState.dragging = false; }
+function endImageDrag() { cropState.dragging = false; }
 
 function resetCrop() {
-    recalcCropMaxSize();
+    cropState.imgRotation = 0;
+    cropState.imgScale = 1;
+    cropState.imgPanX = 0;
+    cropState.imgPanY = 0;
+    recalcCropFrame();
 }
 
 async function applyCrop() {
-    const scale = cropState.displayScale;
-    const x = Math.round(cropState.x / scale);
-    const y = Math.round(cropState.y / scale);
-    const w = Math.round(cropState.w / scale);
-    const h = Math.round(cropState.h / scale);
+    // Calculate the crop region in ORIGINAL image coordinates.
+    // The frame is at (frameX, frameY) with size (frameW, frameH) in display space.
+    // The image is drawn at center + pan, scaled by imgScale, rotated by imgRotation.
+    // We need to figure out which part of the original image is visible inside the frame.
+
+    const s = cropState.displayScale;
+    const cw = cropCanvas.width;
+    const ch = cropCanvas.height;
+
+    // Center of the image in canvas coords
+    const imgCenterX = cw / 2 + cropState.imgPanX;
+    const imgCenterY = ch / 2 + cropState.imgPanY;
+
+    // The effective displayed image size (after scale, in display px)
+    const effW = cropState.naturalW * s * cropState.imgScale;
+    const effH = cropState.naturalH * s * cropState.imgScale;
+
+    // Top-left of the displayed image (before rotation) in canvas coords
+    // After rotation, the mapping changes, but we handle rotation on the backend.
+    // So we compute crop coords as if the image is at its rotated orientation.
+    const rot = cropState.imgRotation % 360;
+    let imgDispW, imgDispH;
+    if (rot === 90 || rot === 270) {
+        imgDispW = effH;
+        imgDispH = effW;
+    } else {
+        imgDispW = effW;
+        imgDispH = effH;
+    }
+
+    const imgLeft = imgCenterX - imgDispW / 2;
+    const imgTop = imgCenterY - imgDispH / 2;
+
+    // Frame position relative to the displayed (rotated) image
+    const relX = cropState.frameX - imgLeft;
+    const relY = cropState.frameY - imgTop;
+
+    // Convert to original image coords (accounting for rotation on backend)
+    const origScale = rot === 90 || rot === 270
+        ? s * cropState.imgScale * (cropState.naturalH / (imgDispW / (s * cropState.imgScale)) )
+        : s * cropState.imgScale;
+    // Simpler: ratio of display size to natural size (after rotation)
+    const natRotW = (rot === 90 || rot === 270) ? cropState.naturalH : cropState.naturalW;
+    const natRotH = (rot === 90 || rot === 270) ? cropState.naturalW : cropState.naturalH;
+    const scaleX = imgDispW / natRotW;
+    const scaleY = imgDispH / natRotH;
+
+    const x = Math.round(Math.max(0, relX / scaleX));
+    const y = Math.round(Math.max(0, relY / scaleY));
+    const w = Math.round(cropState.frameW / scaleX);
+    const h = Math.round(cropState.frameH / scaleY);
 
     setBtnLoading(btnApplyCrop, true, 'Cropping…');
     try {
         const res = await authFetch(`${API}/api/crop`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url: state.imageUrl, x, y, size: 0, w, h }),
+            body: JSON.stringify({
+                url: state.imageUrl,
+                x, y, w, h,
+                rotation_degrees: cropState.imgRotation,
+            }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || 'Crop failed');
@@ -1643,7 +1974,7 @@ function setupResult() {
     let _quickRegenTimer = null;
     function scheduleRegen() {
         clearTimeout(_quickRegenTimer);
-        _quickRegenTimer = setTimeout(() => { if (state.croppedImageUrl) generateMosaic(); }, 400);
+        _quickRegenTimer = setTimeout(() => { if (state.croppedImageUrl) generateMosaic(); }, 800);
     }
 
     function renderQuickChips() {
@@ -1675,6 +2006,9 @@ function setupResult() {
                     <button class="w-5 h-5 flex items-center justify-center rounded hover:bg-surface-container text-on-surface-variant hover:text-primary transition-colors" data-action="inc" data-idx="${idx}">
                         <span class="material-symbols-outlined" style="font-size:12px">add</span>
                     </button>
+                    <button class="w-5 h-5 flex items-center justify-center rounded hover:bg-surface-container text-on-surface-variant hover:text-secondary transition-colors" data-action="replace" data-idx="${idx}" title="Replace set">
+                        <span class="material-symbols-outlined" style="font-size:12px">swap_horiz</span>
+                    </button>
                     <button class="w-5 h-5 flex items-center justify-center rounded hover:bg-surface-container text-on-surface-variant hover:text-error transition-colors ml-0.5" data-action="remove" data-idx="${idx}">
                         <span class="material-symbols-outlined" style="font-size:12px">close</span>
                     </button>
@@ -1689,6 +2023,15 @@ function setupResult() {
                         state.setSelections[i].qty = Math.max(state.setSelections[i].qty - 1, 1);
                     } else if (btn.dataset.action === 'remove') {
                         state.setSelections.splice(i, 1);
+                    } else if (btn.dataset.action === 'replace') {
+                        // Open the add popover in replace mode
+                        window._replaceSetIdx = i;
+                        quickAddPopover.classList.remove('hidden');
+                        quickAddPopover.style.display = 'flex';
+                        quickAddSearch.value = '';
+                        buildQuickAddList('');
+                        quickAddSearch.focus();
+                        return; // Don't regenerate yet
                     }
                     renderSelectedSets();
                     renderQuickChips();
@@ -1702,6 +2045,7 @@ function setupResult() {
     function buildQuickAddList(filterText = '') {
         const q = filterText.toLowerCase();
         const allSets = state.allSets;
+        const isReplaceMode = typeof window._replaceSetIdx === 'number';
         quickAddSetList.innerHTML = allSets
             .filter(s => !filterText || s.name.toLowerCase().includes(q) || s.id.includes(q))
             .map(s => {
@@ -1709,7 +2053,7 @@ function setupResult() {
                 return `
                 <button class="flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs text-left hover:bg-surface-container transition-colors w-full ${inCart ? 'text-primary' : 'text-on-surface'}"
                     data-set-id="${s.id}">
-                    <span class="material-symbols-outlined" style="font-size:14px">${inCart ? 'check_circle' : 'add_circle'}</span>
+                    <span class="material-symbols-outlined" style="font-size:14px">${isReplaceMode ? 'swap_horiz' : (inCart ? 'check_circle' : 'add_circle')}</span>
                     <span class="flex-1">${s.name}</span>
                     <span class="text-on-surface-variant">#${s.id}</span>
                 </button>`;
@@ -1717,13 +2061,26 @@ function setupResult() {
         quickAddSetList.querySelectorAll('[data-set-id]').forEach(btn => {
             btn.addEventListener('click', () => {
                 const setId = btn.dataset.setId;
-                const existing = state.setSelections.find(s => s.set.id === setId);
-                if (existing) {
-                    // Toggle off
-                    state.setSelections = state.setSelections.filter(s => s.set.id !== setId);
+                const setObj = state.allSets.find(s => s.id === setId);
+                if (!setObj) return;
+
+                if (isReplaceMode) {
+                    // Replace mode: swap the set at the stored index
+                    const idx = window._replaceSetIdx;
+                    if (idx >= 0 && idx < state.setSelections.length) {
+                        state.setSelections[idx] = { set: setObj, qty: state.setSelections[idx].qty };
+                    }
+                    window._replaceSetIdx = undefined;
+                    quickAddPopover.classList.add('hidden');
+                    quickAddPopover.style.display = '';
                 } else {
-                    const setObj = state.allSets.find(s => s.id === setId);
-                    if (setObj) state.setSelections.push({ set: setObj, qty: 1 });
+                    // Normal toggle mode
+                    const existing = state.setSelections.find(s => s.set.id === setId);
+                    if (existing) {
+                        state.setSelections = state.setSelections.filter(s => s.set.id !== setId);
+                    } else {
+                        state.setSelections.push({ set: setObj, qty: 1 });
+                    }
                 }
                 renderSelectedSets();
                 renderQuickChips();
@@ -1738,12 +2095,14 @@ function setupResult() {
         e.stopPropagation();
         const isHidden = quickAddPopover.classList.contains('hidden');
         if (isHidden) {
+            window._replaceSetIdx = undefined; // Clear replace mode
             quickAddPopover.classList.remove('hidden');
             quickAddPopover.style.display = 'flex';
             quickAddSearch.value = '';
             buildQuickAddList();
             quickAddSearch.focus();
         } else {
+            window._replaceSetIdx = undefined;
             quickAddPopover.classList.add('hidden');
             quickAddPopover.style.display = '';
         }
@@ -1751,6 +2110,7 @@ function setupResult() {
     // Close popover when clicking outside
     document.addEventListener('click', (e) => {
         if (!quickAddPopover.contains(e.target) && e.target !== quickAddSetBtn && !quickAddSetBtn.contains(e.target)) {
+            window._replaceSetIdx = undefined;
             quickAddPopover.classList.add('hidden');
             quickAddPopover.style.display = '';
         }
@@ -2235,6 +2595,12 @@ function switchResultMode(mode) {
         compareModeView.classList.add('hidden');
         singleModeView.classList.remove('hidden');
         singleModeView.classList.add('flex');
+
+        // Feature 6: Reset zoom/pan when switching back to single mode
+        state.zoom = 1;
+        mosaicState.panX = 0;
+        mosaicState.panY = 0;
+        if (state.mosaicData) applyZoom();
     }
 }
 
@@ -2350,14 +2716,17 @@ function renderCompareColumns() {
         let gradPickers = '';
         if (col.colorMode === 'gradient') {
             const inputs = col.gradientColors.map((hex, i) => 
-                `<button data-color="${hex}" style="background-color: ${hex}" class="w-5 h-5 rounded cursor-pointer border border-outline-variant p-0 inline-block shadow-sm arena-gradient-btn" onclick="window.handleArenaColorClick(this, '${col.id}', ${i})"></button>`
+                `<button data-color="${hex}" style="background-color: ${hex}" class="w-5 h-5 rounded cursor-pointer border border-outline-variant p-0 inline-block shadow-sm arena-gradient-btn" onclick="window.handleArenaColorClick(this, '${col.id}', ${i})" oncontextmenu="event.preventDefault(); window.removeArenaGradientColor('${col.id}', ${i})"></button>`
             ).join('');
+            const canAdd = col.gradientColors.length < 5;
             gradPickers = `
             <div class="flex flex-col gap-1 mt-2">
                 <label class="font-label text-[9px] text-on-surface-variant uppercase tracking-widest">Gradient Palette</label>
                 <div class="flex gap-1 items-center">
                     ${inputs}
+                    ${canAdd ? `<button class="w-5 h-5 rounded border border-dashed border-primary/50 text-primary flex items-center justify-center text-xs hover:bg-primary/10" onclick="window.addArenaGradientColor('${col.id}')">+</button>` : ''}
                 </div>
+                <span class="text-[8px] text-on-surface-variant">Click to change · Right-click to remove</span>
             </div>`;
         }
 
@@ -2456,6 +2825,24 @@ window.updateCompareGradient = function(id, index, value) {
             generateCompareColumn(id);
         }, 500);
     }
+}
+
+window.addArenaGradientColor = function(id) {
+    const col = state.compareColumns.find(c => c.id === id);
+    if (!col || col.gradientColors.length >= 5) return;
+    col.gradientColors.push('#888888');
+    renderCompareColumns();
+    clearTimeout(col.debounceTimer);
+    col.debounceTimer = setTimeout(() => generateCompareColumn(id), 500);
+}
+
+window.removeArenaGradientColor = function(id, index) {
+    const col = state.compareColumns.find(c => c.id === id);
+    if (!col || col.gradientColors.length <= 2) return;
+    col.gradientColors.splice(index, 1);
+    renderCompareColumns();
+    clearTimeout(col.debounceTimer);
+    col.debounceTimer = setTimeout(() => generateCompareColumn(id), 500);
 }
 
 window.promoteToPrimary = function(id) {

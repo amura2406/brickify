@@ -162,6 +162,7 @@ class CropRequest(BaseModel):
     y: float
     w: float
     h: float
+    rotation_degrees: int = 0  # 0, 90, 180, 270
 
 
 @app.post("/api/crop")
@@ -170,11 +171,17 @@ def crop_image(
     _user: dict = Depends(require_approved_user),
     provider: StorageProvider = Depends(get_storage_provider)
 ):
-    """Download image, crop, and upload resulting square."""
+    """Download image, optionally rotate, crop, and upload result."""
     try:
         img = _download_from_url(req.url)
     except Exception:
         raise HTTPException(400, "Cannot fetch image from URL")
+
+    # Apply rotation before crop (uses PIL expand=True to avoid clipping)
+    if req.rotation_degrees and req.rotation_degrees % 360 != 0:
+        # PIL rotates counter-clockwise; negate for clockwise convention
+        angle = -(req.rotation_degrees % 360)
+        img = img.rotate(angle, expand=True)
 
     cw, ch = img.size
     x = max(0, int(req.x))
@@ -330,6 +337,36 @@ def me(user: dict = Depends(get_current_user)):
         "approved": user.get("approved", False),
         "is_admin": user.get("email", "").lower() in os.environ.get("ADMIN_EMAILS", "amuhr4@gmail.com").split(","),
     }
+
+
+@app.get("/api/recent-uploads")
+def recent_uploads(
+    _user: dict = Depends(require_approved_user),
+    provider: StorageProvider = Depends(get_storage_provider),
+):
+    """List the 10 most recently uploaded images (global, all users)."""
+    items = provider.list_recent(folder="uploads", limit=10)
+    return {"images": items}
+
+
+@app.get("/api/admin/storage-usage")
+def storage_usage(
+    _admin: dict = Depends(require_admin),
+    provider: StorageProvider = Depends(get_storage_provider),
+):
+    """Return total storage usage for managed prefixes (admin only)."""
+    usage = provider.get_storage_usage()
+    return usage
+
+
+@app.delete("/api/admin/storage-clear")
+def storage_clear(
+    _admin: dict = Depends(require_admin),
+    provider: StorageProvider = Depends(get_storage_provider),
+):
+    """Purge all files under managed prefixes (admin only)."""
+    result = provider.clear_all_storage()
+    return result
 
 
 class PalettePreviewRequest(BaseModel):

@@ -6,6 +6,10 @@
 
 Turn any photo into a buildable LEGO Art mosaic. Pick from official LEGO Art sets — or combine multiple sets for richer colors and better results.
 
+<p align="center">
+  <img src="brickify demo.png" alt="Brickify Demo">
+</p>
+
 ## ✨ Features
 
 - **Multi-Set Blending** — Combine multiple LEGO Art sets (even duplicates) to unlock more colors and pieces. A cart-style UI lets you add sets, adjust quantities, and see merged stats at a glance.
@@ -14,8 +18,8 @@ Turn any photo into a buildable LEGO Art mosaic. Pick from official LEGO Art set
 - **Pop-Art Mode** — Bypass strict color matching and instead map the image's luminance to your assigned LEGO set colors for a highly stylized, high-contrast pop-art mosaic.
 - **Floyd-Steinberg Dithering** — Distributes color quantization error across neighboring studs, simulating gradients and smooth transitions even with limited palettes.
 - **Image Preprocessing** — Optional contrast enhancement and palette-aware color quantization before mosaic generation, dramatically improving results for low-contrast photos.
-- **Interactive Crop & Zoom** — Drag-to-crop with a zoom slider (or mousewheel) to frame your subject precisely before converting.
-- **Responsive & Touch-Optimized** — Fully supports mobile and tablet devices with native-feeling multi-touch gestures (pinch-to-zoom, touch panning) and seamless side-by-side iPad layouts.
+- **Interactive Crop & Zoom** — Drag-to-crop with an ultra-precise proportional scroll wheel zoom (desktop) and pinch-to-zoom (mobile). Includes automatic pan boundaries preventing image gap bleed.
+- **Responsive & Touch-Optimized** — Fully supports mobile and tablet devices with native-feeling multi-touch gestures and a full-screen, distraction-free crop workspace.
 - **Palette Preview** — See exactly how your image maps to the selected LEGO colors before committing to a full mosaic generation.
 - **Compare Arena** — Build variants of your photo simultaneously side-by-side. Track differing multi-set configurations, colors modes, preprocessing toggles, and robust gradient mapping with a native custom LEGO color picker.
 - **Dynamic Mosaic Resolution** — Intelligently detects and manages non-square target sets (like Floral Art 32x48) passing `target_width` and `target_height` so mosaics process seamlessly without being forced into an invisible 1:1 squashed bounding box.
