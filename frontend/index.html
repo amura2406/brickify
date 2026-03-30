@@ -729,14 +729,7 @@
                 <!-- Filled dynamically by JS -->
               </div>
 
-              <!-- Add Set popover -->
-              <div id="quick-add-set-popover" class="hidden flex-col gap-2 bg-surface-container-high border border-outline-variant rounded-lg p-3 mt-1">
-                <input id="quick-add-set-search" type="text" placeholder="Search set…"
-                  class="bg-surface-container border border-outline-variant rounded-lg px-3 py-1.5 text-xs text-on-surface focus:outline-none focus:border-primary placeholder-on-surface-variant/50 w-full"/>
-                <div id="quick-add-set-list" class="flex flex-col gap-1 max-h-48 overflow-y-auto">
-                  <!-- Filled dynamically by JS -->
-                </div>
-              </div>
+              <!-- Quick Add Set Modal moved to bottom of body for global placement -->
               <!-- hidden select kept for legacy compat -->
               <select id="quick-set-picker" class="hidden"></select>
             </div>
@@ -821,7 +814,7 @@
     </div>
 
     <footer class="bg-background border-t border-outline-variant/30 py-3 sm:py-4 px-4 sm:px-8 flex flex-col sm:flex-row justify-between items-center text-on-surface-variant mt-auto gap-2 safe-area-bottom">
-      <div class="font-label text-[9px] sm:text-[10px] uppercase tracking-widest text-center sm:text-left">© 2024 BRICKIFY NEON. NOT AN OFFICIAL LEGO PRODUCT. <span class="ml-2 opacity-50">v0.8.1</span></div>
+      <div class="font-label text-[9px] sm:text-[10px] uppercase tracking-widest text-center sm:text-left">© 2024 BRICKIFY NEON. NOT AN OFFICIAL LEGO PRODUCT. <span class="ml-2 opacity-50">v0.8.2</span></div>
       <div class="flex gap-4 sm:gap-6 font-label text-[9px] sm:text-[10px] uppercase tracking-widest">
         <a class="hover:text-tertiary transition-colors" href="/terms.html">Terms</a>
         <a class="hover:text-tertiary transition-colors" href="/privacy.html">Privacy</a>
@@ -929,6 +922,24 @@
     </div>
   </div>
 
-  <script src="app.js?v=3.2"></script>
+  <!-- Add Set Modal Overlay -->
+  <div id="quick-add-set-popover" class="hidden fixed inset-0 z-[200] items-center justify-center p-4 bg-background/80 backdrop-blur-sm">
+    <div id="quick-add-set-modal-content" class="flex flex-col gap-4 bg-surface-container-high border border-outline-variant rounded-2xl p-5 w-full max-w-sm shadow-2xl relative max-h-[80vh]">
+      <div class="flex items-center justify-between">
+        <h3 class="font-headline font-bold text-on-surface text-lg">Select LEGO Set</h3>
+        <button id="quick-add-close" class="text-on-surface-variant hover:text-error transition-colors" onclick="document.getElementById('quick-add-set-popover').classList.add('hidden'); document.getElementById('quick-add-set-popover').style.display='none';"><span class="material-symbols-outlined">close</span></button>
+      </div>
+      <div class="relative">
+        <span class="material-symbols-outlined absolute left-3 top-2.5 text-on-surface-variant/50 shrink-0">search</span>
+        <input id="quick-add-set-search" type="text" placeholder="Search set by name or ID…"
+          class="bg-surface-container border border-outline-variant rounded-xl pl-10 pr-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary placeholder-on-surface-variant/50 w-full transition-colors"/>
+      </div>
+      <div id="quick-add-set-list" class="flex flex-col gap-1 overflow-y-auto custom-scrollbar pr-1 flex-1 min-h-0">
+        <!-- Filled dynamically by JS -->
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js?v=3.3"></script>
 </body>
 </html>

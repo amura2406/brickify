@@ -22,8 +22,9 @@ Turn any photo into a buildable LEGO Art mosaic. Pick from official LEGO Art set
 - **Responsive & Touch-Optimized** — Fully supports mobile and tablet devices with native-feeling multi-touch gestures and a full-screen, distraction-free crop workspace.
 - **Project Saving & Gallery** — Save your progress, including all settings and crop data, to a personal, secure project gallery backed by Firebase Firestore. Return later to tweak or refine your mosaic.
 - **Google Photos Picker** — Directly import photos from your Google Photos library with a seamless, privacy-centric OAuth integration.
-- **Compare Arena** — Build variants of your photo simultaneously side-by-side. Track differing multi-set configurations, colors modes, preprocessing toggles, and robust gradient mapping with a native custom LEGO color picker.
+- **Compare Arena** — Build variants of your photo simultaneously side-by-side. Track differing multi-set configurations, colors modes, preprocessing toggles, and robust gradient mapping with a native custom LEGO color picker. Fully responsive and optimized for all screen sizes.
 - **Dynamic Mosaic Resolution** — Intelligently detects and manages non-square target sets (like Floral Art 32x48) passing `target_width` and `target_height` so mosaics process seamlessly without being forced into an invisible 1:1 squashed bounding box.
+- **PDF Export** — Generate beautiful, step-by-step building instructions for your custom mosaic as a downloadable PDF file.
 - **Admin Dashboard & Access Control** — Secure registration with an admin approval flow. App restricts functionality to approved accounts, and allows admins to review and approve users dynamically.
 - **Cloud Infrastructure** — Authenticated Firebase integration with Serverless Cloud Run generation for robust high-res processing and cloud-stored generated media.
 

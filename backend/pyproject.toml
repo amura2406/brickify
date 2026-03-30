@@ -1,6 +1,6 @@
 [project]
 name = "lego-mosaic-maker"
-version = "0.6.4"
+version = "0.6.5"
 description = "Convert images into LEGO Art mosaics"
 requires-python = ">=3.11"
 dependencies = [
@@ -11,6 +11,7 @@ dependencies = [
     "python-multipart>=0.0.9",
     "firebase-admin>=6.5.0",
     "python-dotenv>=1.2.2",
+    "reportlab>=4.4.10",
 ]
 
 [tool.uv]

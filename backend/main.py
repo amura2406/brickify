@@ -21,8 +21,9 @@ from dotenv import load_dotenv
 load_dotenv(Path(__file__).parent.parent / '.env')
 
 
-from fastapi import FastAPI, Depends, UploadFile, File, HTTPException
+from fastapi import FastAPI, Depends, UploadFile, File, HTTPException, Response
 from fastapi.responses import StreamingResponse
+from pdf_export import generate_instructions_pdf
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -290,17 +291,30 @@ def generate(
         target_height=req.target_height,
     )
 
-    preview_img = render_mosaic_image(mosaic_data, stud_size=15)
-    preview_url = provider.upload_image(preview_img, "mosaics", fmt="PNG")
-
     return {
-        "preview_url": preview_url,
+        "preview_url": "", # Deprecated, client uses canvas rendering instead
         "width": mosaic_data["width"],
         "height": mosaic_data["height"],
         "colors": mosaic_data["colors"],
         "grid": mosaic_data["grid"],
     }
 
+
+class GeneratePdfRequest(BaseModel):
+    grid: list[list[int]]
+    colors: list[dict]
+    width: int
+    height: int
+
+
+@app.post("/api/generate-pdf")
+def generate_pdf(
+    req: GeneratePdfRequest,
+    user: dict = Depends(require_approved_user)
+):
+    """Generate a printable PDF build guide for a mosaic."""
+    pdf_bytes = generate_instructions_pdf(req.grid, req.colors, req.width, req.height)
+    return Response(content=pdf_bytes, media_type="application/pdf")
 
 # ── Projects (Saved Mosaics) ───────────────────────────────────
 
@@ -320,6 +334,7 @@ def save_project(
     req: SaveProjectRequest,
     user: dict = Depends(require_approved_user),
     db: DatabaseProvider = Depends(get_database_provider),
+    provider: StorageProvider = Depends(get_storage_provider),
 ):
     """Save a mosaic project (approved users). Enforces 20-project limit for non-admins."""
     uid = user["uid"]
@@ -336,6 +351,21 @@ def save_project(
                                "Delete a project to save a new one.",
                 },
             )
+
+    # Process base64 preview image from frontend
+    if req.mosaic_preview_url.startswith("data:image"):
+        import base64
+        from io import BytesIO
+        from PIL import Image
+        try:
+            header, encoded = req.mosaic_preview_url.split(",", 1)
+            img_data = base64.b64decode(encoded)
+            img = Image.open(BytesIO(img_data))
+            # Upload to storage provider and overwrite the URL format in the database
+            req.mosaic_preview_url = provider.upload_image(img, "mosaics", fmt="PNG", user_id=uid)
+        except Exception as e:
+            # Fallback if image decode fails
+            req.mosaic_preview_url = ""
 
     project_id = db.save_project(uid, req.model_dump())
     return {"project_id": project_id, "name": req.name}
@@ -370,8 +400,22 @@ def update_project(
     req: SaveProjectRequest,
     user: dict = Depends(require_approved_user),
     db: DatabaseProvider = Depends(get_database_provider),
+    provider: StorageProvider = Depends(get_storage_provider),
 ):
     """Update an existing saved project."""
+    # Process base64 preview image from frontend
+    if req.mosaic_preview_url.startswith("data:image"):
+        import base64
+        from io import BytesIO
+        from PIL import Image
+        try:
+            header, encoded = req.mosaic_preview_url.split(",", 1)
+            img_data = base64.b64decode(encoded)
+            img = Image.open(BytesIO(img_data))
+            req.mosaic_preview_url = provider.upload_image(img, "mosaics", fmt="PNG", user_id=user["uid"])
+        except Exception:
+            pass
+
     updated = db.update_project(user["uid"], project_id, req.model_dump())
     if not updated:
         raise HTTPException(404, "Project not found")

@@ -1899,8 +1899,13 @@ function setupGenerate() {
 
         const initialInputs = container.querySelectorAll('input[type="color"]');
         const initialColors = Array.from(initialInputs).map(i => i.value);
-        container.innerHTML = '';
-        initialColors.forEach(hex => createColorButton(hex));
+        
+        container.setColors = function(colorsArr) {
+            container.innerHTML = '';
+            colorsArr.forEach(hex => createColorButton(hex));
+        };
+        
+        container.setColors(initialColors);
 
         btnAdd.addEventListener('click', () => {
             const currentButtons = Array.from(container.querySelectorAll('button[data-color]'));
@@ -1978,8 +1983,8 @@ async function generateMosaic() {
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || JSON.stringify(data));
 
-        state.mosaicUrl = data.preview_url;
         state.mosaicData = data;
+        state.mosaicUrl = renderOffscreenMosaic(data.grid, data.colors, data.width, data.height);
 
         // Set reference image for comparison
         referenceImage.src = state.croppedImageUrl;
@@ -2008,6 +2013,53 @@ async function generateMosaic() {
     }
 }
 
+function renderOffscreenMosaic(grid, colors, width, height) {
+    const canvas = document.createElement('canvas');
+    const studSize = 15;
+    const padding = 1;
+    const cell = studSize + padding;
+
+    canvas.width = width * cell + padding;
+    canvas.height = height * cell + padding;
+
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            const ci = grid[y][x];
+            const color = colors[ci];
+            const cx = x * cell + padding;
+            const cy = y * cell + padding;
+            const centerX = cx + studSize / 2;
+            const centerY = cy + studSize / 2;
+            const radius = (studSize - 2) / 2;
+
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+            ctx.fillStyle = color.hex;
+            ctx.fill();
+
+            const hlX = centerX - radius * 0.25;
+            const hlY = centerY - radius * 0.25;
+            const grad = ctx.createRadialGradient(hlX, hlY, 0, hlX, hlY, radius * 0.7);
+            grad.addColorStop(0, 'rgba(255,255,255,0.3)');
+            grad.addColorStop(1, 'rgba(255,255,255,0)');
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+            ctx.fillStyle = grad;
+            ctx.fill();
+
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius * 0.45, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+            ctx.lineWidth = 0.5;
+            ctx.stroke();
+        }
+    }
+    return canvas.toDataURL('image/png');
+}
 // ═════════════════════════════════════════════════
 //  STEP 4: BUILD PLAN — MOSAIC RENDER
 // ═════════════════════════════════════════════════
@@ -2062,8 +2114,11 @@ function renderMosaic() {
     mosaicSubtitle.textContent = `${width}×${height} • ${(width * height).toLocaleString()} studs`;
 
     const wrapperWidth = mosaicWrapper.clientWidth - 32;
-    state.baseScale = Math.min(1, wrapperWidth / mosaicCanvas.width);
-    state.zoom = 1;
+    state.baseScale = Math.min(1, Math.max(0.01, wrapperWidth / mosaicCanvas.width));
+    
+    // Default to 35% zoom explicitly
+    state.zoom = 0.35 / state.baseScale;
+
     if (typeof mosaicState !== 'undefined') {
         mosaicState.panX = 0;
         mosaicState.panY = 0;
@@ -2148,7 +2203,7 @@ function setupResult() {
         applyZoom();
     });
     $('#btn-zoom-reset').addEventListener('click', () => {
-        state.zoom = 1;
+        state.zoom = 0.35 / Math.max(0.01, state.baseScale || 1);
         mosaicState.panX = 0;
         mosaicState.panY = 0;
         applyZoom();
@@ -2298,15 +2353,19 @@ function setupResult() {
             quickSetChips.appendChild(chip);
         });
     }
+    window.renderQuickChips = renderQuickChips;
 
     function buildQuickAddList(filterText = '') {
         const q = filterText.toLowerCase();
         const allSets = state.allSets;
         const isReplaceMode = typeof window._replaceSetIdx === 'number';
+        const compCol = window._compareColId ? state.compareColumns.find(c => c.id === window._compareColId) : null;
+        const targetSelections = compCol ? compCol.setSelections : state.setSelections;
+
         quickAddSetList.innerHTML = allSets
             .filter(s => !filterText || s.name.toLowerCase().includes(q) || s.id.includes(q))
             .map(s => {
-                const inCart = state.setSelections.some(sel => sel.set.id === s.id);
+                const inCart = targetSelections.some(sel => sel.set.id === s.id);
                 return `
                 <button class="flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs text-left hover:bg-surface-container transition-colors w-full ${inCart ? 'text-primary' : 'text-on-surface'}"
                     data-set-id="${s.id}">
@@ -2324,39 +2383,69 @@ function setupResult() {
                 if (isReplaceMode) {
                     // Replace mode: swap the set at the stored index
                     const idx = window._replaceSetIdx;
-                    if (idx >= 0 && idx < state.setSelections.length) {
-                        state.setSelections[idx] = { set: setObj, qty: state.setSelections[idx].qty };
+                    if (idx >= 0 && idx < targetSelections.length) {
+                        targetSelections[idx] = { set: setObj, qty: targetSelections[idx].qty };
                     }
                     window._replaceSetIdx = undefined;
                     quickAddPopover.classList.add('hidden');
                     quickAddPopover.style.display = '';
                 } else {
                     // Normal toggle mode
-                    const existing = state.setSelections.find(s => s.set.id === setId);
+                    const existing = targetSelections.find(s => s.set.id === setId);
                     if (existing) {
-                        state.setSelections = state.setSelections.filter(s => s.set.id !== setId);
+                        if (compCol) compCol.setSelections = targetSelections.filter(s => s.set.id !== setId);
+                        else state.setSelections = targetSelections.filter(s => s.set.id !== setId);
                     } else {
-                        state.setSelections.push({ set: setObj, qty: 1 });
+                        targetSelections.push({ set: setObj, qty: 1 });
                     }
                 }
-                renderSelectedSets();
-                renderQuickChips();
+                
+                if (compCol) {
+                    if (window.renderCompareColumns) window.renderCompareColumns();
+                    if (window.generateCompareColumn) window.generateCompareColumn(compCol.id);
+                } else {
+                    renderSelectedSets();
+                    renderQuickChips();
+                    scheduleRegen();
+                }
                 buildQuickAddList(quickAddSearch.value);
-                scheduleRegen();
             });
         });
     }
+
+    window.addCompareSet = function(e, colId) {
+        if (e) e.stopPropagation();
+        window._compareColId = colId;
+        window._replaceSetIdx = undefined;
+        quickAddPopover.classList.remove('hidden');
+        quickAddPopover.style.display = 'flex';
+        quickAddSearch.value = '';
+        buildQuickAddList('');
+        quickAddSearch.focus();
+    };
+    
+    window.replaceCompareSet = function(e, colId, idx) {
+        if (e) e.stopPropagation();
+        window._compareColId = colId;
+        window._replaceSetIdx = idx;
+        quickAddPopover.classList.remove('hidden');
+        quickAddPopover.style.display = 'flex';
+        quickAddSearch.value = '';
+        buildQuickAddList('');
+        quickAddSearch.focus();
+    };
 
     // Toggle popover
     quickAddSetBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         const isHidden = quickAddPopover.classList.contains('hidden');
         if (isHidden) {
+            window._compareColId = undefined; // Clear compare targeting
             window._replaceSetIdx = undefined; // Clear replace mode
             quickAddPopover.classList.remove('hidden');
             quickAddPopover.style.display = 'flex';
             quickAddSearch.value = '';
-            buildQuickAddList();
+            buildQuickAddList('');
             quickAddSearch.focus();
         } else {
             window._replaceSetIdx = undefined;
@@ -2364,9 +2453,14 @@ function setupResult() {
             quickAddPopover.style.display = '';
         }
     });
-    // Close popover when clicking outside
+    // Close popover when clicking outside modal content
     document.addEventListener('click', (e) => {
-        if (!quickAddPopover.contains(e.target) && e.target !== quickAddSetBtn && !quickAddSetBtn.contains(e.target)) {
+        const modalContent = document.getElementById('quick-add-set-modal-content');
+        const isClickingModal = modalContent && modalContent.contains(e.target);
+        const isClickingBtn = e.target === quickAddSetBtn || quickAddSetBtn.contains(e.target);
+        const isHidden = quickAddPopover.classList.contains('hidden');
+        
+        if (!isHidden && !isClickingModal && !isClickingBtn) {
             window._replaceSetIdx = undefined;
             quickAddPopover.classList.add('hidden');
             quickAddPopover.style.display = '';
@@ -2475,8 +2569,10 @@ function toggleComparison() {
 }
 
 function startOver() {
-    state = { setSelections: [], allSets: state.allSets, imageUrl: null, imageWidth: 0, imageHeight: 0, isSquare: false, croppedImageUrl: null, mosaicUrl: null, mosaicData: null, zoom: 1, baseScale: 1, isDev: state.isDev };
+    state = { setSelections: [], allSets: state.allSets, imageUrl: null, imageWidth: 0, imageHeight: 0, isSquare: false, croppedImageUrl: null, mosaicUrl: null, mosaicData: null, zoom: 1, baseScale: 1, isDev: state.isDev, compareColumns: [], isCompareArena: false, targetW: 0, targetH: 0 };
     renderSelectedSets();
+    if (window.renderQuickChips) window.renderQuickChips();
+    if (typeof renderCompareColumns === 'function') renderCompareColumns();
     showTab('sets');
 }
 
@@ -2491,66 +2587,45 @@ function downloadMosaic() {
     link.click();
 }
 
-function downloadInstructions() {
+async function downloadInstructions() {
+    if (!state.mosaicData) return;
+    
     const { grid, colors, width, height } = state.mosaicData;
-    const cellSize = 30;
-    const headerSize = 20;
-    const canvas = document.createElement('canvas');
-    canvas.width = width * cellSize + headerSize;
-    canvas.height = height * cellSize + headerSize;
-    const ctx = canvas.getContext('2d');
-
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    ctx.font = '8px Inter, sans-serif';
-    ctx.fillStyle = '#666';
-    ctx.textAlign = 'center';
-    for (let x = 0; x < width; x++) {
-        if (x % 4 === 0) ctx.fillText((x + 1).toString(), headerSize + x * cellSize + cellSize / 2, 14);
-    }
-    ctx.textAlign = 'right';
-    for (let y = 0; y < height; y++) {
-        if (y % 4 === 0) ctx.fillText((y + 1).toString(), headerSize - 4, headerSize + y * cellSize + cellSize / 2 + 3);
-    }
-
-    for (let y = 0; y < height; y++) {
-        for (let x = 0; x < width; x++) {
-            const ci = grid[y][x];
-            const color = colors[ci];
-            const cx = headerSize + x * cellSize;
-            const cy = headerSize + y * cellSize;
-            ctx.fillStyle = color.hex;
-            ctx.fillRect(cx, cy, cellSize, cellSize);
-            ctx.beginPath();
-            ctx.arc(cx + cellSize / 2, cy + cellSize / 2, cellSize / 2 - 3, 0, Math.PI * 2);
-            ctx.fillStyle = color.hex;
-            ctx.fill();
-            ctx.strokeStyle = 'rgba(0,0,0,0.15)';
-            ctx.lineWidth = 0.5;
-            ctx.stroke();
-            ctx.fillStyle = isLightColor(color.rgb) ? '#000' : '#fff';
-            ctx.font = 'bold 9px Inter, sans-serif';
-            ctx.textAlign = 'center';
-            ctx.fillText((ci + 1).toString(), cx + cellSize / 2, cy + cellSize / 2 + 3);
+    const btn = $('#btn-download-instructions');
+    const oldHtml = btn.innerHTML;
+    
+    try {
+        setBtnLoading(btn, true, 'Generating PDF...');
+        
+        const res = await authFetch(`${API}/api/generate-pdf`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ grid, colors, width, height })
+        });
+        
+        if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            throw new Error(data.detail || 'PDF generation failed');
         }
+        
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        
+        const link = document.createElement('a');
+        link.download = `brickify-instructions-${width}x${height}.pdf`;
+        link.href = url;
+        link.click();
+        
+        // Clean up
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        
+    } catch (e) {
+        console.error('Failed to generate PDF:', e);
+        alert('Failed to generate PDF: ' + e.message);
+    } finally {
+        setBtnLoading(btn, false);
+        btn.innerHTML = oldHtml;
     }
-
-    ctx.strokeStyle = 'rgba(0,0,0,0.3)';
-    ctx.lineWidth = 1.5;
-    for (let i = 0; i <= Math.ceil(width / 16); i++) {
-        const lx = headerSize + i * 16 * cellSize;
-        ctx.beginPath(); ctx.moveTo(lx, headerSize); ctx.lineTo(lx, canvas.height); ctx.stroke();
-    }
-    for (let i = 0; i <= Math.ceil(height / 16); i++) {
-        const ly = headerSize + i * 16 * cellSize;
-        ctx.beginPath(); ctx.moveTo(headerSize, ly); ctx.lineTo(canvas.width, ly); ctx.stroke();
-    }
-
-    const link = document.createElement('a');
-    link.download = `brickify-build-guide.png`;
-    link.href = canvas.toDataURL('image/png');
-    link.click();
 }
 
 function isLightColor(rgb) {
@@ -2855,7 +2930,13 @@ function switchResultMode(mode) {
         singleModeView.classList.add('flex');
 
         // Feature 6: Reset zoom/pan when switching back to single mode
-        state.zoom = 1;
+        // Reset zoom to 35% default when switching back
+        const cw = mosaicCanvas ? mosaicCanvas.width : 480;
+        const wWidth = singleModeView ? (singleModeView.clientWidth - 32) : 800;
+        const bs = (cw && wWidth > 0) ? Math.min(1, Math.max(0.01, wWidth / cw)) : 1;
+        state.baseScale = bs;
+        state.zoom = 0.35 / bs;
+        
         mosaicState.panX = 0;
         mosaicState.panY = 0;
         if (state.mosaicData) applyZoom();
@@ -2899,6 +2980,26 @@ function removeCompareColumn(id) {
     renderCompareColumns();
 }
 
+window.updateCompareSetQty = function(colId, idx, delta) {
+    const col = state.compareColumns.find(c => c.id === colId);
+    if (!col) return;
+    const item = col.setSelections[idx];
+    if (item) {
+        item.qty = Math.max(1, Math.min(9, item.qty + delta));
+        renderCompareColumns();
+        generateCompareColumn(colId);
+    }
+};
+
+window.removeCompareSet = function(colId, idx) {
+    const col = state.compareColumns.find(c => c.id === colId);
+    if (!col) return;
+    col.setSelections.splice(idx, 1);
+    renderCompareColumns();
+    generateCompareColumn(colId);
+};
+
+window.renderCompareColumns = renderCompareColumns;
 function renderCompareColumns() {
     if (!compareColumnsContainer) return;
     
@@ -2988,23 +3089,47 @@ function renderCompareColumns() {
             </div>`;
         }
 
-        let setsPickers = '';
-        if (state.allSets && state.allSets.length > 0) {
-            const list = state.allSets.map(s => {
-                const inCol = col.setSelections.some(sel => sel.set.id === s.id);
-                return `<label class="flex items-center gap-2 cursor-pointer p-1 hover:bg-on-surface/5 rounded transition-colors">
-                    <input type="checkbox" ${inCol ? 'checked' : ''} class="w-3.5 h-3.5 accent-primary border-outline-variant bg-surface-container" onchange="window.updateCompareSets('${col.id}', '${s.id}', this.checked)">
-                    <span class="text-[10px] text-on-surface whitespace-nowrap overflow-hidden text-ellipsis w-48 font-label" title="${s.name}">${s.name}</span>
-                </label>`;
-            }).join('');
-            setsPickers = `
+        let quickSetChipsHTML = '';
+        if (col.setSelections.length === 0) {
+            quickSetChipsHTML = `
+                <div class="flex items-center gap-2 bg-surface-container-high border border-outline-variant rounded-lg px-3 py-1.5 text-xs">
+                    <span class="text-secondary font-bold flex-1">Free Mode (All Colors)</span>
+                </div>`;
+        } else {
+            quickSetChipsHTML = col.setSelections.map((sel, idx) => `
+                <div class="flex items-center gap-1 bg-primary/10 border border-primary/30 rounded-lg px-2 py-1 text-[11px] group">
+                    <span class="flex-1 text-on-surface font-bold truncate" title="${sel.set.name}">${sel.set.name}</span>
+                    <div class="flex items-center gap-0.5 ml-1 shrink-0">
+                        <button class="w-5 h-5 flex items-center justify-center rounded hover:bg-surface-container text-on-surface-variant hover:text-primary transition-colors" onclick="window.updateCompareSetQty('${col.id}', ${idx}, -1)">
+                            <span class="material-symbols-outlined" style="font-size:12px">remove</span>
+                        </button>
+                        <span class="text-primary font-bold w-4 text-center">×${sel.qty}</span>
+                        <button class="w-5 h-5 flex items-center justify-center rounded hover:bg-surface-container text-on-surface-variant hover:text-primary transition-colors" onclick="window.updateCompareSetQty('${col.id}', ${idx}, 1)">
+                            <span class="material-symbols-outlined" style="font-size:12px">add</span>
+                        </button>
+                        <button class="w-5 h-5 flex items-center justify-center rounded hover:bg-surface-container text-on-surface-variant hover:text-secondary transition-colors" title="Replace set" onclick="window.replaceCompareSet(event, '${col.id}', ${idx})">
+                            <span class="material-symbols-outlined" style="font-size:12px">swap_horiz</span>
+                        </button>
+                        <button class="w-5 h-5 flex items-center justify-center rounded hover:bg-surface-container text-on-surface-variant hover:text-error transition-colors ml-0.5" title="Remove set" onclick="window.removeCompareSet('${col.id}', ${idx})">
+                            <span class="material-symbols-outlined" style="font-size:12px">close</span>
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        let setsPickers = `
             <div class="flex flex-col gap-1 mt-2 p-2 bg-surface-container-low rounded-lg border border-outline-variant/30">
-                <label class="font-label text-[9px] text-on-surface-variant uppercase tracking-widest px-1">LEGO Sets Included</label>
-                <div class="flex flex-col gap-0 max-h-24 overflow-y-auto pr-1 custom-scrollbar">
-                    ${list}
+                <div class="flex justify-between items-center px-1 mb-1">
+                    <label class="font-label text-[9px] text-on-surface-variant uppercase tracking-widest">LEGO Sets Included</label>
+                    <button class="text-[9px] text-primary hover:text-primary/70 flex items-center gap-1 uppercase font-bold" onclick="window.addCompareSet(event, '${col.id}')">
+                        <span class="material-symbols-outlined" style="font-size:10px">add</span> Add Base
+                    </button>
+                </div>
+                <div class="flex flex-col gap-1 overflow-y-auto max-h-32 custom-scrollbar">
+                    ${quickSetChipsHTML}
                 </div>
             </div>`;
-        }
 
         colEl.innerHTML = `
             <div class="flex items-center justify-between border-b border-outline-variant/50 pb-2 mb-2">
@@ -3111,19 +3236,46 @@ window.promoteToPrimary = function(id) {
     state.mosaicUrl = col.mosaicUrl;
     state.mosaicData = col.mosaicData;
     
+    state.setSelections = col.setSelections.map(s => ({...s}));
+    renderSelectedSets();
+    if (window.renderQuickChips) window.renderQuickChips();
+    
     // sync global UI controls
+    state.colorMode = col.colorMode;
+    state.dithering = col.dithering;
+    state.contrast_boost = col.contrast;
+    state.gradient_colors = [...col.gradientColors];
+
     colorModeSelect.value = col.colorMode;
     quickColorModeSelect.value = col.colorMode;
+    colorModeSelect.dispatchEvent(new Event('change')); // Syncs the UI panels (gradient vs dithering)
+    
     $('#dithering-toggle').checked = col.dithering;
     quickDitherToggle.checked = col.dithering;
+    $('#dithering-toggle').dispatchEvent(new Event('change'));
+
     contrastSlider.value = col.contrast;
     quickContrastSlider.value = col.contrast;
+    contrastSlider.dispatchEvent(new Event('input'));
+    quickContrastSlider.dispatchEvent(new Event('input'));
+    
+    if (preprocessingToggle) {
+        preprocessingToggle.checked = col.preprocessing;
+        preprocessingToggle.dispatchEvent(new Event('change'));
+    }
+    
+    if (gradientColorPickers && gradientColorPickers.setColors) {
+        gradientColorPickers.setColors(col.gradientColors);
+    }
+    if (quickGradientPickers && quickGradientPickers.setColors) {
+        quickGradientPickers.setColors(col.gradientColors);
+    }
+    
+    switchResultMode('single');
     
     renderMosaic();
     renderLegend();
     if (window.update3DMosaic) window.update3DMosaic();
-    
-    switchResultMode('single');
 }
 
 async function generateCompareColumn(id) {
@@ -3157,8 +3309,8 @@ async function generateCompareColumn(id) {
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || 'Generation failed');
         
-        col.mosaicUrl = data.preview_url;
         col.mosaicData = data;
+        col.mosaicUrl = renderOffscreenMosaic(data.grid, data.colors, data.width, data.height);
     } catch (e) {
         console.error('Arena generation failed:', e);
         col.error = e.message.substring(0, 50);

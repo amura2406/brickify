@@ -17,7 +17,8 @@ RUN uv pip install --system --no-cache -r pyproject.toml 2>/dev/null || \
         "pillow>=11.0.0" \
         "numpy>=2.0.0" \
         "python-multipart>=0.0.9" \
-        "firebase-admin>=6.5.0"
+        "firebase-admin>=6.5.0" \
+        "reportlab>=4.4.10"
 
 # Copy application code
 COPY . .
