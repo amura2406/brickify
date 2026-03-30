@@ -21,6 +21,8 @@ Turn any photo into a buildable LEGO Art mosaic. Pick from official LEGO Art set
 - **Interactive Crop & Zoom** — Drag-to-crop with an ultra-precise proportional scroll wheel zoom (desktop) and pinch-to-zoom (mobile). Includes automatic pan boundaries preventing image gap bleed.
 - **Responsive & Touch-Optimized** — Fully supports mobile and tablet devices with native-feeling multi-touch gestures and a full-screen, distraction-free crop workspace.
 - **Palette Preview** — See exactly how your image maps to the selected LEGO colors before committing to a full mosaic generation.
+- **Project Saving & Gallery** — Save your progress, including all settings and crop data, to a personal, secure project gallery backed by Firebase Firestore. Return later to tweak or refine your mosaic.
+- **Google Photos Picker** — Directly import photos from your Google Photos library with a seamless, privacy-centric OAuth integration.
 - **Compare Arena** — Build variants of your photo simultaneously side-by-side. Track differing multi-set configurations, colors modes, preprocessing toggles, and robust gradient mapping with a native custom LEGO color picker.
 - **Dynamic Mosaic Resolution** — Intelligently detects and manages non-square target sets (like Floral Art 32x48) passing `target_width` and `target_height` so mosaics process seamlessly without being forced into an invisible 1:1 squashed bounding box.
 - **Admin Dashboard & Access Control** — Secure registration with an admin approval flow. App restricts functionality to approved accounts, and allows admins to review and approve users dynamically.
@@ -110,10 +112,15 @@ lego-mosaic-maker/
 | GET    | `/api/sets`            | List available LEGO Art sets         |
 | GET    | `/api/sets/{id}`       | Get set details (colors, grid, etc.) |
 | POST   | `/api/upload`          | Upload a reference image             |
+| POST   | `/api/upload/google-photos` | Import image from Google Photos |
 | POST   | `/api/crop`            | Crop uploaded image to square        |
 | POST   | `/api/preview-palette` | Preview palette mapping              |
 | POST   | `/api/generate`        | Generate mosaic from image + set(s)  |
 | GET    | `/api/mosaic/{id}`     | Get generated mosaic image           |
+| GET    | `/api/projects`        | List saved projects                  |
+| POST   | `/api/projects`        | Save a new project                   |
+| GET    | `/api/projects/{id}`   | Retrieve a saved project             |
+| DELETE | `/api/projects/{id}`   | Delete a saved project               |
 
 ### Multi-Set Request Example
 

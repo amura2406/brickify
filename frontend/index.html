@@ -138,9 +138,9 @@
       <!-- Footer links -->
       <div class="mt-8 text-center">
         <div class="flex justify-center gap-6 opacity-40">
-          <a class="font-label text-[10px] uppercase tracking-widest hover:opacity-100 transition-opacity" href="#">Privacy</a>
-          <a class="font-label text-[10px] uppercase tracking-widest hover:opacity-100 transition-opacity" href="#">Terms</a>
-          <a class="font-label text-[10px] uppercase tracking-widest hover:opacity-100 transition-opacity" href="#">Support</a>
+          <a class="font-label text-[10px] uppercase tracking-widest hover:opacity-100 transition-opacity" href="/privacy.html">Privacy</a>
+          <a class="font-label text-[10px] uppercase tracking-widest hover:opacity-100 transition-opacity" href="/terms.html">Terms</a>
+          <a class="font-label text-[10px] uppercase tracking-widest hover:opacity-100 transition-opacity" href="mailto:amuhr4@gmail.com">Support</a>
         </div>
       </div>
     </main>
@@ -266,6 +266,10 @@
                 <p id="nav-user-name" class="text-xs font-bold text-on-surface truncate"></p>
                 <p id="nav-user-email" class="text-[10px] text-on-surface-variant truncate mt-0.5"></p>
               </div>
+              <button id="btn-nav-projects" class="w-full flex items-center gap-2 px-4 py-3 text-xs text-on-surface-variant hover:text-primary hover:bg-primary/5 transition-colors border-b border-outline-variant">
+                <span class="material-symbols-outlined" style="font-size:15px">folder_open</span>
+                My Projects
+              </button>
               <button id="btn-nav-admin" class="hidden w-full flex-col sm:flex-row items-start sm:items-center gap-2 px-4 py-3 text-xs text-on-surface-variant hover:text-secondary hover:bg-secondary/5 transition-colors border-b border-outline-variant">
                 <div class="flex items-center gap-2">
                   <span class="material-symbols-outlined" style="font-size:15px">admin_panel_settings</span>
@@ -785,7 +789,11 @@
             <div id="legend-items" class="p-4 flex flex-col gap-3 flex-1 overflow-y-auto">
               <!-- Populated by JS -->
             </div>
-            <div class="p-4 bg-surface-container-high border-t border-outline-variant">
+            <div class="p-4 bg-surface-container-high border-t border-outline-variant flex flex-col gap-2">
+              <button id="btn-save-project" class="w-full bg-secondary/10 border-2 border-secondary text-secondary hover:bg-secondary hover:text-on-secondary transition-all duration-300 py-3 rounded-lg font-headline font-bold flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(0,255,204,0.3)] text-sm uppercase tracking-wider">
+                <span class="material-symbols-outlined">save</span>
+                Save Project
+              </button>
               <button id="btn-download" class="w-full bg-primary/10 border-2 border-primary text-primary hover:bg-primary hover:text-on-primary transition-all duration-300 py-3 rounded-lg font-headline font-bold flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(255,45,120,0.3)] text-sm uppercase tracking-wider">
                 <span class="material-symbols-outlined">download</span>
                 Download PNG
@@ -814,17 +822,115 @@
       </main>
     </div>
 
-    <!-- Bottom footer bar -->
     <footer class="bg-background border-t border-outline-variant/30 py-3 sm:py-4 px-4 sm:px-8 flex flex-col sm:flex-row justify-between items-center text-on-surface-variant mt-auto gap-2 safe-area-bottom">
-      <div class="font-label text-[9px] sm:text-[10px] uppercase tracking-widest text-center sm:text-left">© 2024 BRICKIFY NEON. NOT AN OFFICIAL LEGO PRODUCT. <span class="ml-2 opacity-50">v0.7.0</span></div>
+      <div class="font-label text-[9px] sm:text-[10px] uppercase tracking-widest text-center sm:text-left">© 2024 BRICKIFY NEON. NOT AN OFFICIAL LEGO PRODUCT. <span class="ml-2 opacity-50">v0.8.0</span></div>
       <div class="flex gap-4 sm:gap-6 font-label text-[9px] sm:text-[10px] uppercase tracking-widest">
-        <a class="hover:text-tertiary transition-colors" href="#">Terms</a>
-        <a class="hover:text-tertiary transition-colors" href="#">Privacy</a>
-        <a class="hover:text-tertiary transition-colors" href="#">Support</a>
+        <a class="hover:text-tertiary transition-colors" href="/terms.html">Terms</a>
+        <a class="hover:text-tertiary transition-colors" href="/privacy.html">Privacy</a>
+        <a class="hover:text-tertiary transition-colors" href="mailto:amuhr4@gmail.com">Support</a>
       </div>
     </footer>
   </div>
 
-  <script src="app.js?v=2.1"></script>
+  <!-- ═══════════════════════════════════════════════
+       SAVE PROJECT DIALOG
+  ════════════════════════════════════════════════════ -->
+  <div id="save-project-modal" class="hidden fixed inset-0 z-[1001] bg-background/90 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="w-full max-w-md bg-surface-container border border-secondary/30 rounded-xl shadow-2xl">
+      <div class="px-6 py-4 border-b border-outline-variant flex justify-between items-center">
+        <h2 class="font-headline font-bold text-base text-secondary flex items-center gap-2">
+          <span class="material-symbols-outlined text-lg">save</span>
+          Save Project
+        </h2>
+        <button id="btn-close-save-modal" class="text-on-surface-variant hover:text-on-surface transition-colors p-1 rounded hover:bg-surface-container-high">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+      <div class="p-6 flex flex-col gap-5">
+        <div class="flex flex-col gap-2">
+          <label for="save-project-name" class="font-label text-xs uppercase tracking-widest text-on-surface-variant">Project Name</label>
+          <input id="save-project-name" type="text" maxlength="80"
+            class="bg-surface-container-high border border-outline-variant rounded-lg px-4 py-2.5 text-on-surface text-sm font-body outline-none focus:ring-1 focus:ring-secondary w-full"
+            placeholder="My Mosaic Project" />
+        </div>
+        <div id="save-limit-warning" class="hidden bg-error-container border border-error/30 rounded-lg px-4 py-3 text-on-error-container text-xs font-label flex items-start gap-2">
+          <span class="material-symbols-outlined text-error" style="font-size:16px;flex-shrink:0">warning</span>
+          <span id="save-limit-warning-text"></span>
+        </div>
+        <div class="flex gap-3">
+          <button id="btn-cancel-save" class="flex-1 py-2.5 border border-outline-variant text-on-surface-variant font-label text-xs uppercase tracking-wider rounded-lg hover:border-primary/50 hover:text-primary transition-all">
+            Cancel
+          </button>
+          <button id="btn-confirm-save" class="flex-1 py-2.5 bg-secondary/20 border border-secondary text-secondary font-headline font-bold text-xs uppercase tracking-wider rounded-lg hover:bg-secondary hover:text-on-secondary transition-all flex items-center justify-center gap-2">
+            <span class="material-symbols-outlined text-base">save</span>
+            Save
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════
+       MY PROJECTS GALLERY MODAL
+  ════════════════════════════════════════════════════ -->
+  <div id="projects-modal" class="hidden fixed inset-0 z-[1001] bg-background/90 backdrop-blur-md flex flex-col items-center justify-center p-4">
+    <div class="w-full max-w-4xl bg-surface-container border border-primary/30 rounded-xl shadow-2xl flex flex-col max-h-[88vh]">
+      <div class="px-6 py-4 border-b border-outline-variant flex justify-between items-center shrink-0">
+        <h2 class="font-headline font-bold text-base text-primary neon-text-glow flex items-center gap-2">
+          <span class="material-symbols-outlined">folder_open</span>
+          My Projects
+        </h2>
+        <button id="btn-close-projects-modal" class="text-on-surface-variant hover:text-on-surface transition-colors p-1 rounded hover:bg-surface-container-high">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+      <div class="p-6 overflow-y-auto flex-1">
+        <!-- Loading state -->
+        <div id="projects-loading" class="flex flex-col items-center justify-center py-16 gap-4">
+          <span class="spinner" style="width:32px;height:32px;border-width:3px;color:#ff2d78"></span>
+          <p class="font-label text-xs uppercase tracking-widest text-on-surface-variant">Loading projects…</p>
+        </div>
+        <!-- Empty state -->
+        <div id="projects-empty" class="hidden flex-col items-center justify-center py-16 gap-4 text-center">
+          <span class="material-symbols-outlined text-5xl text-on-surface-variant/30">folder_open</span>
+          <p class="font-headline font-bold text-on-surface-variant">No saved projects yet</p>
+          <p class="text-on-surface-variant text-xs max-w-xs">Generate a mosaic and click <strong class="text-secondary">Save Project</strong> to save it here for future reference.</p>
+        </div>
+        <!-- Project list (grid) -->
+        <div id="projects-grid" class="hidden grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════
+       DELETE PROJECT CONFIRM DIALOG
+  ════════════════════════════════════════════════════ -->
+  <div id="delete-project-modal" class="hidden fixed inset-0 z-[1002] bg-background/90 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="w-full max-w-sm bg-surface-container border border-error/30 rounded-xl shadow-2xl">
+      <div class="p-6 flex flex-col gap-5">
+        <div class="flex items-center gap-3">
+          <span class="material-symbols-outlined text-error text-3xl">delete_forever</span>
+          <div>
+            <h3 class="font-headline font-bold text-on-surface">Delete Project?</h3>
+            <p class="text-on-surface-variant text-xs mt-1">This action cannot be undone.</p>
+          </div>
+        </div>
+        <p id="delete-project-name-display" class="text-on-surface text-sm font-label bg-error-container/30 border border-error/20 rounded-lg px-4 py-2 truncate"></p>
+        <div class="flex gap-3">
+          <button id="btn-cancel-delete" class="flex-1 py-2.5 border border-outline-variant text-on-surface-variant font-label text-xs uppercase tracking-wider rounded-lg hover:text-on-surface transition-all">
+            Cancel
+          </button>
+          <button id="btn-confirm-delete" class="flex-1 py-2.5 bg-error text-on-error font-headline font-bold text-xs uppercase tracking-wider rounded-lg hover:opacity-90 transition-all flex items-center justify-center gap-1">
+            <span class="material-symbols-outlined text-sm">delete</span>
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js?v=3.2"></script>
 </body>
 </html>

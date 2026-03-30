@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Privacy Policy — Brickify</title>
+  <meta name="description" content="Privacy Policy for Brickify — the LEGO mosaic generator. Learn how we collect, use, and protect your data." />
+  <link rel="icon" type="image/x-icon" href="assets/sets/favicon.ico"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #050508;
+      --surface: #0d0d14;
+      --surface-high: #16161f;
+      --primary: #a78bfa;
+      --primary-dim: rgba(167,139,250,0.12);
+      --text: #e2e0f0;
+      --text-dim: #9d9bb8;
+      --border: rgba(167,139,250,0.18);
+      --radius: 12px;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.75;
+      min-height: 100vh;
+    }
+
+    header {
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      padding: 1.25rem 2rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .logo {
+      font-size: 1.1rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      background: linear-gradient(135deg, #a78bfa, #60a5fa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .logo-tagline {
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text-dim);
+      border-left: 1px solid var(--border);
+      padding-left: 1rem;
+      margin-left: 0.25rem;
+    }
+
+    .container {
+      max-width: 780px;
+      margin: 0 auto;
+      padding: 3rem 2rem 5rem;
+    }
+
+    .page-label {
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      color: var(--primary);
+      font-weight: 600;
+      margin-bottom: 0.75rem;
+    }
+
+    h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.5rem;
+    }
+
+    .effective-date {
+      font-size: 0.8rem;
+      color: var(--text-dim);
+      margin-bottom: 2.5rem;
+    }
+
+    .intro-card {
+      background: var(--primary-dim);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem 1.5rem;
+      margin-bottom: 2.5rem;
+      font-size: 0.9rem;
+      color: var(--text-dim);
+    }
+
+    h2 {
+      font-size: 1.05rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      color: var(--text);
+      margin-top: 2.5rem;
+      margin-bottom: 0.75rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    p { margin-bottom: 0.9rem; font-size: 0.9rem; color: var(--text-dim); }
+
+    ul {
+      list-style: none;
+      padding-left: 0;
+      margin-bottom: 0.9rem;
+    }
+
+    ul li {
+      font-size: 0.9rem;
+      color: var(--text-dim);
+      padding: 0.35rem 0 0.35rem 1.25rem;
+      position: relative;
+    }
+
+    ul li::before {
+      content: '›';
+      position: absolute;
+      left: 0;
+      color: var(--primary);
+      font-weight: 700;
+    }
+
+    a { color: var(--primary); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 1.5rem 2rem;
+      text-align: center;
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      letter-spacing: 0.05em;
+    }
+
+    footer a { color: var(--text-dim); }
+    footer a:hover { color: var(--primary); }
+
+    @media (max-width: 640px) {
+      .container { padding: 2rem 1.25rem 4rem; }
+      h1 { font-size: 1.5rem; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <span class="logo">Brickify</span>
+  <span class="logo-tagline">Privacy Policy</span>
+</header>
+
+<div class="container">
+  <div class="page-label">Legal</div>
+  <h1>Privacy Policy</h1>
+  <p class="effective-date">Effective date: April 1, 2026 &nbsp;·&nbsp; Last updated: April 1, 2026</p>
+
+  <div class="intro-card">
+    Brickify ("we", "our", "the app") is a personal project that converts your photos into LEGO mosaic building plans. This policy explains what data we collect, why, and how you can control it. We keep things minimal by design.
+  </div>
+
+  <h2>1. Information We Collect</h2>
+  <p>We only collect what is necessary to operate the service:</p>
+  <ul>
+    <li><strong>Google Account information</strong> — your display name, email address, and profile photo URL, provided when you sign in with Google. These are used to identify your account and are not sold or shared.</li>
+    <li><strong>Images you upload</strong> — photos you provide for mosaic generation are stored temporarily in Google Cloud Storage to process your request. Images tied to saved projects are retained until you delete those projects.</li>
+    <li><strong>Mosaic project data</strong> — when you save a project, we store your configuration choices (LEGO sets selected, rendering options, crop coordinates) and the generated mosaic preview in Firebase Firestore and Google Cloud Storage.</li>
+    <li><strong>Usage logs</strong> — standard server logs (IP address, request timestamps) are retained by Google Cloud Run for up to 30 days for debugging and security purposes.</li>
+  </ul>
+
+  <h2>2. How We Use Your Information</h2>
+  <ul>
+    <li>Authenticating your account and enforcing access controls</li>
+    <li>Processing your uploaded images to generate LEGO mosaics</li>
+    <li>Storing and retrieving your saved mosaic projects</li>
+    <li>Preventing abuse (rate limiting, admin review of new accounts)</li>
+  </ul>
+  <p>We do <strong>not</strong> use your data for advertising, profiling, or any form of sale or transfer to third parties.</p>
+
+  <h2>3. Data Storage and Retention</h2>
+  <ul>
+    <li><strong>Uploaded images</strong> — orphan uploads (not tied to a saved project) may be purged periodically by administrators. Images referenced by your saved projects are protected from these purges.</li>
+    <li><strong>Saved projects</strong> — retained indefinitely until you delete them. Deleting a project removes its stored configuration and marks associated images for future cleanup.</li>
+    <li><strong>Account data</strong> — retained for as long as your Firebase Auth account exists. You may request deletion by contacting us.</li>
+  </ul>
+
+  <h2>4. Third-Party Services</h2>
+  <p>Brickify is built on Google infrastructure. By using this app you are also subject to Google's privacy policies:</p>
+  <ul>
+    <li><a href="https://firebase.google.com/support/privacy" target="_blank" rel="noopener">Firebase Privacy Policy</a> — authentication, hosting, and Firestore database</li>
+    <li><a href="https://cloud.google.com/terms/cloud-privacy-notice" target="_blank" rel="noopener">Google Cloud Privacy Notice</a> — Cloud Run (backend compute) and Cloud Storage (images)</li>
+    <li><a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Google Privacy Policy</a> — applies when you sign in with Google or use Google Photos integration</li>
+  </ul>
+
+  <h2>5. Google Photos Integration</h2>
+  <p>If you choose to import a photo from Google Photos, we request a temporary OAuth access token scoped to the Google Photos Picker API. This token is used only to download the selected photo and is never stored. We do not access, index, or retain any other content from your Google Photos library.</p>
+
+  <h2>6. Your Rights</h2>
+  <ul>
+    <li><strong>Access</strong> — you can view all your saved projects in the app at any time</li>
+    <li><strong>Deletion</strong> — you can delete individual saved projects from the app, which removes associated images. To request full account deletion, contact us at the email below</li>
+    <li><strong>Portability</strong> — contact us to request an export of your saved project data</li>
+    <li><strong>Correction</strong> — you can rename and update your saved projects at any time</li>
+  </ul>
+
+  <h2>7. Children's Privacy</h2>
+  <p>This service is not directed at children under 13. We do not knowingly collect personal information from children. If you believe a child has provided us with personal data, please contact us.</p>
+
+  <h2>8. Changes to This Policy</h2>
+  <p>We may update this policy from time to time. The effective date at the top of this page will reflect the most recent revision. Continued use of the service after changes constitutes acceptance of the updated policy.</p>
+
+  <h2>9. Contact</h2>
+  <p>Questions or requests regarding your data? Contact us at: <a href="mailto:amuhr4@gmail.com">amuhr4@gmail.com</a></p>
+</div>
+
+<footer>
+  <p>© 2024 Brickify. Not an official LEGO product. &nbsp;·&nbsp;
+    <a href="terms.html">Terms of Service</a> &nbsp;·&nbsp;
+    <a href="/">Back to App</a>
+  </p>
+</footer>
+
+</body>
+</html>

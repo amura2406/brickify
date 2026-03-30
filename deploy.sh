@@ -80,7 +80,13 @@ else
     --format "value(status.url)" 2>/dev/null || echo "NOT_DEPLOYED")
 fi
 
-# ── 2. Deploy Frontend to Firebase Hosting ─────────────────────────────────
+# ── 2. Deploy Firestore Security Rules ─────────────────────────────────────
+echo ""
+echo "🔒  Deploying Firestore security rules…"
+firebase deploy --only firestore:rules --project "${PROJECT_ID}"
+echo "✅  Firestore rules deployed"
+
+# ── 3. Deploy Frontend to Firebase Hosting ─────────────────────────────────
 if [ "$SKIP_FRONTEND" = false ]; then
   echo ""
   echo "🌐  Deploying frontend to Firebase Hosting…"

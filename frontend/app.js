@@ -213,6 +213,13 @@ function _setupUserMenu() {
         openAdminDashboard();
     });
 
+    const projectsBtn = $('#btn-nav-projects');
+    projectsBtn?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        menuDropdown?.classList.add('hidden');
+        openProjectsGallery();
+    });
+
     if (btnCloseAdmin) {
         btnCloseAdmin.addEventListener('click', () => {
             adminModal?.classList.add('hidden');
@@ -449,7 +456,7 @@ async function loadStorageUsage() {
 
         const btnPurge = document.getElementById('btn-purge-storage');
         if (btnPurge) {
-            btnPurge.addEventListener('click', async () => {
+        btnPurge.addEventListener('click', async () => {
                 if (!confirm(`⚠️ This will permanently delete ALL ${data.total_files} stored files. This cannot be undone. Continue?`)) return;
                 
                 const originalContent = btnPurge.innerHTML;
@@ -458,17 +465,32 @@ async function loadStorageUsage() {
                 btnPurge.classList.add('opacity-50', 'cursor-not-allowed');
 
                 try {
+                    // Kick off the async purge — returns 202 + job_id immediately
                     const delRes = await authFetch(`${API}/api/admin/storage-clear`, { method: 'DELETE' });
-                    if (!delRes.ok) throw new Error('Failed to purge storage');
-                    const result = await delRes.json();
+                    if (!delRes.ok) throw new Error('Failed to start purge');
+                    const { job_id } = await delRes.json();
+
+                    // Poll until done or error
+                    const result = await (async () => {
+                        for (let i = 0; i < 120; i++) {  // max ~4 min
+                            await new Promise(r => setTimeout(r, 2000));
+                            const poll = await authFetch(`${API}/api/admin/storage-clear/${job_id}`);
+                            if (!poll.ok) throw new Error('Lost track of purge job');
+                            const job = await poll.json();
+                            if (job.status === 'done') return job.result;
+                            if (job.status === 'error') throw new Error(job.error || 'Purge failed');
+                            // still running — update label
+                            btnPurge.innerHTML = `<span class="spinner" style="width:16px;height:16px;border-width:2px;border-color:currentcolor;border-bottom-color:transparent"></span> Purging (${i * 2}s)...`;
+                        }
+                        throw new Error('Purge timed out waiting for completion');
+                    })();
                     
-                    // Show a temporary success message in the container before reloading stats
+                    // Show success
                     container.innerHTML = `<div class="text-center py-4 text-secondary text-sm font-label flex flex-col items-center gap-2">
                         <span class="material-symbols-outlined text-3xl">check_circle</span>
                         Successfully purged ${result.deleted_count} files.
                     </div>`;
                     
-                    // Wait a moment then reload actual stats
                     setTimeout(async () => {
                         await loadStorageUsage();
                     }, 1500);
@@ -2467,6 +2489,7 @@ function setupResult() {
     $('#btn-download-instructions').addEventListener('click', downloadInstructions);
     $('#btn-start-over').addEventListener('click', startOver);
     $('#btn-change-set').addEventListener('click', changeSets);
+    $('#btn-save-project')?.addEventListener('click', openSaveProjectDialog);
 }
 
 let isComparisonActive = false;
@@ -3181,3 +3204,375 @@ async function generateCompareColumn(id) {
         renderCompareColumns();
     }
 }
+
+// ═════════════════════════════════════════════════
+//  PROJECT MANAGEMENT — Save, List, Load, Delete
+// ═════════════════════════════════════════════════
+
+/** Build a human-friendly default project name from current state. */
+function _defaultProjectName() {
+    const sets = state.setSelections.map(s => s.set?.name || '').filter(Boolean);
+    const setStr = sets.length > 0 ? sets.slice(0, 2).join(' + ') : 'New Mosaic';
+    const now = new Date();
+    const datePart = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    return `${setStr} \u2014 ${datePart}`;
+}
+
+/** Collect all current config fields for saving. */
+function _getCurrentConfig() {
+    return {
+        dithering: $('#dithering-toggle')?.checked ?? false,
+        preprocessing: preprocessingToggle?.checked ?? true,
+        contrast_boost: parseFloat(contrastSlider?.value ?? '1.0'),
+        color_mode: colorModeSelect?.value ?? 'realistic',
+        gradient_colors: getGradientColors(),
+        target_width: state.targetW || null,
+        target_height: state.targetH || null,
+    };
+}
+
+/** Collect current crop state for saving. */
+function _getCurrentCropState() {
+    if (!cropState || !cropState.naturalW) return null;
+    return {
+        imgScale: cropState.imgScale,
+        imgPanX: cropState.imgPanX,
+        imgPanY: cropState.imgPanY,
+        imgRotation: cropState.imgRotation,
+        frameW: cropState.frameW,
+        frameH: cropState.frameH,
+    };
+}
+
+/** Build a single project card DOM element. */
+function _buildProjectCard(project) {
+    const card = document.createElement('div');
+    card.className = 'bg-surface-container-high border border-outline-variant rounded-xl overflow-hidden flex flex-col group hover:border-primary/50 transition-all duration-200';
+    card.dataset.projectId = project.id;
+
+    const thumbSrc = project.thumbnail_url || '';
+    const thumb = thumbSrc
+        ? `<img src="${thumbSrc}" class="w-full h-40 object-cover" alt="${project.name}" loading="lazy" />`
+        : `<div class="w-full h-40 bg-surface-container flex items-center justify-center"><span class="material-symbols-outlined text-on-surface-variant/30 text-5xl">grid_view</span></div>`;
+
+    const sets = (project.set_names || []).slice(0, 2).join(', ') || 'Unknown Sets';
+    const studs = project.stud_count ? `${project.stud_count.toLocaleString()} studs` : '';
+    const colors = project.color_count ? `${project.color_count} colors` : '';
+    const meta = [studs, colors].filter(Boolean).join(' \u00b7 ');
+    const dateStr = project.updated_at
+        ? new Date(project.updated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+        : '';
+
+    card.innerHTML =
+        thumb +
+        `<div class="p-4 flex flex-col gap-2 flex-1">
+            <h3 class="font-headline font-bold text-sm text-on-surface leading-tight truncate">${project.name}</h3>
+            <p class="font-label text-[10px] uppercase tracking-widest text-primary/70 truncate">${sets}</p>
+            ${meta ? `<p class="font-label text-[10px] text-on-surface-variant">${meta}</p>` : ''}
+            ${dateStr ? `<p class="font-label text-[10px] text-on-surface-variant/50 mt-auto pt-1">${dateStr}</p>` : ''}
+        </div>
+        <div class="flex border-t border-outline-variant">
+            <button class="btn-load-project flex-1 flex items-center justify-center gap-1.5 py-2.5 text-[11px] font-label uppercase tracking-wider text-on-surface-variant hover:text-primary hover:bg-primary/5 transition-colors" data-id="${project.id}">
+                <span class="material-symbols-outlined" style="font-size:14px">open_in_new</span>
+                Open
+            </button>
+            <div class="w-px bg-outline-variant"></div>
+            <button class="btn-delete-project flex items-center justify-center gap-1 py-2.5 px-3 text-[11px] font-label uppercase tracking-wider text-on-surface-variant hover:text-error hover:bg-error/5 transition-colors" data-id="${project.id}" data-name="${project.name}">
+                <span class="material-symbols-outlined" style="font-size:14px">delete</span>
+            </button>
+        </div>`;
+    return card;
+}
+
+// ── Gallery Modal ────────────────────────────────
+
+async function openProjectsGallery() {
+    const modal = $('#projects-modal');
+    const loadingEl = $('#projects-loading');
+    const emptyEl = $('#projects-empty');
+    const gridEl = $('#projects-grid');
+    if (!modal) return;
+
+    modal.classList.remove('hidden');
+    loadingEl?.classList.remove('hidden');
+    emptyEl?.classList.add('hidden');
+    gridEl?.classList.add('hidden');
+    if (gridEl) gridEl.innerHTML = '';
+
+    try {
+        const res = await authFetch(`${API}/api/projects`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Failed to load projects');
+
+        const projects = data.projects || [];
+        loadingEl?.classList.add('hidden');
+
+        if (projects.length === 0) {
+            emptyEl?.classList.remove('hidden');
+            emptyEl?.classList.add('flex');
+        } else {
+            gridEl?.classList.remove('hidden');
+            projects.forEach(p => gridEl?.appendChild(_buildProjectCard(p)));
+            gridEl?.querySelectorAll('.btn-load-project').forEach(btn => {
+                btn.addEventListener('click', () => loadProject(btn.dataset.id));
+            });
+            gridEl?.querySelectorAll('.btn-delete-project').forEach(btn => {
+                btn.addEventListener('click', () => openDeleteProjectDialog(btn.dataset.id, btn.dataset.name));
+            });
+        }
+    } catch (e) {
+        loadingEl?.classList.add('hidden');
+        if (gridEl) {
+            gridEl.classList.remove('hidden');
+            gridEl.innerHTML = `<div class="col-span-full text-center py-12 text-error text-sm font-label">${e.message}</div>`;
+        }
+    }
+}
+
+function closeProjectsGallery() {
+    $('#projects-modal')?.classList.add('hidden');
+}
+
+// ── Load (Open) Project ──────────────────────────
+
+async function loadProject(projectId) {
+    closeProjectsGallery();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'project-load-overlay';
+    overlay.className = 'fixed inset-0 z-[2000] bg-background/90 backdrop-blur-sm flex flex-col items-center justify-center gap-4';
+    overlay.innerHTML = '<span class="spinner" style="width:40px;height:40px;border-width:3px;color:#ff2d78"></span>' +
+        '<p class="font-label text-xs uppercase tracking-widest text-on-surface-variant">Loading project\u2026</p>';
+    document.body.appendChild(overlay);
+
+    try {
+        const res = await authFetch(`${API}/api/projects/${projectId}`);
+        const project = await res.json();
+        if (!res.ok) throw new Error(project.detail || 'Failed to load project');
+
+        state.imageUrl = project.image_url;
+        state.croppedImageUrl = project.cropped_image_url;
+        state.mosaicUrl = project.thumbnail_url;
+
+        // Restore set selections using allSets lookup
+        state.setSelections = (project.set_selections || []).map(sel => {
+            const found = state.allSets.find(s => s.id === sel.set_id);
+            return found ? { set: found, qty: sel.qty || 1 } : null;
+        }).filter(Boolean);
+        renderSelectedSets();
+
+        // Restore config UI
+        const cfg = project.config || {};
+        if ($('#dithering-toggle') && cfg.dithering !== undefined) $('#dithering-toggle').checked = cfg.dithering;
+        if (preprocessingToggle && cfg.preprocessing !== undefined) preprocessingToggle.checked = cfg.preprocessing;
+        if (contrastSlider && cfg.contrast_boost !== undefined) {
+            contrastSlider.value = cfg.contrast_boost;
+            if (contrastValue) contrastValue.textContent = parseFloat(cfg.contrast_boost).toFixed(1);
+        }
+        if (colorModeSelect && cfg.color_mode) colorModeSelect.value = cfg.color_mode;
+        if (cfg.target_width) state.targetW = cfg.target_width;
+        if (cfg.target_height) state.targetH = cfg.target_height;
+
+        state.mosaicData = project.mosaic_data;
+        state._loadedProjectId = projectId;
+        state._loadedProjectName = project.name;
+
+        referenceImage.src = state.croppedImageUrl;
+        showTab('build-plan');
+        if (window.syncQuickConfigUI) window.syncQuickConfigUI();
+        renderMosaic();
+        renderLegend();
+    } catch (e) {
+        alert('Failed to load project: ' + e.message);
+    } finally {
+        document.getElementById('project-load-overlay')?.remove();
+    }
+}
+
+// ── Save Project Dialog ──────────────────────────
+
+function openSaveProjectDialog() {
+    if (!state.mosaicData) {
+        alert('Generate a mosaic first before saving.');
+        return;
+    }
+    const modal = $('#save-project-modal');
+    const nameInput = $('#save-project-name');
+    const warningEl = $('#save-limit-warning');
+    if (!modal || !nameInput) return;
+
+    nameInput.value = state._loadedProjectName || _defaultProjectName();
+    setTimeout(() => nameInput.select(), 50);
+    warningEl?.classList.add('hidden');
+    modal.classList.remove('hidden');
+}
+
+function closeSaveProjectDialog() {
+    $('#save-project-modal')?.classList.add('hidden');
+}
+
+async function _confirmSaveProject() {
+    const nameInput = $('#save-project-name');
+    const name = nameInput?.value?.trim() || _defaultProjectName();
+    const warningEl = $('#save-limit-warning');
+    const warningTextEl = $('#save-limit-warning-text');
+    const btnConfirm = $('#btn-confirm-save');
+
+    if (!state.mosaicData || !state.croppedImageUrl) return;
+
+    setBtnLoading(btnConfirm, true, 'Saving\u2026');
+    warningEl?.classList.add('hidden');
+
+    const payload = {
+        name,
+        image_url: state.imageUrl || state.croppedImageUrl,
+        cropped_image_url: state.croppedImageUrl,
+        mosaic_preview_url: state.mosaicUrl || '',
+        set_selections: state.setSelections.map(s => ({
+            set_id: s.set.id,
+            set_name: s.set.name || s.set.id,
+            qty: s.qty,
+        })),
+        config: _getCurrentConfig(),
+        crop_state: _getCurrentCropState(),
+        mosaic_data: state.mosaicData,
+    };
+
+    try {
+        let res, data;
+        if (state._loadedProjectId) {
+            res = await authFetch(`${API}/api/projects/${state._loadedProjectId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+            data = await res.json();
+            if (!res.ok) {
+                const d = data.detail;
+                const err = new Error(typeof d === 'object' ? d.message : (d || 'Save failed'));
+                err.code = typeof d === 'object' ? d.code : null;
+                throw err;
+            }
+            state._loadedProjectName = name;
+        } else {
+            res = await authFetch(`${API}/api/projects`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+            data = await res.json();
+            if (!res.ok) {
+                const d = data.detail;
+                const err = new Error(typeof d === 'object' ? d.message : (d || 'Save failed'));
+                err.code = typeof d === 'object' ? d.code : null;
+                throw err;
+            }
+            state._loadedProjectId = data.project_id;
+            state._loadedProjectName = name;
+        }
+
+        closeSaveProjectDialog();
+        _showToast('Project saved!', 'success');
+    } catch (e) {
+        if (e.code === 'PROJECT_LIMIT_REACHED') {
+            if (warningEl && warningTextEl) {
+                warningTextEl.textContent = e.message;
+                warningEl.classList.remove('hidden');
+            }
+        } else {
+            alert('Failed to save project: ' + e.message);
+        }
+    } finally {
+        setBtnLoading(btnConfirm, false, 'Save');
+    }
+}
+
+// ── Delete Project Dialog ────────────────────────
+
+let _pendingDeleteId = null;
+
+function openDeleteProjectDialog(projectId, projectName) {
+    _pendingDeleteId = projectId;
+    const nameDisplay = $('#delete-project-name-display');
+    if (nameDisplay) nameDisplay.textContent = projectName || 'this project';
+    $('#delete-project-modal')?.classList.remove('hidden');
+}
+
+function closeDeleteProjectDialog() {
+    _pendingDeleteId = null;
+    $('#delete-project-modal')?.classList.add('hidden');
+}
+
+async function _confirmDeleteProject() {
+    if (!_pendingDeleteId) return;
+    const btn = $('#btn-confirm-delete');
+    setBtnLoading(btn, true, 'Deleting\u2026');
+
+    try {
+        const res = await authFetch(`${API}/api/projects/${_pendingDeleteId}`, { method: 'DELETE' });
+        if (!res.ok) {
+            const d = await res.json();
+            throw new Error(d.detail || 'Delete failed');
+        }
+        const deletedId = _pendingDeleteId;
+        closeDeleteProjectDialog();
+        _showToast('Project deleted', 'info');
+
+        // Remove card from open gallery without full reload
+        document.querySelector(`[data-project-id="${deletedId}"]`)?.remove();
+        const gridEl = $('#projects-grid');
+        if (gridEl && gridEl.children.length === 0) {
+            gridEl.classList.add('hidden');
+            const emptyEl = $('#projects-empty');
+            emptyEl?.classList.remove('hidden');
+            emptyEl?.classList.add('flex');
+        }
+        if (state._loadedProjectId === deletedId) {
+            state._loadedProjectId = null;
+            state._loadedProjectName = null;
+        }
+    } catch (e) {
+        alert('Failed to delete project: ' + e.message);
+    } finally {
+        setBtnLoading(btn, false, 'Delete');
+    }
+}
+
+// ── Toast Notification ───────────────────────────
+
+function _showToast(message, type) {
+    const colorMap = {
+        success: 'bg-secondary/20 border-secondary text-secondary',
+        info:    'bg-primary/20 border-primary text-primary',
+        error:   'bg-error/20 border-error text-error',
+    };
+    const iconMap = { success: 'check_circle', info: 'info', error: 'error' };
+    const k = type || 'info';
+
+    const toast = document.createElement('div');
+    toast.className = `fixed bottom-6 right-6 z-[5000] flex items-center gap-3 px-5 py-3 rounded-xl border font-label text-sm uppercase tracking-wider shadow-2xl backdrop-blur-md transition-all duration-300 opacity-0 translate-y-2 ${colorMap[k] || colorMap.info}`;
+    toast.innerHTML = `<span class="material-symbols-outlined" style="font-size:18px">${iconMap[k] || iconMap.info}</span>${message}`;
+    document.body.appendChild(toast);
+
+    requestAnimationFrame(() => toast.classList.remove('opacity-0', 'translate-y-2'));
+    setTimeout(() => {
+        toast.classList.add('opacity-0', 'translate-y-2');
+        setTimeout(() => toast.remove(), 400);
+    }, 2800);
+}
+
+// ── Wire up modal event listeners (after DOM ready) ──
+
+document.addEventListener('DOMContentLoaded', () => {
+    $('#btn-close-projects-modal')?.addEventListener('click', closeProjectsGallery);
+    $('#projects-modal')?.addEventListener('click', e => { if (e.target === e.currentTarget) closeProjectsGallery(); });
+
+    $('#btn-close-save-modal')?.addEventListener('click', closeSaveProjectDialog);
+    $('#btn-cancel-save')?.addEventListener('click', closeSaveProjectDialog);
+    $('#save-project-modal')?.addEventListener('click', e => { if (e.target === e.currentTarget) closeSaveProjectDialog(); });
+    $('#btn-confirm-save')?.addEventListener('click', _confirmSaveProject);
+
+    $('#btn-cancel-delete')?.addEventListener('click', closeDeleteProjectDialog);
+    $('#delete-project-modal')?.addEventListener('click', e => { if (e.target === e.currentTarget) closeDeleteProjectDialog(); });
+    $('#btn-confirm-delete')?.addEventListener('click', _confirmDeleteProject);
+});

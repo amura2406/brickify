@@ -31,3 +31,6 @@ uv.lock
 
 # Local Dev Uploads
 backend/uploads/
+
+# Local Dev Database (JSON files for offline dev)
+backend/local_data/

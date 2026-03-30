@@ -12,6 +12,7 @@ by an admin via POST /api/admin/approve-user.
 import io
 import logging
 import os
+import threading
 import uuid
 from pathlib import Path
 from dotenv import load_dotenv
@@ -30,6 +31,7 @@ import httpx
 import urllib.parse
 import urllib.request
 from storage import StorageProvider, get_storage_provider
+from database import DatabaseProvider, get_database_provider
 
 from lego_sets import LEGO_SETS, get_set_info, get_set_detail, merge_sets
 from mosaic import generate_mosaic, render_mosaic_image, generate_palette_preview
@@ -44,12 +46,25 @@ _ALLOWED_ORIGINS = (
     else ["*"]
 )
 
+_ADMIN_EMAILS: frozenset[str] = frozenset(
+    e.strip().lower()
+    for e in os.environ.get("ADMIN_EMAILS", "amuhr4@gmail.com").split(",")
+    if e.strip()
+)
+
+# Max saved projects for non-admin users
+_MAX_PROJECTS_PER_USER = 20
+
+# In-memory store for async purge job status (single-instance, fine for Cloud Run)
+# key: job_id (str) → value: {"status": "running"|"done"|"error", "result": dict|None, "error": str|None}
+_purge_jobs: dict[str, dict] = {}
+
 app = FastAPI(title="LEGO Mosaic Maker")
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_ALLOWED_ORIGINS,
-    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type"],
 )
 
@@ -57,6 +72,7 @@ app.add_middleware(
 FRONTEND_DIR = Path(__file__).parent.parent / "frontend"
 
 
+logger = logging.getLogger(__name__)
 
 
 def _download_from_url(url: str) -> Image.Image:
@@ -104,17 +120,17 @@ def get_set(set_id: str):
 @app.post("/api/upload")
 async def upload_image(
     file: UploadFile = File(...),
-    _user: dict = Depends(require_approved_user),
+    user: dict = Depends(require_approved_user),
     provider: StorageProvider = Depends(get_storage_provider)
 ):
-    """Upload an image directly to storage (approved users)."""
+    """Upload an image directly to storage (approved users). Scoped per user."""
     try:
         contents = await file.read()
         img = Image.open(io.BytesIO(contents)).convert("RGB")
     except Exception:
         raise HTTPException(400, "Invalid image file")
 
-    url = provider.upload_image(img, "uploads", fmt="JPEG")
+    url = provider.upload_image(img, "uploads", fmt="JPEG", user_id=user["uid"])
     w, h = img.size
 
     return {
@@ -125,7 +141,6 @@ async def upload_image(
     }
 
 
-
 class UploadPathRequest(BaseModel):
     file_path: str
 
@@ -133,6 +148,7 @@ class UploadPathRequest(BaseModel):
 @app.post("/api/upload-path")
 def upload_from_path(
     req: UploadPathRequest,
+    user: dict = Depends(require_approved_user),
     provider: StorageProvider = Depends(get_storage_provider)
 ):
     """DEV ONLY: Upload an image from a local file path (bypasses file picker)."""
@@ -147,7 +163,7 @@ def upload_from_path(
     except Exception:
         raise HTTPException(400, f"Cannot open image: {req.file_path}")
 
-    url = provider.upload_image(img, "uploads", fmt="JPEG")
+    url = provider.upload_image(img, "uploads", fmt="JPEG", user_id=user["uid"])
     w, h = img.size
 
     return {
@@ -170,7 +186,7 @@ class CropRequest(BaseModel):
 @app.post("/api/crop")
 def crop_image(
     req: CropRequest,
-    _user: dict = Depends(require_approved_user),
+    user: dict = Depends(require_approved_user),
     provider: StorageProvider = Depends(get_storage_provider)
 ):
     """Download image, optionally rotate, crop, and upload result."""
@@ -181,7 +197,6 @@ def crop_image(
 
     # Apply rotation before crop (uses PIL expand=True to avoid clipping)
     if req.rotation_degrees and req.rotation_degrees % 360 != 0:
-        # PIL rotates counter-clockwise; negate for clockwise convention
         angle = -(req.rotation_degrees % 360)
         img = img.rotate(angle, expand=True)
 
@@ -198,7 +213,7 @@ def crop_image(
         y = ch - target_h
     x = max(0, x)
     y = max(0, y)
-    
+
     target_w = min(target_w, cw - x)
     target_h = min(target_h, ch - y)
 
@@ -206,7 +221,7 @@ def crop_image(
         raise HTTPException(400, "Crop region too small")
 
     cropped = img.crop((x, y, x + target_w, y + target_h))
-    new_url = provider.upload_image(cropped, "crops", fmt="JPEG")
+    new_url = provider.upload_image(cropped, "crops", fmt="JPEG", user_id=user["uid"])
 
     return {
         "url": new_url,
@@ -274,7 +289,7 @@ def generate(
         target_width=req.target_width,
         target_height=req.target_height,
     )
-    
+
     preview_img = render_mosaic_image(mosaic_data, stud_size=15)
     preview_url = provider.upload_image(preview_img, "mosaics", fmt="PNG")
 
@@ -287,9 +302,96 @@ def generate(
     }
 
 
-# ── Google Photos Picker API proxy ─────────────────────────────
+# ── Projects (Saved Mosaics) ───────────────────────────────────
 
-logger = logging.getLogger(__name__)
+class SaveProjectRequest(BaseModel):
+    name: str
+    image_url: str
+    cropped_image_url: str
+    mosaic_preview_url: str
+    set_selections: list[dict]
+    config: dict
+    crop_state: dict | None = None
+    mosaic_data: dict
+
+
+@app.post("/api/projects")
+def save_project(
+    req: SaveProjectRequest,
+    user: dict = Depends(require_approved_user),
+    db: DatabaseProvider = Depends(get_database_provider),
+):
+    """Save a mosaic project (approved users). Enforces 20-project limit for non-admins."""
+    uid = user["uid"]
+    is_admin = user.get("email", "").lower() in _ADMIN_EMAILS
+
+    if not is_admin:
+        count = db.count_projects(uid)
+        if count >= _MAX_PROJECTS_PER_USER:
+            raise HTTPException(
+                status_code=403,
+                detail={
+                    "code": "PROJECT_LIMIT_REACHED",
+                    "message": f"You've reached the {_MAX_PROJECTS_PER_USER} project limit. "
+                               "Delete a project to save a new one.",
+                },
+            )
+
+    project_id = db.save_project(uid, req.model_dump())
+    return {"project_id": project_id, "name": req.name}
+
+
+@app.get("/api/projects")
+def list_projects(
+    user: dict = Depends(require_approved_user),
+    db: DatabaseProvider = Depends(get_database_provider),
+):
+    """List saved project summaries for the current user (lightweight, no grid data)."""
+    projects = db.list_projects(user["uid"])
+    return {"projects": projects}
+
+
+@app.get("/api/projects/{project_id}")
+def get_project(
+    project_id: str,
+    user: dict = Depends(require_approved_user),
+    db: DatabaseProvider = Depends(get_database_provider),
+):
+    """Get full project detail including mosaic grid data."""
+    project = db.get_project_detail(user["uid"], project_id)
+    if not project:
+        raise HTTPException(404, "Project not found")
+    return project
+
+
+@app.put("/api/projects/{project_id}")
+def update_project(
+    project_id: str,
+    req: SaveProjectRequest,
+    user: dict = Depends(require_approved_user),
+    db: DatabaseProvider = Depends(get_database_provider),
+):
+    """Update an existing saved project."""
+    updated = db.update_project(user["uid"], project_id, req.model_dump())
+    if not updated:
+        raise HTTPException(404, "Project not found")
+    return {"project_id": project_id, "name": req.name}
+
+
+@app.delete("/api/projects/{project_id}")
+def delete_project(
+    project_id: str,
+    user: dict = Depends(require_approved_user),
+    db: DatabaseProvider = Depends(get_database_provider),
+):
+    """Delete a saved project."""
+    deleted = db.delete_project(user["uid"], project_id)
+    if not deleted:
+        raise HTTPException(404, "Project not found")
+    return {"deleted": project_id}
+
+
+# ── Google Photos Picker API proxy ─────────────────────────────
 
 GPHOTOS_PICKER_BASE = "https://photospicker.googleapis.com/v1"
 
@@ -308,11 +410,7 @@ def gphotos_create_session(
     req: CreateSessionRequest,
     _user: dict = Depends(require_approved_user),
 ):
-    """Create a Google Photos Picker session.
-
-    The frontend provides the user's Google OAuth access token (obtained via
-    incremental scope authorization). We proxy the call to the Picker API.
-    """
+    """Create a Google Photos Picker session."""
     try:
         with httpx.Client(timeout=15) as client:
             resp = client.post(
@@ -347,11 +445,7 @@ def gphotos_get_session(
     google_access_token: str,
     _user: dict = Depends(require_approved_user),
 ):
-    """Poll a Google Photos Picker session status.
-
-    The google_access_token is passed as a query parameter.
-    Returns the session with mediaItemsSet boolean.
-    """
+    """Poll a Google Photos Picker session status."""
     try:
         with httpx.Client(timeout=10) as client:
             resp = client.get(
@@ -379,10 +473,7 @@ def gphotos_list_media_items(
     google_access_token: str,
     _user: dict = Depends(require_approved_user),
 ):
-    """List picked media items from a completed Picker session.
-
-    Returns the first photo's metadata (baseUrl, dimensions, mimeType).
-    """
+    """List picked media items from a completed Picker session."""
     try:
         with httpx.Client(timeout=15) as client:
             resp = client.get(
@@ -394,11 +485,10 @@ def gphotos_list_media_items(
             raise HTTPException(502, f"Google Photos API error ({resp.status_code})")
         data = resp.json()
         items = data.get("pickedMediaItems", data.get("mediaItems", []))
-        # Filter to images only
         images = [
             item for item in items
             if item.get("type", item.get("mimeType", "")).startswith("image")
-            or "mediaFile" in item  # Picker API wraps in mediaFile
+            or "mediaFile" in item
         ]
         return {"items": images}
     except HTTPException:
@@ -411,16 +501,10 @@ def gphotos_list_media_items(
 @app.post("/api/upload-from-google-photos")
 def upload_from_google_photos(
     req: GooglePhotosUploadRequest,
-    _user: dict = Depends(require_approved_user),
+    user: dict = Depends(require_approved_user),
     provider: StorageProvider = Depends(get_storage_provider),
 ):
-    """Download a photo from Google Photos and save it to our storage.
-
-    The baseUrl from the Picker API requires an Authorization header,
-    so the frontend cannot use it as a plain <img src>. This endpoint
-    downloads the image bytes, stores them, and returns a permanent URL.
-    """
-    # Append =d to download full resolution with EXIF (minus location)
+    """Download a photo from Google Photos and save it to our storage."""
     download_url = req.base_url
     if "=" not in download_url.split("/")[-1]:
         download_url += "=d"
@@ -441,7 +525,7 @@ def upload_from_google_photos(
         logger.exception("Failed to download Google Photos image")
         raise HTTPException(502, f"Failed to download photo: {exc}") from exc
 
-    url = provider.upload_image(img, "uploads", fmt="JPEG")
+    url = provider.upload_image(img, "uploads", fmt="JPEG", user_id=user["uid"])
     w, h = img.size
 
     return {
@@ -467,7 +551,7 @@ def approve_user(
     from firebase_admin import auth as firebase_auth
     try:
         firebase_auth.set_custom_user_claims(req.uid, {"approved": True})
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         raise HTTPException(400, f"Failed to approve user: {exc}") from exc
     return {"status": "approved", "uid": req.uid}
 
@@ -478,13 +562,13 @@ def list_pending_users(_admin: dict = Depends(require_admin)):
     from firebase_admin import auth as firebase_auth
     page = firebase_auth.list_users()
     pending = []
-    
+
     admin_emails = [e.strip().lower() for e in os.environ.get("ADMIN_EMAILS", "amuhr4@gmail.com").split(",") if e.strip()]
-    
+
     for user in page.users:
         claims = user.custom_claims or {}
         is_admin = (user.email or "").lower() in admin_emails
-        
+
         if not claims.get("approved", False) and not is_admin:
             pending.append({
                 "uid": user.uid,
@@ -502,17 +586,17 @@ def me(user: dict = Depends(get_current_user)):
         "uid": user.get("uid"),
         "email": user.get("email"),
         "approved": user.get("approved", False),
-        "is_admin": user.get("email", "").lower() in os.environ.get("ADMIN_EMAILS", "amuhr4@gmail.com").split(","),
+        "is_admin": user.get("email", "").lower() in _ADMIN_EMAILS,
     }
 
 
 @app.get("/api/recent-uploads")
 def recent_uploads(
-    _user: dict = Depends(require_approved_user),
+    user: dict = Depends(require_approved_user),
     provider: StorageProvider = Depends(get_storage_provider),
 ):
-    """List the 10 most recently uploaded images (global, all users)."""
-    items = provider.list_recent(folder="uploads", limit=10)
+    """List the 10 most recently uploaded images for the current user."""
+    items = provider.list_recent(folder="uploads", limit=10, user_id=user["uid"])
     return {"images": items}
 
 
@@ -530,10 +614,49 @@ def storage_usage(
 def storage_clear(
     _admin: dict = Depends(require_admin),
     provider: StorageProvider = Depends(get_storage_provider),
+    db: DatabaseProvider = Depends(get_database_provider),
 ):
-    """Purge all files under managed prefixes (admin only)."""
-    result = provider.clear_all_storage()
-    return result
+    """Start an async purge of all storage files, skipping images used by saved projects (admin only).
+
+    Returns 202 Accepted immediately with a job_id. Poll GET /api/admin/storage-clear/{job_id}
+    for status. This avoids timeouts from the Firebase Hosting 60s proxy limit.
+    """
+    # Build the exclusion set synchronously first (fast Firestore read)
+    try:
+        excluded_urls = db.get_all_referenced_urls()
+        logger.info("Purge: protecting %d URLs from saved projects", len(excluded_urls))
+    except Exception:
+        logger.exception("Failed to build exclusion set; aborting purge for safety")
+        raise HTTPException(500, "Failed to build purge exclusion set. No files were deleted.")
+
+    job_id = str(uuid.uuid4())
+    _purge_jobs[job_id] = {"status": "running", "result": None, "error": None}
+
+    def _run_purge() -> None:
+        try:
+            result = provider.clear_all_storage(excluded_urls=excluded_urls)
+            _purge_jobs[job_id] = {"status": "done", "result": result, "error": None}
+            logger.info("Purge job %s complete: %s", job_id, result)
+        except Exception as exc:
+            logger.exception("Purge job %s failed", job_id)
+            _purge_jobs[job_id] = {"status": "error", "result": None, "error": str(exc)}
+
+    threading.Thread(target=_run_purge, daemon=True).start()
+
+    from fastapi.responses import JSONResponse
+    return JSONResponse(status_code=202, content={"job_id": job_id, "status": "running"})
+
+
+@app.get("/api/admin/storage-clear/{job_id}")
+def storage_clear_status(
+    job_id: str,
+    _admin: dict = Depends(require_admin),
+):
+    """Poll the status of an async purge job (admin only)."""
+    job = _purge_jobs.get(job_id)
+    if job is None:
+        raise HTTPException(404, "Job not found")
+    return job
 
 
 class PalettePreviewRequest(BaseModel):
@@ -564,7 +687,7 @@ def preview_palette(
 
     grid_w = req.target_width if req.target_width else set_data["grid"][0]
     grid_h = req.target_height if req.target_height else set_data["grid"][1]
-    
+
     palette_rgb = [c["rgb"] for c in set_data["colors"]]
 
     preview = generate_palette_preview(
@@ -575,7 +698,6 @@ def preview_palette(
 
     url = provider.upload_image(preview, "previews", fmt="PNG")
     return {"url": url}
-
 
 
 # ── Serve Frontend ─────────────────────────────────────────────
