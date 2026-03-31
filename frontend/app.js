@@ -3362,7 +3362,7 @@ function _getCurrentCropState() {
 /** Build a single project card DOM element. */
 function _buildProjectCard(project) {
     const card = document.createElement('div');
-    card.className = 'bg-surface-container-high border border-outline-variant rounded-xl overflow-hidden flex flex-col group hover:border-primary/50 transition-all duration-200';
+    card.className = 'relative group rounded-md sm:rounded-lg overflow-hidden break-inside-avoid mb-1 sm:mb-2 bg-surface-container/30 border border-transparent hover:border-outline-variant/50 transition-colors duration-300';
     card.dataset.projectId = project.id;
 
     const sets = (project.set_names || []).slice(0, 2).join(', ') || 'Unknown Sets';
@@ -3375,73 +3375,44 @@ function _buildProjectCard(project) {
 
     const thumbSrc = project.thumbnail_url || '';
     
-    const imgContainer = document.createElement('div');
-    imgContainer.className = 'w-full bg-surface-container/50 flex items-center justify-center border-b border-outline-variant/30 shrink-0';
-    
-    const contentWrapper = document.createElement('div');
-    contentWrapper.className = 'p-4 flex flex-col gap-2 flex-1 justify-center';
-    contentWrapper.innerHTML = `
-        <h3 class="font-headline font-bold text-sm text-on-surface leading-tight line-clamp-2" title="${project.name}">${project.name}</h3>
-        <p class="font-label text-[10px] uppercase tracking-widest text-primary/70 truncate">${sets}</p>
-        ${meta ? `<p class="font-label text-[10px] text-on-surface-variant">${meta}</p>` : ''}
-        ${dateStr ? `<p class="font-label text-[10px] text-on-surface-variant/50 mt-auto pt-1">${dateStr}</p>` : ''}
-    `;
-
-    const actionsWrapper = document.createElement('div');
-    actionsWrapper.className = 'flex border-t border-outline-variant shrink-0';
-    actionsWrapper.innerHTML = `
-        <button class="btn-load-project flex-1 flex items-center justify-center gap-1.5 py-2.5 px-2 text-[11px] font-label uppercase tracking-wider text-on-surface-variant hover:text-primary hover:bg-primary/5 transition-colors" data-id="${project.id}">
-            <span class="material-symbols-outlined action-icon" style="font-size:14px">open_in_new</span>
-            <span class="action-text">Open</span>
-        </button>
-        <div class="action-divider w-px bg-outline-variant shrink-0"></div>
-        <button class="btn-delete-project flex-1 flex items-center justify-center gap-1.5 py-2.5 px-2 text-[11px] font-label uppercase tracking-wider text-on-surface-variant hover:text-error hover:bg-error/5 transition-colors" data-id="${project.id}" data-name="${project.name}">
-            <span class="material-symbols-outlined action-icon" style="font-size:14px">delete</span>
-            <span class="action-text">Delete</span>
-        </button>
-    `;
-
-    const rightSide = document.createElement('div');
-    rightSide.className = 'flex flex-col flex-1 overflow-hidden min-h-[160px]';
-    rightSide.appendChild(contentWrapper);
-    rightSide.appendChild(actionsWrapper);
-
+    let mediaHTML = '';
     if (thumbSrc) {
-        const img = document.createElement('img');
-        img.src = thumbSrc;
-        img.alt = project.name;
-        img.loading = 'lazy';
-        img.className = 'w-full h-full object-contain p-2 opacity-0 transition-opacity duration-300';
-        
-        img.onload = function() {
-            img.classList.remove('opacity-0');
-            const ratio = this.naturalWidth / this.naturalHeight;
-            if (ratio < 0.95) {
-                // Portrait
-                card.classList.remove('flex-col');
-                card.classList.add('flex-row');
-                
-                imgContainer.classList.remove('w-full', 'border-b');
-                imgContainer.classList.add('w-2/5', 'border-r');
-                
-                // Keep the text concise to fit horizontally
-                actionsWrapper.querySelectorAll('.action-text').forEach(t => t.style.display = 'none');
-            } else if (ratio > 1.05) {
-                // Landscape
-                imgContainer.classList.add('aspect-video');
-            } else {
-                // Square
-                imgContainer.classList.add('aspect-square');
-            }
-        };
-        imgContainer.appendChild(img);
+        mediaHTML = `<img src="${thumbSrc}" alt="${project.name}" loading="lazy" class="w-full h-auto block transform group-hover:scale-105 transition-transform duration-700 ease-out" />`;
     } else {
-        imgContainer.classList.add('h-48');
-        imgContainer.innerHTML = `<span class="material-symbols-outlined text-on-surface-variant/30 text-5xl">grid_view</span>`;
+        mediaHTML = `<div class="w-full aspect-[4/3] flex items-center justify-center bg-surface-container-high transform group-hover:scale-105 transition-transform duration-700 ease-out">
+            <span class="material-symbols-outlined text-on-surface-variant/30 text-5xl">grid_view</span>
+        </div>`;
     }
 
-    card.appendChild(imgContainer);
-    card.appendChild(rightSide);
+    card.innerHTML = `
+        ${mediaHTML}
+        <!-- Interactive Overlay Layer -->
+        <div class="btn-load-project absolute inset-0 bg-gradient-to-t from-background/95 via-background/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4 cursor-pointer" data-id="${project.id}">
+            
+            <div class="flex flex-col gap-1 transform translate-y-2 group-hover:translate-y-0 transition-transform duration-300 ease-out mt-auto">
+                <h3 class="font-headline font-bold text-sm text-on-surface leading-tight line-clamp-2 drop-shadow-md" title="${project.name}">${project.name}</h3>
+                <p class="font-label text-[10px] uppercase tracking-widest text-primary/90 drop-shadow-md">${sets}</p>
+                <div class="flex items-center justify-between mt-0.5">
+                    <div class="flex flex-col gap-0.5">
+                        ${meta ? `<p class="font-label text-[9px] text-on-surface-variant drop-shadow-md">${meta}</p>` : ''}
+                        ${dateStr ? `<p class="font-label text-[9px] text-on-surface-variant/60 drop-shadow-md">${dateStr}</p>` : ''}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Delete Button (Positions top-right) -->
+            <button class="btn-delete-project absolute top-3 right-3 w-8 h-8 rounded-full bg-background/60 backdrop-blur-md flex items-center justify-center text-on-surface hover:bg-error hover:text-on-error transition-colors" data-id="${project.id}" data-name="${project.name}" title="Delete Project">
+                <span class="material-symbols-outlined text-[16px]">delete</span>
+            </button>
+        </div>
+    `;
+
+    // Stop propagation on delete button so it doesn't trigger open project
+    const delBtn = card.querySelector('.btn-delete-project');
+    if (delBtn) {
+        delBtn.addEventListener('click', (e) => e.stopPropagation());
+    }
+
     return card;
 }
 
