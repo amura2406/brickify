@@ -3365,11 +3365,6 @@ function _buildProjectCard(project) {
     card.className = 'bg-surface-container-high border border-outline-variant rounded-xl overflow-hidden flex flex-col group hover:border-primary/50 transition-all duration-200';
     card.dataset.projectId = project.id;
 
-    const thumbSrc = project.thumbnail_url || '';
-    const thumb = thumbSrc
-        ? `<img src="${thumbSrc}" class="w-full h-40 object-cover" alt="${project.name}" loading="lazy" />`
-        : `<div class="w-full h-40 bg-surface-container flex items-center justify-center"><span class="material-symbols-outlined text-on-surface-variant/30 text-5xl">grid_view</span></div>`;
-
     const sets = (project.set_names || []).slice(0, 2).join(', ') || 'Unknown Sets';
     const studs = project.stud_count ? `${project.stud_count.toLocaleString()} studs` : '';
     const colors = project.color_count ? `${project.color_count} colors` : '';
@@ -3378,24 +3373,75 @@ function _buildProjectCard(project) {
         ? new Date(project.updated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
         : '';
 
-    card.innerHTML =
-        thumb +
-        `<div class="p-4 flex flex-col gap-2 flex-1">
-            <h3 class="font-headline font-bold text-sm text-on-surface leading-tight truncate">${project.name}</h3>
-            <p class="font-label text-[10px] uppercase tracking-widest text-primary/70 truncate">${sets}</p>
-            ${meta ? `<p class="font-label text-[10px] text-on-surface-variant">${meta}</p>` : ''}
-            ${dateStr ? `<p class="font-label text-[10px] text-on-surface-variant/50 mt-auto pt-1">${dateStr}</p>` : ''}
-        </div>
-        <div class="flex border-t border-outline-variant">
-            <button class="btn-load-project flex-1 flex items-center justify-center gap-1.5 py-2.5 text-[11px] font-label uppercase tracking-wider text-on-surface-variant hover:text-primary hover:bg-primary/5 transition-colors" data-id="${project.id}">
-                <span class="material-symbols-outlined" style="font-size:14px">open_in_new</span>
-                Open
-            </button>
-            <div class="w-px bg-outline-variant"></div>
-            <button class="btn-delete-project flex items-center justify-center gap-1 py-2.5 px-3 text-[11px] font-label uppercase tracking-wider text-on-surface-variant hover:text-error hover:bg-error/5 transition-colors" data-id="${project.id}" data-name="${project.name}">
-                <span class="material-symbols-outlined" style="font-size:14px">delete</span>
-            </button>
-        </div>`;
+    const thumbSrc = project.thumbnail_url || '';
+    
+    const imgContainer = document.createElement('div');
+    imgContainer.className = 'w-full bg-surface-container/50 flex items-center justify-center border-b border-outline-variant/30 shrink-0';
+    
+    const contentWrapper = document.createElement('div');
+    contentWrapper.className = 'p-4 flex flex-col gap-2 flex-1 justify-center';
+    contentWrapper.innerHTML = `
+        <h3 class="font-headline font-bold text-sm text-on-surface leading-tight line-clamp-2" title="${project.name}">${project.name}</h3>
+        <p class="font-label text-[10px] uppercase tracking-widest text-primary/70 truncate">${sets}</p>
+        ${meta ? `<p class="font-label text-[10px] text-on-surface-variant">${meta}</p>` : ''}
+        ${dateStr ? `<p class="font-label text-[10px] text-on-surface-variant/50 mt-auto pt-1">${dateStr}</p>` : ''}
+    `;
+
+    const actionsWrapper = document.createElement('div');
+    actionsWrapper.className = 'flex border-t border-outline-variant shrink-0';
+    actionsWrapper.innerHTML = `
+        <button class="btn-load-project flex-1 flex items-center justify-center gap-1.5 py-2.5 px-2 text-[11px] font-label uppercase tracking-wider text-on-surface-variant hover:text-primary hover:bg-primary/5 transition-colors" data-id="${project.id}">
+            <span class="material-symbols-outlined action-icon" style="font-size:14px">open_in_new</span>
+            <span class="action-text">Open</span>
+        </button>
+        <div class="action-divider w-px bg-outline-variant shrink-0"></div>
+        <button class="btn-delete-project flex-1 flex items-center justify-center gap-1.5 py-2.5 px-2 text-[11px] font-label uppercase tracking-wider text-on-surface-variant hover:text-error hover:bg-error/5 transition-colors" data-id="${project.id}" data-name="${project.name}">
+            <span class="material-symbols-outlined action-icon" style="font-size:14px">delete</span>
+            <span class="action-text">Delete</span>
+        </button>
+    `;
+
+    const rightSide = document.createElement('div');
+    rightSide.className = 'flex flex-col flex-1 overflow-hidden min-h-[160px]';
+    rightSide.appendChild(contentWrapper);
+    rightSide.appendChild(actionsWrapper);
+
+    if (thumbSrc) {
+        const img = document.createElement('img');
+        img.src = thumbSrc;
+        img.alt = project.name;
+        img.loading = 'lazy';
+        img.className = 'w-full h-full object-contain p-2 opacity-0 transition-opacity duration-300';
+        
+        img.onload = function() {
+            img.classList.remove('opacity-0');
+            const ratio = this.naturalWidth / this.naturalHeight;
+            if (ratio < 0.95) {
+                // Portrait
+                card.classList.remove('flex-col');
+                card.classList.add('flex-row');
+                
+                imgContainer.classList.remove('w-full', 'border-b');
+                imgContainer.classList.add('w-2/5', 'border-r');
+                
+                // Keep the text concise to fit horizontally
+                actionsWrapper.querySelectorAll('.action-text').forEach(t => t.style.display = 'none');
+            } else if (ratio > 1.05) {
+                // Landscape
+                imgContainer.classList.add('aspect-video');
+            } else {
+                // Square
+                imgContainer.classList.add('aspect-square');
+            }
+        };
+        imgContainer.appendChild(img);
+    } else {
+        imgContainer.classList.add('h-48');
+        imgContainer.innerHTML = `<span class="material-symbols-outlined text-on-surface-variant/30 text-5xl">grid_view</span>`;
+    }
+
+    card.appendChild(imgContainer);
+    card.appendChild(rightSide);
     return card;
 }
 
