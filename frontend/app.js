@@ -2539,7 +2539,7 @@ function setupResult() {
     if (btnModeSingle && btnModeCompare) {
         btnModeSingle.addEventListener('click', () => switchResultMode('single'));
         btnModeCompare.addEventListener('click', () => switchResultMode('compare'));
-        btnAddCompareColumn.addEventListener('click', () => addCompareColumn());
+        btnAddCompareColumn.addEventListener('click', () => addCompareColumn(false));
     }
 
     $('#btn-download').addEventListener('click', downloadMosaic);
@@ -2915,8 +2915,8 @@ function switchResultMode(mode) {
         
         // Initialize if empty
         if (state.compareColumns.length === 0) {
-            addCompareColumn();
-            addCompareColumn();
+            addCompareColumn(true);
+            addCompareColumn(false);
         }
     } else {
         btnModeCompare.classList.remove('text-primary', 'border-primary');
@@ -2943,7 +2943,7 @@ function switchResultMode(mode) {
     }
 }
 
-function addCompareColumn() {
+function addCompareColumn(autoGenerate = false) {
     if (state.compareColumns.length >= 5) {
         alert("Maximum 5 comparisons allowed.");
         return;
@@ -2968,7 +2968,9 @@ function addCompareColumn() {
     
     state.compareColumns.push(newCol);
     renderCompareColumns();
-    generateCompareColumn(newCol.id);
+    if (autoGenerate) {
+        generateCompareColumn(newCol.id);
+    }
 }
 
 function removeCompareColumn(id) {
@@ -3041,8 +3043,11 @@ function renderCompareColumns() {
                 </button>
             </div>`;
         } else {
-            visualArea = `<div class="aspect-square w-full bg-surface-container-high rounded-xl border border-outline-variant flex items-center justify-center">
-                <span class="font-label text-xs text-on-surface-variant uppercase">Pending</span>
+            visualArea = `<div class="aspect-square w-full bg-surface-container-high rounded-xl border border-dashed border-outline-variant flex items-center justify-center cursor-pointer hover:border-primary/50 transition-colors group" onclick="generateCompareColumn('${col.id}')">
+                <div class="flex flex-col items-center gap-3 text-center px-4">
+                    <span class="material-symbols-outlined text-4xl text-on-surface-variant group-hover:text-primary transition-colors">tune</span>
+                    <span class="font-label text-[10px] sm:text-xs text-on-surface-variant uppercase tracking-widest mt-2">Adjust a setting below<br>or click here to generate</span>
+                </div>
             </div>`;
         }
         
