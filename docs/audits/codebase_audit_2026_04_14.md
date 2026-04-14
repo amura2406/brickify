@@ -13,10 +13,10 @@
   - **Issue**: No automated tests (`*test*.py` or `*spec.js`) exist in the repository, making I/O abstraction and algorithmic changes extremely brittle.
   - **Resolution Strategy**: Establish a `pytest` framework. Add unit tests for `algos/` (pure function behavior) and mock the `DatabaseProvider` and `StorageProvider`.
   - **Fix Details**: *(Leave blank until fixed)*
-- [ ] **Refactor `main.py` Monolith**
+- [x] **Refactor `main.py` Monolith**
   - **Issue**: `backend/main.py` is 750+ lines long, blending HTTP routing, business logic, file handling, and external API calls.
   - **Resolution Strategy**: Create strict boundaries (e.g., `features/photo/`, `features/project/`) extracting pure domain logic away from HTTP handlers.
-  - **Fix Details**: *(Leave blank until fixed)*
+  - **Fix Details**: Reorganized the backend codebase into a vertical slice architecture under `backend/features/`. Separated logic into `routers.py`, `service.py`, and `models.py` for each feature (`auth`, `gphotos`, `photo`, `project`, `export`). Switched to using FastAPI's `Depends()` for dependency injection, cleanly decoupling infrastructure providers from the core logic.
 
 ## [SEV-2] Code Idioms & Reliability Patterns
 - [ ] **Resolve Broad Exception Swallowing**

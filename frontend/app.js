@@ -1223,7 +1223,7 @@ async function pickFromGooglePhotos() {
 
         // Step 6: Download the photo via backend proxy
         showStatus('Downloading photo...');
-        const uploadRes = await authFetch(`${API}/api/upload-from-google-photos`, {
+        const uploadRes = await authFetch(`${API}/api/google-photos/upload`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ access_token: accessToken, base_url: baseUrl }),
