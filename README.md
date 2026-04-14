@@ -77,6 +77,17 @@ To run the application in Production mode (which requires valid Firebase credent
 ENVIRONMENT=production IS_PRODUCTION=true uvicorn main:app
 ```
 
+### Testing
+
+The project uses `pytest` for unit testing, encompassing pure logic algorithms and mocked API services.
+To run the test suite:
+
+```bash
+cd backend
+source .venv/bin/activate
+pytest
+```
+
 ## 📖 How It Works
 
 ```mermaid
@@ -95,8 +106,10 @@ flowchart LR
 ```
 lego-mosaic-maker/
 ├── backend/
-│   ├── main.py          # FastAPI server & API endpoints
-│   ├── mosaic.py        # Mosaic generation engine
+│   ├── algos/           # Pure functional matrix manipulations
+│   ├── features/        # Business logic feature slices (auth, photo, project, mosaic)
+│   ├── main.py          # FastAPI server entrypoint
+│   ├── mosaic.py        # Legacy mosaic generation engine components
 │   ├── lego_sets.py     # Set definitions & merge logic
 │   └── pyproject.toml   # Python dependencies
 ├── frontend/
