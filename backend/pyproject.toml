@@ -1,6 +1,6 @@
 [project]
 name = "lego-mosaic-maker"
-version = "0.8.8"
+version = "1.0.0"
 description = "Turn any photo into a buildable LEGO Art mosaic"
 requires-python = ">=3.11"
 dependencies = [
