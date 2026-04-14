@@ -12,7 +12,8 @@ from features.mosaic.models import (
     SetSelection,
     GenerateRequest,
     GeneratePdfRequest,
-    PalettePreviewRequest
+    PalettePreviewRequest,
+    CropRequest,
 )
 
 router = APIRouter(prefix="/api", tags=["mosaic"])
@@ -36,6 +37,57 @@ def _resolve_set_data(set_id: str | None, set_selections: list[SetSelection] | N
         return set_data
     else:
         raise HTTPException(400, "Provide set_id or set_selections")
+
+@router.post("/crop")
+def crop_image(
+    req: CropRequest,
+    user: dict = Depends(require_approved_user),
+    provider: StorageProvider = Depends(get_storage_provider),
+):
+    """Download image, optionally rotate, crop, and upload result."""
+    import logging
+    logger = logging.getLogger(__name__)
+
+    try:
+        img = _download_from_url(req.url)
+    except Exception:
+        logger.error("Failed fetching URL for crop: %s", req.url, exc_info=True)
+        raise HTTPException(400, "Cannot fetch image from URL")
+
+    # Apply rotation before crop (uses PIL expand=True to avoid clipping)
+    if req.rotation_degrees and req.rotation_degrees % 360 != 0:
+        angle = -(req.rotation_degrees % 360)
+        img = img.rotate(angle, expand=True)
+
+    cw, ch = img.size
+    x = max(0, int(req.x))
+    y = max(0, int(req.y))
+    target_w = int(req.w)
+    target_h = int(req.h)
+
+    # Clamp to image bounds
+    if x + target_w > cw:
+        x = cw - target_w
+    if y + target_h > ch:
+        y = ch - target_h
+    x = max(0, x)
+    y = max(0, y)
+
+    target_w = min(target_w, cw - x)
+    target_h = min(target_h, ch - y)
+
+    if target_w <= 0 or target_h <= 0:
+        raise HTTPException(400, "Crop region too small")
+
+    cropped = img.crop((x, y, x + target_w, y + target_h))
+    new_url = provider.upload_image(cropped, "crops", fmt="JPEG", user_id=user["uid"])
+
+    return {
+        "url": new_url,
+        "width": target_w,
+        "height": target_h,
+        "is_square": target_w == target_h,
+    }
 
 @router.post("/generate")
 def generate(

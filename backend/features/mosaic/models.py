@@ -47,3 +47,11 @@ class PalettePreviewRequest(BaseModel):
     gradient_colors: Optional[List[str]] = None
     target_width: Optional[int] = None
     target_height: Optional[int] = None
+
+class CropRequest(BaseModel):
+    url: str
+    x: float
+    y: float
+    w: float
+    h: float
+    rotation_degrees: int = 0  # 0, 90, 180, 270
