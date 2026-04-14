@@ -4,7 +4,7 @@ Includes color space conversions and CLAHE contrast handling.
 """
 
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageEnhance, ImageFilter
 
 def rgb_to_lab(rgb_array: np.ndarray) -> np.ndarray:
     """Convert RGB (0-255) array to CIE Lab color space."""
@@ -183,19 +183,68 @@ def _clahe_channel(channel: np.ndarray, clip_limit: float = 2.0,
 def preprocess_image(
     img: Image.Image,
     contrast_boost: float = 1.0,
+    saturation: float = 0.0,       # -100 to 100
+    temperature: float = 0.0,      # -50 to 50
+    sharpen: float = 0.0,          # 0 to 5
+    posterize_levels: int = 32,    # 2 to 32
+    gamma: float = 1.0,            # 0.2 to 3.0
+    black_point: int = 0,          # 0 to 100
+    white_point: int = 255,        # 155 to 255
 ) -> Image.Image:
-    """Apply CLAHE contrast enhancement to the image."""
-    if contrast_boost <= 0:
+    """Apply sequential image preprocessing adjustments."""
+    if (contrast_boost <= 0 and saturation == 0.0 and temperature == 0.0 and 
+        sharpen <= 0 and posterize_levels >= 32 and gamma == 1.0 and 
+        black_point <= 0 and white_point >= 255):
         return img.copy()
 
+    # 1, 2, 4. Black/White point, Gamma, Temperature -> all can be done in one numpy step
     arr = np.array(img, dtype=np.float64)
-    lab = rgb_to_lab(arr)
-    L_u8 = np.clip(lab[..., 0] * 255.0 / 100.0, 0, 255).astype(np.uint8)
-    L_enhanced = _clahe_channel(L_u8, clip_limit=2.0 * contrast_boost)
-    lab[..., 0] = L_enhanced.astype(np.float64) * 100.0 / 255.0
-    arr = lab_to_rgb(lab).astype(np.float64)
+    
+    if black_point > 0 or white_point < 255:
+        black = max(0, black_point)
+        white = min(255, max(black + 1, white_point))
+        arr = (arr - black) / (white - black) * 255.0
+        arr = np.clip(arr, 0, 255)
 
-    return Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8))
+    if gamma != 1.0 and gamma > 0:
+        arr = 255.0 * (arr / 255.0) ** (1.0 / gamma)
+
+    if temperature != 0.0:
+        arr[..., 0] += temperature * 0.5  # R
+        arr[..., 2] -= temperature * 0.5  # B
+        arr = np.clip(arr, 0, 255)
+
+    img = Image.fromarray(arr.astype(np.uint8))
+
+    # 3. Saturation
+    if saturation != 0.0:
+        sat_factor = max(0.0, 1.0 + (saturation / 100.0))
+        img = ImageEnhance.Color(img).enhance(sat_factor)
+
+    # 5. CLAHE (existing)
+    if contrast_boost > 0:
+        arr = np.array(img, dtype=np.float64)
+        lab = rgb_to_lab(arr)
+        L_u8 = np.clip(lab[..., 0] * 255.0 / 100.0, 0, 255).astype(np.uint8)
+        L_enhanced = _clahe_channel(L_u8, clip_limit=2.0 * contrast_boost)
+        lab[..., 0] = L_enhanced.astype(np.float64) * 100.0 / 255.0
+        arr = lab_to_rgb(lab).astype(np.float64)
+        img = Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8))
+
+    # 6. Sharpening
+    if sharpen > 0:
+        # percent up to 500% (so 5.0 -> 500%)
+        img = img.filter(ImageFilter.UnsharpMask(radius=2, percent=int(sharpen * 100), threshold=3))
+
+    # 7. Posterize
+    if posterize_levels < 32:
+        levels = max(2, posterize_levels)
+        arr = np.array(img, dtype=np.float64)
+        factor = 255.0 / (levels - 1)
+        arr = np.round(arr / factor) * factor
+        img = Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8))
+
+    return img
 
 def compute_importance_map(grid_h: int, grid_w: int) -> np.ndarray:
     """Compute a spatial importance map for constraint resolution."""

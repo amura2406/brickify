@@ -142,7 +142,9 @@ class FirestoreDatabaseProvider:
             "config": project.get("config", {}),
             "crop_state": project.get("crop_state"),
             "mosaic_data_json": json.dumps(project.get("mosaic_data", {})),
+            "mosaic_history": project.get("mosaic_history", []),
         }
+
 
     def save_project(self, uid: str, project: dict[str, Any]) -> str:
         project_id = str(uuid.uuid4())
@@ -333,6 +335,7 @@ class LocalDatabaseProvider:
             "config": project.get("config", {}),
             "crop_state": project.get("crop_state"),
             "mosaic_data": project.get("mosaic_data", {}),
+            "mosaic_history": project.get("mosaic_history", []),
         }
         with open(self._detail_path(uid, project_id), "w") as f:
             json.dump(detail, f, indent=2)
@@ -380,6 +383,7 @@ class LocalDatabaseProvider:
             "config": project.get("config", {}),
             "crop_state": project.get("crop_state"),
             "mosaic_data": project.get("mosaic_data", {}),
+            "mosaic_history": project.get("mosaic_history", []),
         }
         with open(self._detail_path(uid, project_id), "w") as f:
             json.dump(detail, f, indent=2)

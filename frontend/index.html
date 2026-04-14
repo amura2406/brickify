@@ -232,7 +232,7 @@
     <nav id="top-nav" class="sticky top-0 z-50 bg-background/95 border-b border-primary/30 backdrop-blur-md shadow-[0_0_15px_rgba(255,45,120,0.1)] flex flex-col w-full safe-area-x">
       <div class="flex justify-between items-center px-4 sm:px-6 py-3 sm:py-4">
         <div class="flex items-center gap-4 sm:gap-8">
-          <span class="text-xl sm:text-2xl font-black text-primary drop-shadow-[0_0_8px_rgba(255,45,120,0.8)] font-headline tracking-tight">BRICKIFY</span>
+          <button id="btn-logo-home" class="text-xl sm:text-2xl font-black text-primary drop-shadow-[0_0_8px_rgba(255,45,120,0.8)] font-headline tracking-tight hover:scale-105 transition-transform cursor-pointer bg-transparent border-none" title="Back to Start">BRICKIFY</button>
           <div class="hidden md:flex items-center gap-4 font-label font-bold tracking-tight text-sm text-on-surface-variant transition-all duration-300">
             <div id="step-sets" class="step-indicator flex items-center gap-2 text-primary drop-shadow-[0_0_8px_rgba(255,45,120,0.8)]">
               <span class="step-num w-6 h-6 rounded-full bg-primary text-on-primary flex items-center justify-center text-xs">1</span> Select Sets
@@ -569,33 +569,89 @@
             </div>
           </div>
 
-          <div class="flex items-center justify-between group">
-            <div class="flex flex-col">
-              <div class="flex items-center gap-1.5 w-max group/tt relative cursor-help">
-                <span class="font-label text-xs uppercase tracking-widest text-on-surface font-bold">Preprocessing</span>
-                <span class="material-symbols-outlined text-[14px] text-on-surface-variant group-hover/tt:text-primary transition-colors">info</span>
-                <div class="absolute bottom-full left-0 mb-2 w-64 p-3 bg-surface-container-highest border border-outline-variant rounded-lg text-xs text-on-surface-variant font-label opacity-0 group-hover/tt:opacity-100 transition-opacity pointer-events-none drop-shadow-xl z-50">
-                  Applies AI-tuned local contrast enhancement (CLAHE) before mapping. Helps preserve fine details like facial features in your reference image.
+          <div class="border-t border-outline-variant pt-4 mt-2">
+            <div class="flex items-center gap-1.5 w-max group/tt relative cursor-help mb-4">
+              <span class="font-label text-xs uppercase tracking-widest text-primary font-bold">Image Adjustments</span>
+              <span class="material-symbols-outlined text-[14px] text-on-surface-variant group-hover/tt:text-primary transition-colors">tune</span>
+            </div>
+            
+            <div id="preprocessing-sliders" class="space-y-4 flex flex-col">
+              <!-- Contrast -->
+              <div class="space-y-2 flex flex-col" data-adjust="contrast">
+                <div class="flex justify-between items-center">
+                  <span class="font-label text-[10px] uppercase tracking-wider text-on-surface">Contrast (CLAHE)</span>
+                  <span id="contrast-value" class="font-label text-[10px] text-tertiary font-bold">1.0×</span>
+                </div>
+                <input type="range" id="contrast-slider" min="0" max="2" step="0.1" value="1.0" class="neon-slider w-full"/>
+              </div>
+
+              <!-- Saturation -->
+              <div class="space-y-2 flex flex-col" data-adjust="saturation">
+                <div class="flex justify-between items-center">
+                  <span class="font-label text-[10px] uppercase tracking-wider text-on-surface">Saturation</span>
+                  <span id="saturation-value" class="font-label text-[10px] text-tertiary font-bold">0%</span>
+                </div>
+                <input type="range" id="saturation-slider" min="-100" max="100" step="1" value="0" class="neon-slider w-full"/>
+              </div>
+
+              <!-- Temperature -->
+              <div class="space-y-2 flex flex-col" data-adjust="temperature">
+                <div class="flex justify-between items-center">
+                  <span class="font-label text-[10px] uppercase tracking-wider text-on-surface">Temperature</span>
+                  <span id="temperature-value" class="font-label text-[10px] text-tertiary font-bold">0</span>
+                </div>
+                <input type="range" id="temperature-slider" min="-50" max="50" step="1" value="0" class="neon-slider w-full"/>
+              </div>
+
+              <!-- Sharpen -->
+              <div class="space-y-2 flex flex-col" data-adjust="sharpen">
+                <div class="flex justify-between items-center">
+                  <span class="font-label text-[10px] uppercase tracking-wider text-on-surface">Sharpen</span>
+                  <span id="sharpen-value" class="font-label text-[10px] text-tertiary font-bold">0.0</span>
+                </div>
+                <input type="range" id="sharpen-slider" min="0" max="5" step="0.1" value="0" class="neon-slider w-full"/>
+              </div>
+              
+              <div id="advanced-adjustments" class="hidden space-y-4 flex flex-col mt-4">
+                <!-- Gamma -->
+                <div class="space-y-2 flex flex-col" data-adjust="gamma">
+                  <div class="flex justify-between items-center">
+                    <span class="font-label text-[10px] uppercase tracking-wider text-on-surface">Gamma (Midtones)</span>
+                    <span id="gamma-value" class="font-label text-[10px] text-tertiary font-bold">1.0</span>
+                  </div>
+                  <input type="range" id="gamma-slider" min="0.2" max="3.0" step="0.1" value="1.0" class="neon-slider w-full"/>
+                </div>
+
+                <!-- Shadows (Black Point) -->
+                <div class="space-y-2 flex flex-col" data-adjust="black-point">
+                  <div class="flex justify-between items-center">
+                    <span class="font-label text-[10px] uppercase tracking-wider text-on-surface">Shadows Cutoff</span>
+                    <span id="black-point-value" class="font-label text-[10px] text-tertiary font-bold">0</span>
+                  </div>
+                  <input type="range" id="black-point-slider" min="0" max="100" step="1" value="0" class="neon-slider w-full"/>
+                </div>
+
+                <!-- Highlights (White Point) -->
+                <div class="space-y-2 flex flex-col" data-adjust="white-point">
+                  <div class="flex justify-between items-center">
+                    <span class="font-label text-[10px] uppercase tracking-wider text-on-surface">Highlights Limit</span>
+                    <span id="white-point-value" class="font-label text-[10px] text-tertiary font-bold">255</span>
+                  </div>
+                  <input type="range" id="white-point-slider" min="155" max="255" step="1" value="255" class="neon-slider w-full"/>
+                </div>
+
+                <!-- Posterize -->
+                <div class="space-y-2 flex flex-col" data-adjust="posterize" id="posterize-group">
+                  <div class="flex justify-between items-center">
+                    <span class="font-label text-[10px] uppercase tracking-wider text-on-surface">Posterize Levels</span>
+                    <span id="posterize-value" class="font-label text-[10px] text-tertiary font-bold">32</span>
+                  </div>
+                  <input type="range" id="posterize-slider" min="2" max="32" step="1" value="32" class="neon-slider w-full"/>
                 </div>
               </div>
-              <span class="text-[10px] text-on-surface-variant uppercase mt-1">AI-Driven Detail Optimization</span>
             </div>
-            <label class="relative w-12 h-6 cursor-pointer">
-              <input type="checkbox" id="preprocessing-toggle" checked class="sr-only peer"/>
-              <div class="w-12 h-6 bg-surface-container-highest rounded-full border border-outline-variant peer-checked:border-secondary/50 transition-colors"></div>
-              <div class="absolute top-1 left-1 w-4 h-4 bg-on-surface-variant peer-checked:bg-secondary peer-checked:shadow-[0_0_8px_#00ffcc] rounded-full peer-checked:translate-x-6 transition-all duration-200"></div>
-            </label>
-          </div>
-
-          <div id="contrast-group" class="space-y-3">
-            <div class="flex justify-between items-center">
-              <span class="font-label text-xs uppercase tracking-widest text-on-surface font-bold">Contrast Boost</span>
-              <span id="contrast-value" class="font-label text-xs text-tertiary font-bold">1.0×</span>
-            </div>
-            <input type="range" id="contrast-slider" min="0" max="2" step="0.1" value="1.0" class="neon-slider w-full"/>
-            <div class="flex justify-between font-label text-[9px] text-on-surface-variant uppercase tracking-tighter">
-              <span>Subtle</span><span>Normal</span><span>Strong</span>
-            </div>
+            
+            <button id="btn-toggle-advanced-adjustments" class="text-[10px] font-label text-primary hover:text-white mt-4 text-left w-full uppercase tracking-widest">+ Show Advanced Adjustments</button>
           </div>
 
           <div class="flex items-center justify-between group" id="dithering-wrapper">
@@ -639,166 +695,262 @@
       </div>
 
       <!-- SINGLE MODE -->
-      <main id="single-mode-view" class="flex-1 p-4 sm:p-6 lg:p-12 flex flex-col lg:flex-row gap-6 sm:gap-8 overflow-y-auto w-full">
+      <main id="single-mode-view" class="flex-1 p-3 sm:p-4 lg:p-6 flex flex-col overflow-y-auto w-full">
+        <!-- Top row: Breadcrumb + Title (full width) -->
+        <div id="build-plan-top-row" class="flex flex-col gap-1"></div>
 
-        <!-- Left: Mosaic viewer -->
-        <section class="flex-1 flex flex-col gap-6">
-          <div class="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-3 sm:gap-4">
-            <div>
-              <button id="btn-back-to-editor" class="flex items-center gap-2 mb-2 sm:mb-3 text-secondary hover:text-primary transition-all duration-300 font-label text-sm font-bold p-1 group touch-target">
-                <span class="material-symbols-outlined text-lg group-hover:-translate-x-1 transition-transform">arrow_back</span>
-                Back to Image & Crop
+        <!-- Main content: Legend (left) + Canvas (center) + Config (right) -->
+        <div class="flex flex-col lg:flex-row gap-4 sm:gap-5 flex-1 min-h-0">
+
+
+        <!-- CENTER: Mosaic viewer -->
+        <section class="flex-1 flex flex-col gap-3 order-1 lg:order-2 min-w-0">
+          <!-- Breadcrumb + Title (moved to top row via JS for full width) -->
+          <div id="build-plan-breadcrumb-title" class="flex flex-col gap-1">
+            <nav class="flex items-center gap-1.5 font-label text-[10px] sm:text-xs uppercase tracking-widest">
+              <button id="btn-breadcrumb-sets" class="text-on-surface-variant hover:text-primary transition-colors">Sets</button>
+              <span class="material-symbols-outlined text-on-surface-variant/50" style="font-size:12px">chevron_right</span>
+              <button id="btn-back-to-editor" class="text-on-surface-variant hover:text-primary transition-colors">Image & Crop</button>
+              <span class="material-symbols-outlined text-on-surface-variant/50" style="font-size:12px">chevron_right</span>
+              <span class="text-primary font-bold">Mosaic</span>
+            </nav>
+            <div class="flex items-baseline gap-3">
+              <h2 id="mosaic-title" class="font-headline text-lg sm:text-2xl font-bold neon-text-glow text-primary">YOUR MOSAIC</h2>
+              <p id="mosaic-subtitle" class="font-label text-secondary text-[10px] tracking-widest uppercase">—</p>
+            </div>
+          </div>
+
+          <!-- Compact Toolbar -->
+          <div class="flex items-center justify-between gap-2 flex-wrap bg-surface-container/60 backdrop-blur-md border border-outline-variant/30 rounded-xl px-2 sm:px-3 py-1.5">
+            <!-- Left group: Compare + History Peek -->
+            <div class="flex items-center gap-2">
+              <!-- Comparison pill button -->
+              <button id="btn-comparison-toggle" class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-outline-variant text-on-surface-variant hover:text-primary hover:border-primary/50 transition-all text-xs font-label uppercase tracking-wider touch-target pointer-events-auto" title="Toggle Reference Comparison">
+                <span class="material-symbols-outlined" style="font-size:16px">compare</span>
+                <span class="hidden sm:inline">Compare</span>
               </button>
-              <h2 id="mosaic-title" class="font-headline text-xl sm:text-3xl font-bold neon-text-glow text-primary">YOUR MOSAIC</h2>
-              <p id="mosaic-subtitle" class="font-label text-secondary text-[10px] sm:text-xs tracking-widest uppercase mt-1">—</p>
-            </div>
-            <div class="flex items-center gap-2 sm:gap-4 flex-wrap">
-              <!-- Comparison toggle -->
-              <div class="flex items-center gap-2">
-                <span class="font-label text-[10px] uppercase tracking-widest text-on-surface-variant hidden sm:inline">Comparison</span>
-                <button id="btn-comparison-toggle" class="w-10 h-6 sm:h-5 bg-surface-container-high border border-outline-variant rounded-full relative transition-colors duration-200 touch-target" title="Comparison">
-                  <div id="comparison-dot" class="absolute top-0.5 sm:top-0.5 left-0.5 w-4 h-4 sm:w-3.5 sm:h-3.5 bg-on-surface-variant rounded-full transition-all duration-200"></div>
-                </button>
+              <div id="comparison-dot" class="hidden"></div>
+              <!-- History Peek Slider (inline in toolbar) -->
+              <div id="history-peek-container" class="flex items-center gap-1.5 transition-opacity opacity-0 pointer-events-none duration-300">
+                <div class="w-px h-4 bg-outline-variant/50"></div>
+                <span class="material-symbols-outlined text-on-surface-variant" style="font-size:14px">history</span>
+                <input type="range" id="history-slider" min="0" max="0" step="1" value="0" class="w-20 sm:w-24 h-1 bg-surface-container-highest rounded-lg appearance-none cursor-pointer accent-primary pointer-events-auto" title="Slide to peek at previous changes">
+                <span id="history-slider-label" class="text-[9px] font-label tabular-nums text-on-surface-variant min-w-[24px] text-center">0</span>
               </div>
+            </div>
+
+            <!-- Right group: 2D/3D + Zoom -->
+            <div class="flex items-center gap-2">
               <!-- 2D / 3D toggle -->
-              <div class="flex bg-surface-container-high border border-outline-variant p-1 rounded-xl">
-                <button id="btn-2d" class="px-3 py-1.5 sm:py-1 text-xs font-label uppercase tracking-wider rounded-lg transition-all bg-primary text-on-primary shadow-[0_0_10px_rgba(255,45,120,0.4)] touch-target">2D</button>
-                <button id="btn-3d" class="px-3 py-1.5 sm:py-1 text-xs font-label uppercase tracking-wider rounded-lg transition-all text-on-surface-variant hover:text-on-surface touch-target">3D</button>
+              <div class="flex bg-surface-container-high border border-outline-variant p-0.5 rounded-lg pointer-events-auto">
+                <button id="btn-2d" class="px-2 py-1 text-[10px] font-label uppercase tracking-wider rounded-md transition-all bg-primary text-on-primary shadow-[0_0_10px_rgba(255,45,120,0.4)] touch-target">2D</button>
+                <button id="btn-3d" class="px-2 py-1 text-[10px] font-label uppercase tracking-wider rounded-md transition-all text-on-surface-variant hover:text-on-surface touch-target">3D</button>
               </div>
-              <!-- Zoom controls -->
-              <div class="flex items-center gap-1 bg-surface-container-high border border-outline-variant p-1 rounded-xl">
-                <button id="btn-zoom-out" class="p-2 text-on-surface hover:text-primary transition-colors touch-target"><span class="material-symbols-outlined text-lg">zoom_out</span></button>
-                <span id="zoom-label" class="px-2 sm:px-3 font-label text-xs sm:text-sm text-on-surface-variant">100%</span>
-                <button id="btn-zoom-in" class="p-2 text-on-surface hover:text-primary transition-colors touch-target"><span class="material-symbols-outlined text-lg">zoom_in</span></button>
-                <div class="w-px h-6 bg-outline-variant mx-0.5 sm:mx-1 hidden sm:block"></div>
-                <button id="btn-zoom-reset" class="p-2 text-on-surface hover:text-primary transition-colors touch-target hidden sm:block"><span class="material-symbols-outlined text-lg">fullscreen</span></button>
+              <!-- Zoom (clickable label → slider popover) -->
+              <div class="relative pointer-events-auto" id="zoom-control-wrapper">
+                <button id="btn-zoom-toggle" class="flex items-center gap-1 px-2 py-1 rounded-lg border border-outline-variant hover:border-primary/50 transition-all text-xs font-label text-on-surface-variant hover:text-primary touch-target" title="Adjust zoom">
+                  <span class="material-symbols-outlined" style="font-size:16px">search</span>
+                  <span id="zoom-label" class="tabular-nums">100%</span>
+                  <span class="material-symbols-outlined" style="font-size:12px">expand_more</span>
+                </button>
+                <!-- Zoom slider popover -->
+                <div id="zoom-popover" class="hidden absolute right-0 top-full mt-2 z-40 bg-surface-container-high/95 backdrop-blur-md border border-outline-variant rounded-xl shadow-2xl p-3 w-48 pointer-events-auto">
+                  <div class="flex items-center justify-between mb-2">
+                    <span class="text-[9px] font-label uppercase tracking-widest text-on-surface-variant">Zoom</span>
+                    <button id="btn-zoom-reset" class="text-[9px] font-label text-primary hover:text-white uppercase tracking-widest">Reset</button>
+                  </div>
+                  <input type="range" id="zoom-slider" min="50" max="500" step="10" value="100" class="w-full h-1 bg-surface-container-highest rounded-lg appearance-none cursor-pointer accent-primary">
+                  <div class="flex justify-between mt-1 text-[8px] font-label text-on-surface-variant/60">
+                    <span>50%</span><span>500%</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
 
-          <!-- Container for standard 2D view -->
-          <div id="mosaic-canvas-wrapper" class="relative group aspect-square max-w-[800px] w-full mx-auto bg-surface-container-lowest border border-primary/20 p-1 sm:p-2 shadow-2xl transition-all duration-700 overflow-hidden rounded touch-none" style="touch-action: none;">
-            <div class="relative w-full h-full overflow-hidden" id="comparison-wrapper">
-              <!-- Mosaic layer -->
-              <canvas id="mosaic-canvas" class="absolute inset-0 w-full h-full object-contain"></canvas>
-              <!-- Reference layer (split view) -->
-              <div id="reference-layer" class="absolute inset-0 w-full h-full z-10 hidden" style="clip-path: inset(0 50% 0 0);">
-                <img id="reference-image" alt="Original Reference" class="w-full h-full object-cover"/>
-                <div class="absolute top-4 left-4 bg-black/60 backdrop-blur-md border border-white/20 px-3 py-1 text-[10px] font-label tracking-widest text-white uppercase pointer-events-none">Reference</div>
-                <div class="absolute top-4 right-4 bg-black/60 backdrop-blur-md border border-white/20 px-3 py-1 text-[10px] font-label tracking-widest text-white uppercase pointer-events-none">Mosaic</div>
+          <div class="flex flex-col lg:flex-row gap-4 flex-1 min-h-0 items-start">
+            <!-- LEFT (Inner): Color Legend -->
+            <aside id="color-legend-left" class="w-full lg:w-[200px] flex flex-col gap-2 shrink-0 h-full">
+              <!-- Color legend list (compact) -->
+              <div class="bg-surface-container border border-outline-variant rounded-xl flex flex-col overflow-hidden flex-1 min-h-[120px] lg:max-h-[500px]">
+                <div class="px-3 py-2 border-b border-outline-variant bg-surface-container-high flex justify-between items-center">
+                  <h4 class="font-label text-[9px] uppercase tracking-widest font-bold text-on-surface">Colors</h4>
+                  <span id="legend-color-count" class="font-label text-[9px] text-on-surface-variant"></span>
+                </div>
+                <div id="legend-items" class="p-2 flex flex-col gap-1.5 flex-1 overflow-y-auto">
+                  <!-- Populated by JS -->
+                </div>
+                <div class="px-3 py-1.5 border-t border-outline-variant bg-surface-container-high">
+                  <p id="total-pieces" class="font-label text-[9px] text-on-surface-variant text-center tabular-nums">0 pieces</p>
+                </div>
               </div>
-              <!-- Comparison slider -->
-              <input id="comparison-slider" class="absolute inset-0 cursor-pointer hidden z-20 comparison-slider-input" max="100" min="0" type="range" value="50"/>
-            </div>
-          </div>
+            </aside>
 
-          <!-- Container for Three.js 3D view -->
-          <div id="3d-canvas-container" class="relative w-full aspect-square max-w-[800px] mx-auto hidden rounded border border-primary/20 shadow-2xl overflow-hidden cursor-move"></div>
+            <!-- RIGHT (Inner): Canvas Wrapper -->
+            <div class="flex-1 w-full relative flex flex-col items-center justify-center min-w-0">
+              <!-- Container for standard 2D view -->
+              <div id="mosaic-canvas-wrapper" class="relative group aspect-square max-w-[500px] w-full bg-surface-container-lowest border border-primary/20 p-1 shadow-2xl transition-all duration-700 overflow-hidden rounded touch-none" style="touch-action: none;">
+                <div class="relative w-full h-full overflow-hidden" id="comparison-wrapper">
+                  <!-- Mosaic layer -->
+                  <canvas id="mosaic-canvas" class="absolute inset-0 w-full h-full object-contain"></canvas>
+                  <!-- Reference layer (split view) -->
+                  <div id="reference-layer" class="absolute inset-0 w-full h-full z-10 hidden" style="clip-path: inset(0 50% 0 0);">
+                    <img id="reference-image" alt="Original Reference" class="w-full h-full object-cover"/>
+                    <div id="label-reference" class="absolute top-3 left-3 bg-black/60 backdrop-blur-md border border-white/20 px-2 py-0.5 text-[9px] font-label tracking-widest text-white uppercase pointer-events-none opacity-0 transition-opacity duration-300">Reference</div>
+                    <div id="label-mosaic" class="absolute top-3 right-3 bg-black/60 backdrop-blur-md border border-white/20 px-2 py-0.5 text-[9px] font-label tracking-widest text-white uppercase pointer-events-none opacity-0 transition-opacity duration-300">Mosaic</div>
+                  </div>
+                  <!-- Comparison slider -->
+                  <input id="comparison-slider" class="absolute inset-0 cursor-pointer hidden z-20 comparison-slider-input" max="100" min="0" type="range" value="50"/>
+                </div>
+              </div>
+
+              <!-- Container for Three.js 3D view -->
+              <div id="3d-canvas-container" class="relative aspect-square max-w-[500px] w-full hidden rounded border border-primary/20 shadow-2xl overflow-hidden cursor-move"></div>
+            </div>
+
+            <!-- RIGHT (Inner): Quick Config + Actions -->
+            <aside id="quick-config-right" class="w-full lg:w-[320px] xl:w-[340px] flex flex-col gap-3 shrink-0">
+              <!-- Quick Settings -->
+              <div class="bg-surface-container border border-outline-variant p-4 rounded-xl flex flex-col gap-3">
+                <h4 class="font-label text-xs uppercase tracking-widest font-bold text-on-surface">Quick Config</h4>
+                
+                <!-- Multi-set selector -->
+                <div class="flex flex-col gap-2">
+                  <div class="font-label text-xs text-on-surface-variant flex justify-between items-center">
+                    <span>LEGO Sets</span>
+                    <button id="quick-add-set-btn" class="flex items-center gap-1 text-primary font-bold text-xs hover:text-primary/80 transition-colors" title="Add a set">
+                      <span class="material-symbols-outlined" style="font-size:14px">add_circle</span>
+                      Add
+                    </button>
+                  </div>
+
+                  <!-- Chips container -->
+                  <div id="quick-set-chips" class="flex flex-col gap-2 min-h-[36px]">
+                    <!-- Filled dynamically by JS -->
+                  </div>
+
+                  <!-- Quick Add Set Modal moved to bottom of body for global placement -->
+                  <!-- hidden select kept for legacy compat -->
+                  <select id="quick-set-picker" class="hidden"></select>
+                </div>
+
+                <div class="flex items-center justify-between">
+                  <label class="font-label text-xs text-on-surface-variant">Color Mode</label>
+                  <select id="quick-color-mode-select" class="bg-surface-container-high border border-outline-variant text-xs text-on-surface rounded-md px-2 py-1 outline-none focus:ring-1 focus:ring-primary focus:border-primary">
+                    <option value="realistic">Realistic</option>
+                    <option value="pop_art" selected>Pop-Art</option>
+                    <option value="gradient">Gradient</option>
+                  </select>
+                </div>
+                <!-- Quick Gradient Colors Config -->
+                <div id="quick-gradient-config" class="hidden flex flex-col gap-2 p-2 bg-surface-container-lowest border border-outline-variant rounded-md">
+                  <label class="font-label text-[10px] text-on-surface-variant uppercase tracking-widest">Gradient Palette</label>
+                  <div id="quick-gradient-color-pickers" class="flex gap-1">
+                    <input type="color" value="#000000" class="w-6 h-6 rounded cursor-pointer border-none p-0">
+                    <input type="color" value="#ff2d78" class="w-6 h-6 rounded cursor-pointer border-none p-0">
+                    <input type="color" value="#ffffff" class="w-6 h-6 rounded cursor-pointer border-none p-0">
+                  </div>
+                  <button id="btn-quick-add-gradient-color" class="text-[10px] font-label text-primary hover:text-white mt-1 text-left">+ Add Color (Max 5)</button>
+                </div>
+
+                <div class="flex items-center justify-between" id="quick-dither-wrapper">
+                  <label class="font-label text-xs text-on-surface-variant" id="quick-dither-label">Dithering (Quality)</label>
+                  <label class="relative inline-flex items-center cursor-pointer" id="quick-dither-toggle-label">
+                    <input type="checkbox" id="quick-dither-toggle" class="sr-only peer" checked>
+                    <div class="w-9 h-5 bg-surface-container-high peer-focus:outline-none rounded-full peer peer-disabled:opacity-50 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-on-surface peer-disabled:after:bg-on-surface-variant/50 after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary border border-outline-variant"></div>
+                  </label>
+                </div>
+                
+                <div class="border-t border-outline-variant pt-3 mt-1">
+                  <span class="font-label text-[10px] uppercase tracking-widest text-primary font-bold mb-3 block">Quick Adjustments</span>
+                  <div id="quick-preprocessing-sliders" class="space-y-3 flex flex-col">
+                    <!-- Contrast -->
+                    <div class="flex flex-col gap-1" data-adjust="contrast">
+                      <label class="font-label text-[10px] text-on-surface-variant flex justify-between">
+                        <span>Contrast</span><span id="quick-contrast-value" class="text-tertiary font-bold">1.0</span>
+                      </label>
+                      <input type="range" id="quick-contrast-slider" min="0" max="2" step="0.1" value="1.0" class="w-full h-1 bg-surface-container-high rounded-lg appearance-none cursor-pointer accent-primary">
+                    </div>
+                    <!-- Saturation -->
+                    <div class="flex flex-col gap-1" data-adjust="saturation">
+                      <label class="font-label text-[10px] text-on-surface-variant flex justify-between">
+                        <span>Saturation</span><span id="quick-saturation-value" class="text-tertiary font-bold">0</span>
+                      </label>
+                      <input type="range" id="quick-saturation-slider" min="-100" max="100" step="1" value="0" class="w-full h-1 bg-surface-container-high rounded-lg appearance-none cursor-pointer accent-primary">
+                    </div>
+                    <!-- Temperature -->
+                    <div class="flex flex-col gap-1" data-adjust="temperature">
+                      <label class="font-label text-[10px] text-on-surface-variant flex justify-between">
+                        <span>Temperature</span><span id="quick-temperature-value" class="text-tertiary font-bold">0</span>
+                      </label>
+                      <input type="range" id="quick-temperature-slider" min="-50" max="50" step="1" value="0" class="w-full h-1 bg-surface-container-high rounded-lg appearance-none cursor-pointer accent-primary">
+                    </div>
+                    <!-- Sharpen -->
+                    <div class="flex flex-col gap-1" data-adjust="sharpen">
+                      <label class="font-label text-[10px] text-on-surface-variant flex justify-between">
+                        <span>Sharpen</span><span id="quick-sharpen-value" class="text-tertiary font-bold">0.0</span>
+                      </label>
+                      <input type="range" id="quick-sharpen-slider" min="0" max="5" step="0.1" value="0" class="w-full h-1 bg-surface-container-high rounded-lg appearance-none cursor-pointer accent-primary">
+                    </div>
+                    
+                    <div id="quick-advanced-adjustments" class="hidden space-y-3 flex flex-col mt-2">
+                      <div class="flex flex-col gap-1" data-adjust="gamma">
+                        <label class="font-label text-[10px] text-on-surface-variant flex justify-between">
+                          <span>Gamma</span><span id="quick-gamma-value" class="text-tertiary font-bold">1.0</span>
+                        </label>
+                        <input type="range" id="quick-gamma-slider" min="0.2" max="3.0" step="0.1" value="1.0" class="w-full h-1 bg-surface-container-high rounded-lg appearance-none cursor-pointer accent-primary">
+                      </div>
+                      <div class="flex flex-col gap-1" data-adjust="black-point">
+                        <label class="font-label text-[10px] text-on-surface-variant flex justify-between">
+                          <span>Shadows</span><span id="quick-black-point-value" class="text-tertiary font-bold">0</span>
+                        </label>
+                        <input type="range" id="quick-black-point-slider" min="0" max="100" step="1" value="0" class="w-full h-1 bg-surface-container-high rounded-lg appearance-none cursor-pointer accent-primary">
+                      </div>
+                      <div class="flex flex-col gap-1" data-adjust="white-point">
+                        <label class="font-label text-[10px] text-on-surface-variant flex justify-between">
+                          <span>Highlights</span><span id="quick-white-point-value" class="text-tertiary font-bold">255</span>
+                        </label>
+                        <input type="range" id="quick-white-point-slider" min="155" max="255" step="1" value="255" class="w-full h-1 bg-surface-container-high rounded-lg appearance-none cursor-pointer accent-primary">
+                      </div>
+                      <div class="flex flex-col gap-1 hidden" data-adjust="posterize" id="quick-posterize-group">
+                        <label class="font-label text-[10px] text-on-surface-variant flex justify-between">
+                          <span>Posterize</span><span id="quick-posterize-value" class="text-tertiary font-bold">32</span>
+                        </label>
+                        <input type="range" id="quick-posterize-slider" min="2" max="32" step="1" value="32" class="w-full h-1 bg-surface-container-high rounded-lg appearance-none cursor-pointer accent-primary">
+                      </div>
+                    </div>
+                    
+                    <button id="btn-quick-toggle-advanced" class="text-[9px] font-label text-primary hover:text-white mt-1 text-left uppercase tracking-widest">+ Advanced Adjustments</button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Action buttons -->
+              <div class="flex flex-col gap-2">
+                <div class="flex gap-2">
+                  <button id="btn-save-project" class="flex-1 bg-secondary/10 border border-secondary text-secondary hover:bg-secondary hover:text-on-secondary transition-all duration-300 py-2 rounded-lg font-headline font-bold flex items-center justify-center gap-1.5 shadow-[0_0_15px_rgba(0,255,204,0.2)] text-xs uppercase tracking-wider">
+                    <span class="material-symbols-outlined" style="font-size:16px">save</span>
+                    Save
+                  </button>
+                  <button id="btn-download" class="flex-1 bg-primary/10 border border-primary text-primary hover:bg-primary hover:text-on-primary transition-all duration-300 py-2 rounded-lg font-headline font-bold flex items-center justify-center gap-1.5 shadow-[0_0_15px_rgba(255,45,120,0.2)] text-xs uppercase tracking-wider">
+                    <span class="material-symbols-outlined" style="font-size:16px">download</span>
+                    PNG
+                  </button>
+                  <button id="btn-download-instructions" class="flex-1 bg-surface-container border border-outline-variant text-on-surface-variant hover:text-primary hover:border-primary/50 transition-all py-2 rounded-lg font-label font-bold flex items-center justify-center gap-1.5 text-xs uppercase tracking-wider">
+                    <span class="material-symbols-outlined" style="font-size:16px">menu_book</span>
+                    Guide
+                  </button>
+                </div>
+              </div>
+
+              <!-- Hidden buttons kept for JS compat -->
+              <button id="btn-start-over" class="hidden"></button>
+              <button id="btn-change-set" class="hidden"></button>
+            </aside>
+
+          </div> <!-- End of inner flex container -->
         </section>
 
-        <!-- Right: Legend + actions -->
-        <aside id="color-legend" class="w-full lg:w-[400px] flex flex-col gap-4 sm:gap-6">
-          <!-- Stats card -->
-          <div class="bg-surface-container border border-secondary/20 p-6 rounded-xl relative overflow-hidden">
-            <div class="absolute top-0 right-0 w-32 h-32 bg-secondary/5 blur-3xl -mr-16 -mt-16"></div>
-            <div class="flex justify-between items-start mb-4">
-              <div>
-                <p class="font-label text-xs text-secondary uppercase tracking-widest">Build Stats</p>
-                <h3 id="total-pieces" class="font-headline text-2xl font-bold text-on-surface">0 pieces</h3>
-              </div>
-              <span class="material-symbols-outlined text-secondary text-3xl">layers</span>
-            </div>
-          </div>
-
-          <!-- Quick Settings -->
-          <div class="bg-surface-container border border-outline-variant p-5 rounded-xl flex flex-col gap-4">
-            <h4 class="font-label text-xs uppercase tracking-widest font-bold text-on-surface">Quick Config</h4>
-            
-            <!-- Multi-set selector -->
-            <div class="flex flex-col gap-2">
-              <div class="font-label text-xs text-on-surface-variant flex justify-between items-center">
-                <span>LEGO Sets</span>
-                <button id="quick-add-set-btn" class="flex items-center gap-1 text-primary font-bold text-xs hover:text-primary/80 transition-colors" title="Add a set">
-                  <span class="material-symbols-outlined" style="font-size:14px">add_circle</span>
-                  Add
-                </button>
-              </div>
-
-              <!-- Chips container -->
-              <div id="quick-set-chips" class="flex flex-col gap-2 min-h-[36px]">
-                <!-- Filled dynamically by JS -->
-              </div>
-
-              <!-- Quick Add Set Modal moved to bottom of body for global placement -->
-              <!-- hidden select kept for legacy compat -->
-              <select id="quick-set-picker" class="hidden"></select>
-            </div>
-
-            <div class="flex items-center justify-between">
-              <label class="font-label text-xs text-on-surface-variant">Color Mode</label>
-              <select id="quick-color-mode-select" class="bg-surface-container-high border border-outline-variant text-xs text-on-surface rounded-md px-2 py-1 outline-none focus:ring-1 focus:ring-primary focus:border-primary">
-                <option value="realistic">Realistic</option>
-                <option value="pop_art" selected>Pop-Art</option>
-                <option value="gradient">Gradient</option>
-              </select>
-            </div>
-            <!-- Quick Gradient Colors Config -->
-            <div id="quick-gradient-config" class="hidden flex flex-col gap-2 p-2 bg-surface-container-lowest border border-outline-variant rounded-md">
-              <label class="font-label text-[10px] text-on-surface-variant uppercase tracking-widest">Gradient Palette</label>
-              <div id="quick-gradient-color-pickers" class="flex gap-1">
-                <input type="color" value="#000000" class="w-6 h-6 rounded cursor-pointer border-none p-0">
-                <input type="color" value="#ff2d78" class="w-6 h-6 rounded cursor-pointer border-none p-0">
-                <input type="color" value="#ffffff" class="w-6 h-6 rounded cursor-pointer border-none p-0">
-              </div>
-              <button id="btn-quick-add-gradient-color" class="text-[10px] font-label text-primary hover:text-white mt-1 text-left">+ Add Color (Max 5)</button>
-            </div>
-
-            <div class="flex items-center justify-between" id="quick-dither-wrapper">
-              <label class="font-label text-xs text-on-surface-variant" id="quick-dither-label">Dithering (Quality)</label>
-              <label class="relative inline-flex items-center cursor-pointer" id="quick-dither-toggle-label">
-                <input type="checkbox" id="quick-dither-toggle" class="sr-only peer" checked>
-                <div class="w-9 h-5 bg-surface-container-high peer-focus:outline-none rounded-full peer peer-disabled:opacity-50 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-on-surface peer-disabled:after:bg-on-surface-variant/50 after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary border border-outline-variant"></div>
-              </label>
-            </div>
-            
-            <div class="flex flex-col gap-2">
-              <label class="font-label text-xs text-on-surface-variant flex justify-between">
-                <span>Contrast</span>
-                <span id="quick-contrast-value" class="text-primary font-bold">1.0</span>
-              </label>
-              <input type="range" id="quick-contrast-slider" min="0.5" max="2.0" step="0.1" value="1.0" class="w-full h-1 bg-surface-container-high rounded-lg appearance-none cursor-pointer accent-primary">
-            </div>
-          </div>
-
-
-          <!-- Color legend list -->
-          <div class="bg-surface-container border border-outline-variant rounded-xl flex flex-col overflow-hidden flex-1 min-h-[250px]">
-            <div class="px-6 py-4 border-b border-outline-variant bg-surface-container-high flex justify-between items-center">
-              <h4 class="font-label text-xs uppercase tracking-widest font-bold text-on-surface">Color Legend</h4>
-              <span id="legend-color-count" class="font-label text-[10px] text-on-surface-variant"></span>
-            </div>
-            <div id="legend-items" class="p-4 flex flex-col gap-3 flex-1 overflow-y-auto">
-              <!-- Populated by JS -->
-            </div>
-            <div class="p-4 bg-surface-container-high border-t border-outline-variant flex flex-col gap-2">
-              <button id="btn-save-project" class="w-full bg-secondary/10 border-2 border-secondary text-secondary hover:bg-secondary hover:text-on-secondary transition-all duration-300 py-3 rounded-lg font-headline font-bold flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(0,255,204,0.3)] text-sm uppercase tracking-wider">
-                <span class="material-symbols-outlined">save</span>
-                Save Project
-              </button>
-              <button id="btn-download" class="w-full bg-primary/10 border-2 border-primary text-primary hover:bg-primary hover:text-on-primary transition-all duration-300 py-3 rounded-lg font-headline font-bold flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(255,45,120,0.3)] text-sm uppercase tracking-wider">
-                <span class="material-symbols-outlined">download</span>
-                Download PNG
-              </button>
-            </div>
-          </div>
-
-          <!-- Actions -->
-          <div class="flex flex-col sm:flex-row gap-2 sm:gap-3">
-            <button id="btn-start-over" class="flex-1 py-3 border border-outline-variant text-on-surface-variant font-label text-xs uppercase tracking-wider rounded-lg hover:border-primary/50 hover:text-primary transition-all touch-target">Start Over</button>
-            <button id="btn-change-set" class="flex-1 py-3 border border-outline-variant text-on-surface-variant font-label text-xs uppercase tracking-wider rounded-lg hover:border-secondary/50 hover:text-secondary transition-all touch-target">Change Sets</button>
-            <button id="btn-download-instructions" class="flex-1 py-3 bg-primary/10 border border-primary/50 text-primary font-label text-xs uppercase tracking-wider rounded-lg hover:bg-primary/20 transition-all touch-target">Build Guide</button>
-          </div>
-        </aside>
       </main>
 
       <!-- COMPARE MODE -->
@@ -814,7 +966,7 @@
     </div>
 
     <footer class="bg-background border-t border-outline-variant/30 py-3 sm:py-4 px-4 sm:px-8 flex flex-col sm:flex-row justify-between items-center text-on-surface-variant mt-auto gap-2 safe-area-bottom">
-      <div class="font-label text-[9px] sm:text-[10px] uppercase tracking-widest text-center sm:text-left">© 2024 BRICKIFY NEON. NOT AN OFFICIAL LEGO PRODUCT. <span class="ml-2 opacity-50">v0.8.4</span></div>
+      <div class="font-label text-[9px] sm:text-[10px] uppercase tracking-widest text-center sm:text-left">© 2024 BRICKIFY NEON. NOT AN OFFICIAL LEGO PRODUCT. <span class="ml-2 opacity-50">v0.8.5</span></div>
       <div class="flex gap-4 sm:gap-6 font-label text-[9px] sm:text-[10px] uppercase tracking-widest">
         <a class="hover:text-tertiary transition-colors" href="/terms.html">Terms</a>
         <a class="hover:text-tertiary transition-colors" href="/privacy.html">Privacy</a>
@@ -848,11 +1000,15 @@
           <span class="material-symbols-outlined text-error" style="font-size:16px;flex-shrink:0">warning</span>
           <span id="save-limit-warning-text"></span>
         </div>
-        <div class="flex gap-3">
-          <button id="btn-cancel-save" class="flex-1 py-2.5 border border-outline-variant text-on-surface-variant font-label text-xs uppercase tracking-wider rounded-lg hover:border-primary/50 hover:text-primary transition-all">
+        <div class="flex gap-2 sm:gap-3 flex-wrap">
+          <button id="btn-cancel-save" class="flex-1 min-w-[30%] py-2.5 border border-outline-variant text-on-surface-variant font-label text-xs uppercase tracking-wider rounded-lg hover:border-primary/50 hover:text-primary transition-all">
             Cancel
           </button>
-          <button id="btn-confirm-save" class="flex-1 py-2.5 bg-secondary/20 border border-secondary text-secondary font-headline font-bold text-xs uppercase tracking-wider rounded-lg hover:bg-secondary hover:text-on-secondary transition-all flex items-center justify-center gap-2">
+          <button id="btn-confirm-save-as" class="hidden flex-1 min-w-[30%] py-2.5 bg-surface-container-high border border-outline-variant text-on-surface font-headline font-bold text-xs uppercase tracking-wider rounded-lg hover:bg-surface-container-highest transition-all items-center justify-center gap-2">
+            <span class="material-symbols-outlined text-base">content_copy</span>
+            Save As
+          </button>
+          <button id="btn-confirm-save" class="flex-1 min-w-[30%] py-2.5 bg-secondary/20 border border-secondary text-secondary font-headline font-bold text-xs uppercase tracking-wider rounded-lg hover:bg-secondary hover:text-on-secondary transition-all flex items-center justify-center gap-2">
             <span class="material-symbols-outlined text-base">save</span>
             Save
           </button>
@@ -940,6 +1096,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=3.3"></script>
+  <script src="app.js?v=3.4"></script>
 </body>
 </html>

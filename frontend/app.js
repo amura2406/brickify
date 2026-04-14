@@ -27,6 +27,8 @@ let state = {
     isCompareArena: false,
     targetW: 0,
     targetH: 0,
+    mosaicHistory: [], // max 5 items
+    historyIndex: -1,
 };
 
 // ── DOM Refs ──
@@ -55,8 +57,6 @@ const btnBackToEditor = $('#btn-back-to-editor');
 // Quick Settings DOM
 const quickSetPicker = $('#quick-set-picker');
 const quickDitherToggle = $('#quick-dither-toggle');
-const quickContrastSlider = $('#quick-contrast-slider');
-const quickContrastValue = $('#quick-contrast-value');
 const quickColorModeSelect = $('#quick-color-mode-select');
 
 // Sets tab
@@ -89,10 +89,26 @@ const btnResetCrop = $('#btn-reset-crop');
 const targetResolutionSelect = $('#target-resolution-select');
 const btnRotateCrop = $('#btn-rotate-crop');
 const btnRotateImage = $('#btn-rotate-image');
-const preprocessingToggle = $('#preprocessing-toggle');
-const contrastSlider = $('#contrast-slider');
-const contrastValue = $('#contrast-value');
-const contrastGroup = $('#contrast-group');
+const preprocessingToggle = { checked: true }; // UI element removed
+const sliders = {
+    contrast: { main: $('#contrast-slider'), val: $('#contrast-value'), quick: $('#quick-contrast-slider'), qval: $('#quick-contrast-value') },
+    saturation: { main: $('#saturation-slider'), val: $('#saturation-value'), quick: $('#quick-saturation-slider'), qval: $('#quick-saturation-value') },
+    temperature: { main: $('#temperature-slider'), val: $('#temperature-value'), quick: $('#quick-temperature-slider'), qval: $('#quick-temperature-value') },
+    sharpen: { main: $('#sharpen-slider'), val: $('#sharpen-value'), quick: $('#quick-sharpen-slider'), qval: $('#quick-sharpen-value') },
+    gamma: { main: $('#gamma-slider'), val: $('#gamma-value'), quick: $('#quick-gamma-slider'), qval: $('#quick-gamma-value') },
+    black_point: { main: $('#black-point-slider'), val: $('#black-point-value'), quick: $('#quick-black-point-slider'), qval: $('#quick-black-point-value') },
+    white_point: { main: $('#white-point-slider'), val: $('#white-point-value'), quick: $('#quick-white-point-slider'), qval: $('#quick-white-point-value') },
+    posterize: { main: $('#posterize-slider'), val: $('#posterize-value'), quick: $('#quick-posterize-slider'), qval: $('#quick-posterize-value') }
+};
+const contrastSlider = sliders.contrast.main;
+const contrastValue = sliders.contrast.val;
+const quickContrastSlider = sliders.contrast.quick;
+const quickContrastValue = sliders.contrast.qval;
+
+const btnToggleAdvancedAdjustments = $('#btn-toggle-advanced-adjustments');
+const advancedAdjustments = $('#advanced-adjustments');
+const btnQuickToggleAdvanced = $('#btn-quick-toggle-advanced');
+const quickAdvancedAdjustments = $('#quick-advanced-adjustments');
 const colorModeSelect = $('#color-mode-select');
 const btnGenerate = $('#btn-generate');
 
@@ -123,6 +139,9 @@ const btn2d = $('#btn-2d');
 const btn3d = $('#btn-3d');
 const comparisonDot = $('#comparison-dot');
 const btnComparisonToggle = $('#btn-comparison-toggle');
+const historyPeekContainer = $('#history-peek-container');
+const historySlider = document.getElementById('history-slider');
+const historySliderLabel = document.getElementById('history-slider-label');
 
 // Admin
 const adminModal = $('#admin-modal');
@@ -1727,6 +1746,12 @@ async function applyCrop() {
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || 'Crop failed');
         state.croppedImageUrl = data.url;
+        
+        // Reset history for the new image
+        state.mosaicHistory = [];
+        state.historyIndex = -1;
+        updateHistoryUI(); // Clear UI dots
+        
         showEditorStep('options');
     } catch (e) {
         console.error('Crop failed:', e);
@@ -1765,6 +1790,34 @@ function setupGenerate() {
         });
     }
 
+    function reorderPreprocessingSliders(mode) {
+        const isBW = mode === 'bw' || mode === 'sepia';
+        const wrappers = document.querySelectorAll('div[data-adjust]');
+    
+        wrappers.forEach(div => {
+            const adjustType = div.getAttribute('data-adjust');
+            let shouldHide = false;
+            let order = 0;
+    
+            if (isBW) {
+                if (adjustType === 'saturation' || adjustType === 'temperature') shouldHide = true;
+                const orders = { posterize: 1, contrast: 2, gamma: 3, black_point: 4, white_point: 5, sharpen: 6 };
+                order = orders[adjustType] || 99;
+            } else {
+                if (adjustType === 'posterize') shouldHide = true;
+                const orders = { saturation: 1, temperature: 2, contrast: 3, gamma: 4, black_point: 5, white_point: 6, sharpen: 7 };
+                order = orders[adjustType] || 99;
+            }
+    
+            if (shouldHide) {
+                div.style.display = 'none';
+            } else {
+                div.style.display = ''; 
+                div.style.order = order;
+            }
+        });
+    }
+
     function syncColorModeUI() {
         const mode = colorModeSelect ? colorModeSelect.value : 'realistic';
         
@@ -1779,6 +1832,8 @@ function setupGenerate() {
         const ditheringToggle = $('#dithering-toggle');
         if (ditheringToggle) ditheringToggle.disabled = (mode !== 'realistic');
         if (quickDitherToggle) quickDitherToggle.disabled = (mode !== 'realistic');
+        
+        reorderPreprocessingSliders(mode);
     }
     syncColorModeUI();
 
@@ -1940,14 +1995,235 @@ function getGradientColors(isQuick = false) {
     return Array.from(container.querySelectorAll('button[data-color]')).map(el => el.dataset.color);
 }
 
+function getPreprocessingParams() {
+    const s = k => sliders[k].main;
+    return {
+        preprocessing: true,
+        contrast_boost: parseFloat(s('contrast')?.value ?? 1.0),
+        saturation: parseFloat(s('saturation')?.value ?? 0.0),
+        temperature: parseFloat(s('temperature')?.value ?? 0.0),
+        sharpen: parseFloat(s('sharpen')?.value ?? 0.0),
+        gamma: parseFloat(s('gamma')?.value ?? 1.0),
+        black_point: parseInt(s('black_point')?.value ?? 0, 10),
+        white_point: parseInt(s('white_point')?.value ?? 255, 10),
+        posterize_levels: parseInt(s('posterize')?.value ?? 32, 10)
+    };
+}
+
+let previewDebounceMs = 50;
+let previewTimeoutId = null;
+
+function applyInstantPreview(isManualInteraction = false) {
+    clearTimeout(previewTimeoutId);
+    previewTimeoutId = setTimeout(() => {
+        const srcImg = $('#source-preview');
+        if (!srcImg || !state.croppedImageUrl) return;
+
+        const isQuick = $('#tab-build-plan').style.display !== 'none';
+        const p = getPreprocessingParams();
+        
+        const img = new Image();
+        img.crossOrigin = "Anonymous";
+        img.src = state.croppedImageUrl;
+        img.onload = () => {
+            // Limit preview canvas size for performance
+            const maxDim = 800;
+            let w = img.width, h = img.height;
+            if (w > maxDim || h > maxDim) {
+                const ratio = Math.min(maxDim / w, maxDim / h);
+                w = Math.round(w * ratio);
+                h = Math.round(h * ratio);
+            }
+            
+            const canvas = document.createElement('canvas');
+            canvas.width = w; canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, w, h);
+            
+            const idata = ctx.getImageData(0, 0, w, h);
+            const d = idata.data;
+            
+            const invGamma = 1.0 / p.gamma;
+            const bp = p.black_point;
+            const wp = p.white_point;
+            const range = (wp - bp) === 0 ? 1 : (wp - bp);
+            const contrast = p.contrast_boost;
+            const satFactor = 1.0 + (p.saturation / 100);
+            const tempVal = p.temperature;
+            
+            for (let i = 0; i < d.length; i += 4) {
+                let r = d[i], g = d[i+1], b = d[i+2];
+                
+                // Black/White Point + Gamma
+                r = 255 * Math.pow(Math.max(0, Math.min(1, (r - bp) / range)), invGamma);
+                g = 255 * Math.pow(Math.max(0, Math.min(1, (g - bp) / range)), invGamma);
+                b = 255 * Math.pow(Math.max(0, Math.min(1, (b - bp) / range)), invGamma);
+                
+                // Contrast
+                r = contrast * (r - 128) + 128;
+                g = contrast * (g - 128) + 128;
+                b = contrast * (b - 128) + 128;
+                
+                // Temperature (approx)
+                r += tempVal;
+                b -= tempVal;
+                
+                // Saturation
+                const lum = 0.299*r + 0.587*g + 0.114*b;
+                r = lum + satFactor * (r - lum);
+                g = lum + satFactor * (g - lum);
+                b = lum + satFactor * (b - lum);
+                
+                d[i] = Math.max(0, Math.min(255, r));
+                d[i+1] = Math.max(0, Math.min(255, g));
+                d[i+2] = Math.max(0, Math.min(255, b));
+            }
+
+            // Sharpen
+            if (p.sharpen > 0) {
+                const wInput = w, hInput = h;
+                const sharpData = new Uint8ClampedArray(d);
+                const amount = p.sharpen / 10;
+                const kernel = [
+                    0, -amount, 0,
+                    -amount, 1 + 4 * amount, -amount,
+                    0, -amount, 0
+                ];
+                
+                for (let y = 1; y < hInput - 1; y++) {
+                    for (let x = 1; x < wInput - 1; x++) {
+                        let r = 0, g = 0, b = 0;
+                        for (let ky = -1; ky <= 1; ky++) {
+                            for (let kx = -1; kx <= 1; kx++) {
+                                const weight = kernel[(ky + 1) * 3 + (kx + 1)];
+                                const px = ((y + ky) * wInput + (x + kx)) * 4;
+                                r += sharpData[px] * weight;
+                                g += sharpData[px + 1] * weight;
+                                b += sharpData[px + 2] * weight;
+                            }
+                        }
+                        const idx = (y * wInput + x) * 4;
+                        d[idx] = Math.max(0, Math.min(255, r));
+                        d[idx + 1] = Math.max(0, Math.min(255, g));
+                        d[idx + 2] = Math.max(0, Math.min(255, b));
+                    }
+                }
+            }
+            
+            ctx.putImageData(idata, 0, 0);
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+
+            const isQuick = $('#tab-build-plan').style.display !== 'none';
+            if (!isQuick && srcImg) {
+                // Editor tab preview
+                const tempSrc = new Image();
+                tempSrc.onload = () => {
+                    srcImg.src = dataUrl;
+                    srcImg.style.filter = '';
+                };
+                tempSrc.src = dataUrl;
+            }
+
+            if (isQuick) {
+                const refImg = $('#reference-image');
+                const refLayer = $('#reference-layer');
+                if (refImg) {
+                    const tempImg = new Image();
+                    tempImg.onload = () => {
+                        refImg.src = dataUrl;
+                        if (isManualInteraction && window.isUserSliding) {
+                            if (refLayer) {
+                                refLayer.classList.remove('hidden');
+                                refLayer.style.clipPath = 'inset(0 0 0 0)'; // fully reveal temporarily
+                                refLayer.style.opacity = '1';
+                            }
+                        }
+                    };
+                    tempImg.src = dataUrl;
+                }
+            }
+        };
+    }, previewDebounceMs);
+}
+
+function handleAdjustmentChange(e, isQuick) {
+    const t = e.target;
+    const kind = t.id.replace('quick-', '').replace('-slider', '');
+    const mapped = kind.replace('-', '_');
+    const val = t.value;
+    
+    const dispKind = ['contrast', 'gamma', 'sharpen'].includes(kind) ? parseFloat(val).toFixed(1) : parseInt(val, 10);
+    const suffix = kind === 'contrast' ? '×' : '';
+    
+    if (sliders[mapped]) {
+        if (sliders[mapped][isQuick ? 'qval' : 'val']) sliders[mapped][isQuick ? 'qval' : 'val'].textContent = dispKind + suffix;
+        if (sliders[mapped][isQuick ? 'main' : 'quick']) sliders[mapped][isQuick ? 'main' : 'quick'].value = val;
+        if (sliders[mapped][isQuick ? 'val' : 'qval']) sliders[mapped][isQuick ? 'val' : 'qval'].textContent = dispKind + suffix;
+    }
+    const refLayer = $('#reference-layer');
+    // IMMEDIATELY show the reference layer in quick mode to avoid wait for processing
+    if (isQuick && window.isUserSliding && refLayer) {
+        refLayer.classList.remove('hidden');
+        refLayer.style.clipPath = 'inset(0 0 0 0)';
+        refLayer.style.opacity = '1';
+    }
+    
+    applyInstantPreview(e.isTrusted); // e.isTrusted handles manual vs programmatic (e.g. initial load)
+}
+
+function hideReferenceLayerImmediately() {
+    const refLayer = $('#reference-layer');
+    if (!refLayer) return;
+    if (!isComparisonActive) {
+        refLayer.classList.add('hidden');
+    } else {
+        const compSlider = $('#comparison-slider');
+        if (compSlider) {
+            refLayer.style.clipPath = `inset(0 ${100 - compSlider.value}% 0 0)`;
+        }
+    }
+}
+
 function setupPreprocessingControls() {
-    contrastSlider.addEventListener('input', () => {
-        contrastValue.textContent = `${parseFloat(contrastSlider.value).toFixed(1)}×`;
-    });
-    preprocessingToggle.addEventListener('change', () => {
-        const enabled = preprocessingToggle.checked;
-        contrastGroup.style.opacity = enabled ? '1' : '0.4';
-        contrastGroup.style.pointerEvents = enabled ? 'auto' : 'none';
+    for (const [key, obj] of Object.entries(sliders)) {
+        if (obj.main) {
+            obj.main.addEventListener('input', (e) => { window.isUserSliding = true; handleAdjustmentChange(e, false); });
+            obj.main.addEventListener('change', (e) => {
+                window.isUserSliding = false;
+                const isQuick = $('#tab-build-plan').style.display !== 'none';
+                if (!isQuick) applyInstantPreview(e.isTrusted); // For main generate button to be clicked next
+                else {
+                    hideReferenceLayerImmediately();
+                    generateMosaic();
+                }
+            });
+        }
+        if (obj.quick) {
+            obj.quick.addEventListener('input', (e) => { window.isUserSliding = true; handleAdjustmentChange(e, true); });
+            obj.quick.addEventListener('change', () => {
+                window.isUserSliding = false;
+                const isQuick = $('#tab-build-plan').style.display !== 'none';
+                if (isQuick) {
+                    hideReferenceLayerImmediately();
+                    generateMosaic();
+                }
+            });
+        }
+    }
+
+    [btnToggleAdvancedAdjustments, btnQuickToggleAdvanced].forEach(btn => {
+        if (!btn) return;
+        btn.addEventListener('click', (e) => {
+            const isQ = e.target.id.includes('quick');
+            const panel = isQ ? quickAdvancedAdjustments : advancedAdjustments;
+            if (panel.classList.contains('hidden')) {
+                panel.classList.remove('hidden');
+                e.target.textContent = '- Hide Advanced';
+            } else {
+                panel.classList.add('hidden');
+                e.target.textContent = '+ Advanced Adjustments';
+            }
+        });
     });
 }
 
@@ -1972,8 +2248,7 @@ async function generateMosaic() {
                 url: state.croppedImageUrl,
                 set_selections: getSetSelectionsPayload(),
                 dithering: $('#dithering-toggle').checked,
-                preprocessing: preprocessingToggle.checked,
-                contrast_boost: parseFloat(contrastSlider.value),
+                ...getPreprocessingParams(),
                 color_mode: colorModeSelect ? colorModeSelect.value : 'realistic',
                 gradient_colors: isQuickCol ? getGradientColors(true) : getGradientColors(),
                 target_width: state.targetW || null,
@@ -1986,8 +2261,25 @@ async function generateMosaic() {
         state.mosaicData = data;
         state.mosaicUrl = renderOffscreenMosaic(data.grid, data.colors, data.width, data.height);
 
-        // Set reference image for comparison
-        referenceImage.src = state.croppedImageUrl;
+        // Update history
+        if (state.historyIndex < state.mosaicHistory.length - 1) {
+            state.mosaicHistory = state.mosaicHistory.slice(0, state.historyIndex + 1);
+        }
+        state.mosaicHistory.push({
+            data: data,
+            url: state.mosaicUrl,
+            config: _getCurrentConfig(),
+            set_selections: JSON.parse(JSON.stringify(state.setSelections)),
+            crop_state: _getCurrentCropState()
+        });
+        if (state.mosaicHistory.length > 6) { // Current + 5 previous
+            state.mosaicHistory.shift();
+        }
+        state.historyIndex = state.mosaicHistory.length - 1;
+        updateHistoryUI(); // Update UI dots
+
+        // Leave referenceImage.src as the processed version assigned in applyInstantPreview
+        // Do not reset it to plain croppedImageUrl here!
 
         showTab('build-plan');
         
@@ -1996,6 +2288,7 @@ async function generateMosaic() {
 
         renderMosaic();
         renderLegend();
+        hideReferenceLayerImmediately();
         
         // Update 3D model if it's currently active
         // Wait for canvas to be visible to avoid size issues
@@ -2060,6 +2353,84 @@ function renderOffscreenMosaic(grid, colors, width, height) {
     }
     return canvas.toDataURL('image/png');
 }
+
+function updateHistoryUI() {
+    if (!historyPeekContainer || !historySlider) return;
+    
+    const histLen = state.mosaicHistory.length;
+    // Only show if we have > 1 item in history
+    if (histLen <= 1) {
+        historyPeekContainer.classList.add('opacity-0', 'pointer-events-none');
+        return;
+    }
+    
+    historyPeekContainer.classList.remove('opacity-0', 'pointer-events-none');
+    
+    // Slider: 0 = current, negative values = steps back
+    // Range: min = -(histLen-1), max = 0, value = 0
+    const maxBack = Math.min(histLen - 1, 5); // Cap at 5 history steps
+    historySlider.min = -maxBack;
+    historySlider.max = 0;
+    historySlider.value = 0;
+    historySliderLabel.textContent = '0';
+    
+    
+    if (window.historySliderController) {
+        window.historySliderController.abort();
+    }
+    window.historySliderController = new AbortController();
+    const opts = { signal: window.historySliderController.signal };
+    
+    const slider = historySlider;
+    const label = historySliderLabel;
+    
+    let isPeeking = false;
+    
+    slider.addEventListener('input', () => {
+        const val = parseInt(slider.value);
+        label.textContent = val === 0 ? '0' : val.toString();
+        
+        if (val === 0) {
+            // Current mosaic
+            if (isPeeking) {
+                isPeeking = false;
+                renderMosaic();
+            }
+            return;
+        }
+        
+        // Show historical mosaic
+        isPeeking = true;
+        const idx = state.mosaicHistory.length - 1 + val; // val is negative
+        if (idx >= 0 && idx < state.mosaicHistory.length) {
+            const pastItem = state.mosaicHistory[idx];
+            const ctx = mosaicCanvas.getContext('2d');
+            const img = new Image();
+            img.onload = () => {
+                ctx.clearRect(0, 0, mosaicCanvas.width, mosaicCanvas.height);
+                ctx.drawImage(img, 0, 0);
+            };
+            img.src = pastItem.url;
+        }
+    }, opts);
+    
+    // Snap back to 0 on release (mouse or touch)
+    const snapBack = () => {
+        slider.value = 0;
+        label.textContent = '0';
+        if (isPeeking) {
+            isPeeking = false;
+            renderMosaic();
+        }
+    };
+    
+    slider.addEventListener('mouseup', snapBack, opts);
+    slider.addEventListener('touchend', snapBack, opts);
+    slider.addEventListener('mouseleave', () => {
+        // Only snap if the user was dragging (slider was not at 0)
+        if (parseInt(slider.value) !== 0) snapBack();
+    }, opts);
+}
 // ═════════════════════════════════════════════════
 //  STEP 4: BUILD PLAN — MOSAIC RENDER
 // ═════════════════════════════════════════════════
@@ -2116,8 +2487,23 @@ function renderMosaic() {
     const wrapperWidth = mosaicWrapper.clientWidth - 32;
     state.baseScale = Math.min(1, Math.max(0.01, wrapperWidth / mosaicCanvas.width));
     
-    // Default to 35% zoom explicitly
-    state.zoom = 0.35 / state.baseScale;
+    // Default zoom: 1.0 = "100%" which visually corresponds to 35% of full-resolution
+    state.zoom = 1.0;
+    
+    // Calculate dynamic max zoom: True native 1:1 resolution (1 stud = 15px) is achieved when finalScale = 1.0
+    // finalScale is state.baseScale * state.zoom, so to hit 1.0, zoom = 1.0 / state.baseScale
+    // Cap at a reasonable max (e.g., 5.0) to prevent excessive zooming on very small images
+    state.maxZoom = Math.min(5.0, Math.max(1.0, 1.0 / state.baseScale));
+    
+    // Update zoom slider max
+    const zoomSlider = document.getElementById('zoom-slider');
+    if (zoomSlider) {
+        const maxPercent = Math.round(state.maxZoom * 100);
+        zoomSlider.max = maxPercent;
+        // Update footer label
+        const maxLabel = zoomSlider.parentElement?.querySelector('.flex.justify-between span:last-child');
+        if (maxLabel) maxLabel.textContent = `${maxPercent}%`;
+    }
 
     if (typeof mosaicState !== 'undefined') {
         mosaicState.panX = 0;
@@ -2126,8 +2512,12 @@ function renderMosaic() {
     applyZoom();
 }
 
+// The "default scale factor" — zoom=1.0 displays the canvas at 35% of its full resolution.
+// This makes 100% in the UI = a comfortable default view.
+const DEFAULT_SCALE_FACTOR = 0.35;
+
 function applyZoom() {
-    const scale = state.baseScale * state.zoom;
+    const scale = state.baseScale * DEFAULT_SCALE_FACTOR * state.zoom;
     const cw = mosaicCanvas.width * scale;
     const ch = mosaicCanvas.height * scale;
     
@@ -2142,7 +2532,12 @@ function applyZoom() {
     wrapper.style.margin = '0 auto';
     wrapper.style.transform = `translate(${mosaicState.panX}px, ${mosaicState.panY}px)`;
 
-    $('#zoom-label').textContent = `${Math.round(scale * 100)}%`;
+    const displayPercent = Math.round(state.zoom * 100);
+    $('#zoom-label').textContent = `${displayPercent}%`;
+    
+    // Sync zoom slider if it exists
+    const zoomSlider = document.getElementById('zoom-slider');
+    if (zoomSlider) zoomSlider.value = displayPercent;
 }
 
 function renderLegend() {
@@ -2156,31 +2551,30 @@ function renderLegend() {
         if (c.used === 0 && c.count === 0) return;
         totalUsed += c.used;
 
-        const countLabel = isFreeMode ? `${c.used} used` : `${c.used} / ${c.count} used`;
+        const countLabel = isFreeMode ? `${c.used}` : `${c.used}/${c.count}`;
         const pct = isFreeMode ? 100 : Math.round((c.used / c.count) * 100);
 
         const item = document.createElement('div');
-        item.className = 'legend-item';
+        item.className = 'legend-item-compact';
+        item.title = `${c.name}: ${isFreeMode ? c.used + ' used' : c.used + ' / ' + c.count + ' used'}`;
         item.innerHTML = `
-            <div class="legend-color-swatch brick-stud" style="background:${c.hex};box-shadow:0 0 8px ${c.hex}40"></div>
-            <div class="flex-1">
-                <div class="flex justify-between mb-1">
-                    <span class="legend-color-name">${c.name}</span>
-                    <span class="legend-color-count">${countLabel}</span>
+            <div class="legend-swatch-sm" style="background:${c.hex}"></div>
+            <div class="flex-1 min-w-0">
+                <div class="flex items-center justify-between gap-1">
+                    <span class="legend-name-sm truncate">${c.name}</span>
+                    <span class="legend-count-sm">${countLabel}</span>
                 </div>
-                <div class="flex items-center gap-2">
-                    <div class="flex-1 bg-surface-container-highest h-1 rounded-full">
-                        <div class="h-full rounded-full" style="width:${pct}%;background:${c.hex};box-shadow: inset 0 0 0 1px rgba(255,255,255,0.1), inset 0 1px 2px rgba(0,0,0,0.3)"></div>
-                    </div>
+                <div class="legend-bar-bg">
+                    <div class="legend-bar-fill" style="width:${pct}%;background:${c.hex}"></div>
                 </div>
             </div>
         `;
         legendItems.appendChild(item);
     });
 
-    const totalLabel = isFreeMode ? `${totalUsed.toLocaleString()} pieces` : `${totalUsed.toLocaleString()} pieces used`;
+    const totalLabel = isFreeMode ? `${totalUsed.toLocaleString()} pcs` : `${totalUsed.toLocaleString()} pcs used`;
     totalPieces.textContent = totalLabel;
-    legendColorCount.textContent = `${colors.filter(c => c.used > 0).length} colors`;
+    legendColorCount.textContent = `${colors.filter(c => c.used > 0).length}`;
 }
 
 // ═════════════════════════════════════════════════
@@ -2193,30 +2587,43 @@ function setupResult() {
     }
     window.__resultEventsBound = true;
 
-    // Zoom controls
-    $('#btn-zoom-in').addEventListener('click', () => {
-        state.zoom = Math.min(state.zoom * 1.3, 5);
-        applyZoom();
-    });
-    $('#btn-zoom-out').addEventListener('click', () => {
-        state.zoom = Math.max(state.zoom / 1.3, 0.3);
-        applyZoom();
-    });
-    $('#btn-zoom-reset').addEventListener('click', () => {
-        state.zoom = 0.35 / Math.max(0.01, state.baseScale || 1);
-        mosaicState.panX = 0;
-        mosaicState.panY = 0;
-        applyZoom();
-    });
+    // Zoom slider popover
+    const zoomToggleBtn = document.getElementById('btn-zoom-toggle');
+    const zoomPopover = document.getElementById('zoom-popover');
+    const zoomSlider = document.getElementById('zoom-slider');
+    const zoomResetBtn = document.getElementById('btn-zoom-reset');
 
-    // Mosaic Canvas interactions (pan / pinch zoom)
+    if (zoomToggleBtn && zoomPopover) {
+        zoomToggleBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            zoomPopover.classList.toggle('hidden');
+        });
+        // Close popover on outside click
+        document.addEventListener('click', (e) => {
+            if (!zoomPopover.contains(e.target) && e.target !== zoomToggleBtn && !zoomToggleBtn.contains(e.target)) {
+                zoomPopover.classList.add('hidden');
+            }
+        });
+    }
+    if (zoomSlider) {
+        zoomSlider.addEventListener('mousedown', (e) => e.stopPropagation());
+        zoomSlider.addEventListener('touchstart', (e) => e.stopPropagation());
+        zoomSlider.addEventListener('input', () => {
+            state.zoom = parseInt(zoomSlider.value) / 100;
+            applyZoom();
+        });
+    }
+    if (zoomResetBtn) {
+        zoomResetBtn.addEventListener('click', () => {
+            state.zoom = 1.0;
+            mosaicState.panX = 0;
+            mosaicState.panY = 0;
+            applyZoom();
+        });
+    }
+
+    // Mosaic Canvas interactions (pan / pinch zoom — wheel zoom removed)
     const mw = $('#mosaic-canvas-wrapper');
-    mw.addEventListener('wheel', (e) => {
-        e.preventDefault();
-        const delta = e.deltaY > 0 ? -0.1 : 0.1;
-        state.zoom = Math.max(0.3, Math.min(5, state.zoom + delta));
-        applyZoom();
-    }, { passive: false });
 
     mw.addEventListener('mousedown', (e) => {
         if (e.target.id === 'comparison-slider') return;
@@ -2484,22 +2891,16 @@ function setupResult() {
 
     quickDitherToggle.addEventListener('change', () => {
         $('#dithering-toggle').checked = quickDitherToggle.checked;
+        hideReferenceLayerImmediately();
         generateMosaic();
     });
     if (quickColorModeSelect) {
         quickColorModeSelect.addEventListener('change', () => {
             if (colorModeSelect) colorModeSelect.value = quickColorModeSelect.value;
+            hideReferenceLayerImmediately();
             generateMosaic();
         });
     }
-    quickContrastSlider.addEventListener('input', () => {
-        contrastSlider.value = quickContrastSlider.value;
-        quickContrastValue.textContent = quickContrastSlider.value;
-    });
-    quickContrastSlider.addEventListener('change', () => {
-        generateMosaic();
-    });
-
     // 2D / 3D toggle
     btn2d.addEventListener('click', () => {
         if (isComparisonActive) toggleComparison();
@@ -2544,8 +2945,17 @@ function setupResult() {
 
     $('#btn-download').addEventListener('click', downloadMosaic);
     $('#btn-download-instructions').addEventListener('click', downloadInstructions);
-    $('#btn-start-over').addEventListener('click', startOver);
-    $('#btn-change-set').addEventListener('click', changeSets);
+    $('#btn-start-over')?.addEventListener('click', startOver);
+    $('#btn-change-set')?.addEventListener('click', changeSets);
+
+    // Logo → home (back to sets)
+    document.getElementById('btn-logo-home')?.addEventListener('click', () => {
+        startOver();
+    });
+    // Breadcrumb → sets
+    document.getElementById('btn-breadcrumb-sets')?.addEventListener('click', () => {
+        showTab('sets');
+    });
     $('#btn-save-project')?.addEventListener('click', openSaveProjectDialog);
 }
 
@@ -2558,13 +2968,39 @@ function toggleComparison() {
         btn3d.className = 'px-3 py-1 text-xs font-label uppercase tracking-wider rounded-lg transition-all text-on-surface-variant hover:text-on-surface';
         referenceLayer.classList.remove('hidden');
         comparisonSlider.classList.remove('hidden');
-        btnComparisonToggle.classList.add('bg-primary/20', 'border-primary/50');
-        comparisonDot.classList.add('translate-x-5', '!bg-primary');
+        btnComparisonToggle.classList.add('!bg-primary/20', '!text-primary', '!border-primary/60');
+        
+        // FIX: Ensure comparison slider is at 50% and clip-path matches
+        comparisonSlider.value = 50;
+        referenceLayer.style.clipPath = 'inset(0 50% 0 0)';
+        
+        const labelRef = $('#label-reference');
+        const labelMos = $('#label-mosaic');
+        if (labelRef) {
+            labelRef.classList.remove('opacity-0');
+            labelRef.classList.add('opacity-100');
+        }
+        if (labelMos) {
+            labelMos.classList.remove('opacity-0');
+            labelMos.classList.add('opacity-100');
+        }
+        
+        // FIX: Force re-apply zoom so wrapper dimensions match the canvas
+        applyZoom();
     } else {
         referenceLayer.classList.add('hidden');
         comparisonSlider.classList.add('hidden');
-        btnComparisonToggle.classList.remove('bg-primary/20', 'border-primary/50');
-        comparisonDot.classList.remove('translate-x-5', '!bg-primary');
+        btnComparisonToggle.classList.remove('!bg-primary/20', '!text-primary', '!border-primary/60');
+        const labelRef = $('#label-reference');
+        const labelMos = $('#label-mosaic');
+        if (labelRef) {
+            labelRef.classList.add('opacity-0');
+            labelRef.classList.remove('opacity-100');
+        }
+        if (labelMos) {
+            labelMos.classList.add('opacity-0');
+            labelMos.classList.remove('opacity-100');
+        }
     }
 }
 
@@ -2644,10 +3080,19 @@ function setBtnLoading(btn, loading, loadingText = 'Loading…') {
     if (loading) {
         if (textEl) textEl.classList.add('hidden');
         if (loaderEl) { loaderEl.classList.remove('hidden'); loaderEl.style.display = 'flex'; }
-        else btn.textContent = loadingText;
+        else {
+            if (!btn.hasAttribute('data-original-html')) {
+                btn.setAttribute('data-original-html', btn.innerHTML);
+            }
+            btn.textContent = loadingText;
+        }
     } else {
         if (textEl) textEl.classList.remove('hidden');
         if (loaderEl) { loaderEl.classList.add('hidden'); loaderEl.style.display = ''; }
+        else if (btn.hasAttribute('data-original-html')) {
+            btn.innerHTML = btn.getAttribute('data-original-html');
+            btn.removeAttribute('data-original-html');
+        }
     }
 }
 
@@ -2935,7 +3380,7 @@ function switchResultMode(mode) {
         const wWidth = singleModeView ? (singleModeView.clientWidth - 32) : 800;
         const bs = (cw && wWidth > 0) ? Math.min(1, Math.max(0.01, wWidth / cw)) : 1;
         state.baseScale = bs;
-        state.zoom = 0.35 / bs;
+        state.zoom = 1.0;
         
         mosaicState.panX = 0;
         mosaicState.panY = 0;
@@ -3341,9 +3786,8 @@ function _defaultProjectName() {
 /** Collect all current config fields for saving. */
 function _getCurrentConfig() {
     return {
+        ...getPreprocessingParams(),
         dithering: $('#dithering-toggle')?.checked ?? false,
-        preprocessing: preprocessingToggle?.checked ?? true,
-        contrast_boost: parseFloat(contrastSlider?.value ?? '1.0'),
         color_mode: colorModeSelect?.value ?? 'realistic',
         gradient_colors: getGradientColors(),
         target_width: state.targetW || null,
@@ -3490,6 +3934,13 @@ async function loadProject(projectId) {
         state.imageUrl = project.image_url;
         state.croppedImageUrl = project.cropped_image_url;
         state.mosaicUrl = project.thumbnail_url;
+        
+        // Restore history
+        state.mosaicHistory = project.mosaic_history || [];
+        // Ensure array holds valid layout (drop legacy if it's there but missing config)
+        state.mosaicHistory = state.mosaicHistory.filter(h => h && h.config);
+        state.historyIndex = state.mosaicHistory.length - 1;
+        updateHistoryUI(); // Reset UI slider hooks
 
         // Restore set selections using allSets lookup
         state.setSelections = (project.set_selections || []).map(sel => {
@@ -3501,11 +3952,24 @@ async function loadProject(projectId) {
         // Restore config UI
         const cfg = project.config || {};
         if ($('#dithering-toggle') && cfg.dithering !== undefined) $('#dithering-toggle').checked = cfg.dithering;
-        if (preprocessingToggle && cfg.preprocessing !== undefined) preprocessingToggle.checked = cfg.preprocessing;
-        if (contrastSlider && cfg.contrast_boost !== undefined) {
-            contrastSlider.value = cfg.contrast_boost;
-            if (contrastValue) contrastValue.textContent = parseFloat(cfg.contrast_boost).toFixed(1);
-        }
+        if (cfg.contrast_boost !== undefined) sliders.contrast.main.value = cfg.contrast_boost;
+        if (cfg.saturation !== undefined) sliders.saturation.main.value = cfg.saturation;
+        if (cfg.temperature !== undefined) sliders.temperature.main.value = cfg.temperature;
+        if (cfg.sharpen !== undefined) sliders.sharpen.main.value = cfg.sharpen;
+        if (cfg.gamma !== undefined) sliders.gamma.main.value = cfg.gamma;
+        if (cfg.black_point !== undefined) sliders.black_point.main.value = cfg.black_point;
+        if (cfg.white_point !== undefined) sliders.white_point.main.value = cfg.white_point;
+        if (cfg.posterize_levels !== undefined) sliders.posterize.main.value = cfg.posterize_levels;
+        
+        // Trigger generic change handle to update labels and quick tab
+        if (sliders.contrast.main) sliders.contrast.main.dispatchEvent(new Event('input'));
+        if (sliders.saturation.main) sliders.saturation.main.dispatchEvent(new Event('input'));
+        if (sliders.temperature.main) sliders.temperature.main.dispatchEvent(new Event('input'));
+        if (sliders.sharpen.main) sliders.sharpen.main.dispatchEvent(new Event('input'));
+        if (sliders.gamma.main) sliders.gamma.main.dispatchEvent(new Event('input'));
+        if (sliders.black_point.main) sliders.black_point.main.dispatchEvent(new Event('input'));
+        if (sliders.white_point.main) sliders.white_point.main.dispatchEvent(new Event('input'));
+        if (sliders.posterize.main) sliders.posterize.main.dispatchEvent(new Event('input'));
         if (colorModeSelect && cfg.color_mode) colorModeSelect.value = cfg.color_mode;
         if (cfg.target_width) state.targetW = cfg.target_width;
         if (cfg.target_height) state.targetH = cfg.target_height;
@@ -3514,7 +3978,7 @@ async function loadProject(projectId) {
         state._loadedProjectId = projectId;
         state._loadedProjectName = project.name;
 
-        referenceImage.src = state.croppedImageUrl;
+        // Leave reference image unchanged to display whatever the preprocessing set it to.
         showTab('build-plan');
         if (window.syncQuickConfigUI) window.syncQuickConfigUI();
         renderMosaic();
@@ -3536,11 +4000,21 @@ function openSaveProjectDialog() {
     const modal = $('#save-project-modal');
     const nameInput = $('#save-project-name');
     const warningEl = $('#save-limit-warning');
+    const btnSaveAs = $('#btn-confirm-save-as');
     if (!modal || !nameInput) return;
 
     nameInput.value = state._loadedProjectName || _defaultProjectName();
     setTimeout(() => nameInput.select(), 50);
     warningEl?.classList.add('hidden');
+    
+    if (state._loadedProjectId && btnSaveAs) {
+        btnSaveAs.classList.remove('hidden');
+        btnSaveAs.classList.add('flex');
+    } else if (btnSaveAs) {
+        btnSaveAs.classList.add('hidden');
+        btnSaveAs.classList.remove('flex');
+    }
+
     modal.classList.remove('hidden');
 }
 
@@ -3548,16 +4022,25 @@ function closeSaveProjectDialog() {
     $('#save-project-modal')?.classList.add('hidden');
 }
 
-async function _confirmSaveProject() {
+async function _confirmSaveProject(e, saveAsNew = false) {
+    const btnConfirm = $('#btn-confirm-save');
+    const btnSaveAs = $('#btn-confirm-save-as');
+    
+    if (btnConfirm?.disabled || btnSaveAs?.disabled) return;
+
     const nameInput = $('#save-project-name');
     const name = nameInput?.value?.trim() || _defaultProjectName();
     const warningEl = $('#save-limit-warning');
     const warningTextEl = $('#save-limit-warning-text');
-    const btnConfirm = $('#btn-confirm-save');
-
+    
     if (!state.mosaicData || !state.croppedImageUrl) return;
 
-    setBtnLoading(btnConfirm, true, 'Saving\u2026');
+    const activeBtn = saveAsNew && btnSaveAs ? btnSaveAs : btnConfirm;
+    
+    setBtnLoading(activeBtn, true, 'Saving\u2026');
+    if (btnConfirm && activeBtn !== btnConfirm) btnConfirm.disabled = true;
+    if (btnSaveAs && activeBtn !== btnSaveAs) btnSaveAs.disabled = true;
+
     warningEl?.classList.add('hidden');
 
     const payload = {
@@ -3573,11 +4056,17 @@ async function _confirmSaveProject() {
         config: _getCurrentConfig(),
         crop_state: _getCurrentCropState(),
         mosaic_data: state.mosaicData,
+        mosaic_history: state.mosaicHistory.map(h => ({
+            url: h.url,
+            config: h.config,
+            set_selections: h.set_selections,
+            crop_state: h.crop_state,
+        })),
     };
 
     try {
         let res, data;
-        if (state._loadedProjectId) {
+        if (state._loadedProjectId && !saveAsNew) {
             res = await authFetch(`${API}/api/projects/${state._loadedProjectId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
@@ -3609,7 +4098,7 @@ async function _confirmSaveProject() {
         }
 
         closeSaveProjectDialog();
-        _showToast('Project saved!', 'success');
+        _showToast(saveAsNew ? 'Project created!' : 'Project saved!', 'success');
     } catch (e) {
         if (e.code === 'PROJECT_LIMIT_REACHED') {
             if (warningEl && warningTextEl) {
@@ -3620,7 +4109,9 @@ async function _confirmSaveProject() {
             alert('Failed to save project: ' + e.message);
         }
     } finally {
-        setBtnLoading(btnConfirm, false, 'Save');
+        setBtnLoading(activeBtn, false);
+        if (btnConfirm && activeBtn !== btnConfirm) btnConfirm.disabled = false;
+        if (btnSaveAs && activeBtn !== btnSaveAs) btnSaveAs.disabled = false;
     }
 }
 
@@ -3707,7 +4198,8 @@ document.addEventListener('DOMContentLoaded', () => {
     $('#btn-close-save-modal')?.addEventListener('click', closeSaveProjectDialog);
     $('#btn-cancel-save')?.addEventListener('click', closeSaveProjectDialog);
     $('#save-project-modal')?.addEventListener('click', e => { if (e.target === e.currentTarget) closeSaveProjectDialog(); });
-    $('#btn-confirm-save')?.addEventListener('click', _confirmSaveProject);
+    $('#btn-confirm-save')?.addEventListener('click', (e) => _confirmSaveProject(e, false));
+    $('#btn-confirm-save-as')?.addEventListener('click', (e) => _confirmSaveProject(e, true));
 
     $('#btn-cancel-delete')?.addEventListener('click', closeDeleteProjectDialog);
     $('#delete-project-modal')?.addEventListener('click', e => { if (e.target === e.currentTarget) closeDeleteProjectDialog(); });

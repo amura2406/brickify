@@ -244,6 +244,13 @@ class GenerateRequest(BaseModel):
     dithering: bool = False
     preprocessing: bool = True
     contrast_boost: float = 1.0
+    saturation: float = 0.0
+    temperature: float = 0.0
+    sharpen: float = 0.0
+    posterize_levels: int = 32
+    gamma: float = 1.0
+    black_point: int = 0
+    white_point: int = 255
     color_mode: str = "realistic"
     gradient_colors: list[str] | None = None
     target_width: int | None = None
@@ -285,6 +292,13 @@ def generate(
         dithering=req.dithering,
         preprocessing=req.preprocessing,
         contrast_boost=max(0.0, min(2.0, req.contrast_boost)),
+        saturation=max(-100.0, min(100.0, req.saturation)),
+        temperature=max(-50.0, min(50.0, req.temperature)),
+        sharpen=max(0.0, min(5.0, req.sharpen)),
+        posterize_levels=max(2, min(32, req.posterize_levels)),
+        gamma=max(0.2, min(3.0, req.gamma)),
+        black_point=max(0, min(100, req.black_point)),
+        white_point=max(155, min(255, req.white_point)),
         color_mode=req.color_mode,
         gradient_colors=req.gradient_colors,
         target_width=req.target_width,
@@ -327,6 +341,7 @@ class SaveProjectRequest(BaseModel):
     config: dict
     crop_state: dict | None = None
     mosaic_data: dict
+    mosaic_history: list[dict] = []
 
 
 @app.post("/api/projects")
@@ -709,6 +724,13 @@ class PalettePreviewRequest(BaseModel):
     set_selections: list[SetSelection] | None = None
     preprocessing: bool = True
     contrast_boost: float = 1.0
+    saturation: float = 0.0
+    temperature: float = 0.0
+    sharpen: float = 0.0
+    posterize_levels: int = 32
+    gamma: float = 1.0
+    black_point: int = 0
+    white_point: int = 255
     color_mode: str = "realistic"
     gradient_colors: list[str] | None = None
     target_width: int | None = None
@@ -738,6 +760,13 @@ def preview_palette(
         img, palette_rgb, grid_w, grid_h,
         preprocessing=req.preprocessing,
         contrast_boost=max(0.0, min(2.0, req.contrast_boost)),
+        saturation=max(-100.0, min(100.0, req.saturation)),
+        temperature=max(-50.0, min(50.0, req.temperature)),
+        sharpen=max(0.0, min(5.0, req.sharpen)),
+        posterize_levels=max(2, min(32, req.posterize_levels)),
+        gamma=max(0.2, min(3.0, req.gamma)),
+        black_point=max(0, min(100, req.black_point)),
+        white_point=max(155, min(255, req.white_point)),
     )
 
     url = provider.upload_image(preview, "previews", fmt="PNG")

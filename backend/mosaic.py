@@ -21,6 +21,13 @@ def generate_palette_preview(
     grid_h: int,
     preprocessing: bool = True,
     contrast_boost: float = 1.0,
+    saturation: float = 0.0,
+    temperature: float = 0.0,
+    sharpen: float = 0.0,
+    posterize_levels: int = 32,
+    gamma: float = 1.0,
+    black_point: int = 0,
+    white_point: int = 255,
 ) -> Image.Image:
     """Generate a preview of the image mapped to palette colors.
     (Note: Preview strictly previews photorealistic matching. Pop-art requires piece counts to visualize).
@@ -30,7 +37,17 @@ def generate_palette_preview(
         processed.thumbnail((1024, 1024), Image.Resampling.LANCZOS)
 
     if preprocessing:
-        processed = preprocess_image(processed, contrast_boost=contrast_boost)
+        processed = preprocess_image(
+            processed, 
+            contrast_boost=contrast_boost,
+            saturation=saturation,
+            temperature=temperature,
+            sharpen=sharpen,
+            posterize_levels=posterize_levels,
+            gamma=gamma,
+            black_point=black_point,
+            white_point=white_point,
+        )
 
     # Analyze relevance
     relevance = analyze_palette_relevance(processed, palette_rgb, grid_w, grid_h)
@@ -69,6 +86,13 @@ def generate_mosaic(
     crop_box: dict | None = None,
     preprocessing: bool = True,
     contrast_boost: float = 1.0,
+    saturation: float = 0.0,
+    temperature: float = 0.0,
+    sharpen: float = 0.0,
+    posterize_levels: int = 32,
+    gamma: float = 1.0,
+    black_point: int = 0,
+    white_point: int = 255,
     color_mode: str = "realistic",
     gradient_colors: list[str] | None = None,
     target_width: int | None = None,
@@ -83,6 +107,13 @@ def generate_mosaic(
         crop_box: Optional {x, y, size} for square crop
         preprocessing: Enable palette-aware preprocessing (CLAHE)
         contrast_boost: Contrast enhancement multiplier (0.0-2.0)
+        saturation: Saturation boost (-100 to 100)
+        temperature: Warm/cool shift (-50 to 50)
+        sharpen: Edge sharpening strength (0.0 to 5.0)
+        posterize_levels: Reduce tonal levels (2 to 32)
+        gamma: Midtone brightness curve (0.2 to 3.0)
+        black_point: Crush shadows (0 to 100)
+        white_point: Clip highlights (155 to 255)
         color_mode: "realistic", "pop_art", or "gradient"
         gradient_colors: List of hex colors for gradient mapping mode
         target_width: Override standard grid width
@@ -113,7 +144,17 @@ def generate_mosaic(
         grid_h = target_height
 
     if preprocessing:
-        img = preprocess_image(img, contrast_boost=contrast_boost)
+        img = preprocess_image(
+            img, 
+            contrast_boost=contrast_boost,
+            saturation=saturation,
+            temperature=temperature,
+            sharpen=sharpen,
+            posterize_levels=posterize_levels,
+            gamma=gamma,
+            black_point=black_point,
+            white_point=white_point,
+        )
 
     # Resize to grid dimensions
     img = img.resize((grid_w, grid_h), Image.Resampling.LANCZOS)

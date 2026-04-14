@@ -1,7 +1,7 @@
 [project]
 name = "lego-mosaic-maker"
-version = "0.6.8"
-description = "Convert images into LEGO Art mosaics"
+version = "0.8.5"
+description = "Turn any photo into a buildable LEGO Art mosaic"
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.115.0",
