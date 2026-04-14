@@ -603,12 +603,11 @@ async function renderSets(sets) {
     );
 
     state.allSets = details;
-    setsGrid.innerHTML = '';
 
-    details.forEach((set) => {
-        const card = createSetCard(set);
-        setsGrid.appendChild(card);
-    });
+    // Notify Alpine component — it owns the DOM now
+    window.dispatchEvent(new CustomEvent('update-sets', {
+        detail: { sets: details, cart: state.setSelections },
+    }));
 }
 
 function createSetCard(set) {
@@ -714,43 +713,8 @@ function removeSetFromCart(setId) {
 }
 
 function renderSelectedSets() {
-    // Update card states
-    $$('.set-card').forEach(card => {
-        const id = card.dataset.id;
-        const sel = state.setSelections.find(s => s.set.id === id);
-        const addBtn = card.querySelector('.set-add-btn');
-        const qtyDisplay = card.querySelector('.set-qty-display');
-
-        if (sel) {
-            card.classList.add('in-cart');
-            if (addBtn) { addBtn.textContent = 'Remove'; addBtn.classList.add('added'); }
-            if (qtyDisplay) { qtyDisplay.style.display = 'flex'; qtyDisplay.querySelector('.set-qty-count').textContent = `×${sel.qty}`; }
-        } else {
-            card.classList.remove('in-cart');
-            if (addBtn) { addBtn.textContent = 'Add Set'; addBtn.classList.remove('added'); }
-            if (qtyDisplay) { qtyDisplay.style.display = 'none'; }
-        }
-    });
-
-    if (state.setSelections.length === 0) {
-        selectedSetsPanel.classList.add('hidden');
-        return;
-    }
-
-    selectedSetsPanel.classList.remove('hidden');
-
-    // Update summary numbers
-    const info = getMergedSetInfo();
-    summaryColors.textContent = info.totalColors;
-    summaryPieces.textContent = info.totalPieces.toLocaleString();
-    summaryGrid.textContent = `${info.grid[0]}×${info.grid[1]}`;
-
-    // Render thumbnails
-    selectedSetsThumbs.innerHTML = state.setSelections.map(sel => `
-        <img src="/assets/sets/${sel.set.id}.jpg" alt="${sel.set.name}"
-             onerror="this.src='/assets/sets/${sel.set.id}.png'; this.onerror=null;"
-             class="w-10 h-10 rounded-full border-2 border-background object-cover" title="${sel.set.name} ×${sel.qty}"/>
-    `).join('');
+    // Notify Alpine components — they own their DOM sections now
+    window.dispatchEvent(new CustomEvent('update-cart', { detail: state.setSelections }));
 }
 
 function getMergedSetInfo() {
@@ -781,6 +745,83 @@ function getMergedSetInfo() {
         colors: colors,
     };
 }
+
+/**
+ * Pure version of getMergedSetInfo that accepts a cart array directly.
+ * Used by the Alpine selected-sets-panel component.
+ */
+function getMergedSetInfoFromCart(cart) {
+    const colorMap = {};
+    let maxGw = 0, maxGh = 0;
+
+    (cart || []).forEach(sel => {
+        const [gw, gh] = sel.set.grid;
+        if (gw * gh > maxGw * maxGh) { maxGw = gw; maxGh = gh; }
+        sel.set.colors.forEach(c => {
+            if (colorMap[c.hex]) {
+                colorMap[c.hex].count += c.count * sel.qty;
+            } else {
+                colorMap[c.hex] = { ...c, count: c.count * sel.qty };
+            }
+        });
+    });
+
+    const colors = Object.values(colorMap);
+    return {
+        grid: [maxGw || '—', maxGh || ''],
+        totalColors: colors.length,
+        totalPieces: colors.reduce((s, c) => s + c.count, 0),
+    };
+}
+
+// ─── Alpine bridge helpers ─────────────────────────────────────────────────
+// Exposed so Alpine templates can call back into app logic via window.*
+
+/** Toggle a set in/out of the cart (called from set-card template). */
+window.setCardToggle = function setCardToggle(setId, cardEl) {
+    const existing = state.setSelections.find(s => s.set.id === setId);
+    if (existing) {
+        removeSetFromCart(setId);
+    } else {
+        const qtyEl = cardEl?.querySelector('.qty-value');
+        const qty = qtyEl ? parseInt(qtyEl.textContent, 10) || 1 : 1;
+        const set = state.allSets.find(s => s.id === setId);
+        if (set) addSetToCart(set, qty);
+    }
+};
+
+/** Adjust qty spinner on a set-card (called from qty-btn template). */
+window.setCardQtyChange = function setCardQtyChange(setId, delta, cardEl) {
+    const qtyEl = cardEl?.querySelector('.qty-value');
+    if (!qtyEl) return;
+    const current = parseInt(qtyEl.textContent, 10) || 1;
+    const next = Math.max(1, current + delta);
+    qtyEl.textContent = next;
+    const sel = state.setSelections.find(s => s.set.id === setId);
+    if (sel) {
+        sel.qty = next;
+        renderSelectedSets();
+    }
+};
+
+/** Expose pure cart-info calculator to Alpine. */
+window.getMergedSetInfoFromCart = getMergedSetInfoFromCart;
+
+/** Handle click on a recent-upload thumbnail (called from Alpine template). */
+window.handleRecentUploadClick = function handleRecentUploadClick(url) {
+    const img = new window.Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+        handleUploadResponse({
+            url,
+            width: img.naturalWidth,
+            height: img.naturalHeight,
+            is_square: img.naturalWidth === img.naturalHeight,
+        });
+    };
+    img.onerror = () => handleUploadResponse({ url, width: 1000, height: 1000, is_square: false });
+    img.src = url;
+};
 
 function getSetSelectionsPayload() {
     return state.setSelections.map(s => ({ set_id: s.set.id, qty: s.qty }));
@@ -890,51 +931,21 @@ function setupUpload() {
 }
 
 async function loadRecentUploads() {
-    const grid = document.getElementById('recent-uploads-grid');
-    if (!grid) return;
-
     try {
         const res = await authFetch(`${API}/api/recent-uploads`);
         if (!res.ok) throw new Error('Failed to load');
         const data = await res.json();
         const images = data.images || [];
 
-        if (images.length === 0) {
-            grid.innerHTML = '<div class="col-span-full text-center py-3 text-on-surface-variant text-xs font-label">No recent uploads</div>';
-            return;
-        }
-
-        grid.innerHTML = images.map(img => `
-            <button class="recent-upload-thumb aspect-square rounded-lg overflow-hidden border border-outline-variant/30 hover:border-primary/60 transition-all cursor-pointer group relative bg-surface-container-lowest" data-url="${img.url}">
-                <img src="${img.url}" class="w-full h-full object-cover group-hover:scale-105 transition-transform" loading="lazy" alt="Recent upload" />
-                <div class="absolute inset-0 bg-primary/0 group-hover:bg-primary/10 transition-colors"></div>
-            </button>
-        `).join('');
-
-        grid.querySelectorAll('.recent-upload-thumb').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const url = btn.dataset.url;
-                // Create an Image to get dimensions
-                const img = new window.Image();
-                img.crossOrigin = 'anonymous';
-                img.onload = () => {
-                    handleUploadResponse({
-                        url: url,
-                        width: img.naturalWidth,
-                        height: img.naturalHeight,
-                        is_square: img.naturalWidth === img.naturalHeight,
-                    });
-                };
-                img.onerror = () => {
-                    // If we can't load for dimensions, just proceed with crop
-                    handleUploadResponse({ url, width: 1000, height: 1000, is_square: false });
-                };
-                img.src = url;
-            });
-        });
+        // Alpine component listens for this event and owns the DOM
+        window.dispatchEvent(new CustomEvent('update-recent-uploads', {
+            detail: { images, error: false },
+        }));
     } catch (e) {
         console.error('Recent uploads load failed:', e);
-        grid.innerHTML = '<div class="col-span-full text-center py-3 text-on-surface-variant text-xs font-label">Could not load recent uploads</div>';
+        window.dispatchEvent(new CustomEvent('update-recent-uploads', {
+            detail: { images: [], error: true },
+        }));
     }
 }
 
@@ -2941,7 +2952,7 @@ function setupResult() {
     if (btnModeSingle && btnModeCompare) {
         btnModeSingle.addEventListener('click', () => switchResultMode('single'));
         btnModeCompare.addEventListener('click', () => switchResultMode('compare'));
-        btnAddCompareColumn.addEventListener('click', () => addCompareColumn(false));
+        btnAddCompareColumn.addEventListener('click', () => addCompareColumn(true, true));
     }
 
     $('#btn-download').addEventListener('click', downloadMosaic);
@@ -3389,7 +3400,7 @@ function switchResultMode(mode) {
     }
 }
 
-function addCompareColumn(autoGenerate = false) {
+function addCompareColumn(autoGenerate = false, isUserInteraction = false) {
     if (state.compareColumns.length >= 5) {
         alert("Maximum 5 comparisons allowed.");
         return;
@@ -3397,6 +3408,20 @@ function addCompareColumn(autoGenerate = false) {
     
     // Copy current global settings or last column's settings
     const lastCol = state.compareColumns.length > 0 ? state.compareColumns[state.compareColumns.length - 1] : null;
+
+    let mutatePrimarySet = false;
+    let mutateDithering = false;
+    let mutateColorMode = false;
+
+    if (isUserInteraction && lastCol) {
+        const choice = prompt("Choose a variant mutation:\n1: Swap primary set out for another set\n2: Toggle dithering\n3: Toggle Pop Art vs Gradient\n(Leave blank to just copy current)");
+        
+        if (choice === null) return; // User cancelled
+        
+        if (choice === '1') mutatePrimarySet = true;
+        if (choice === '2') mutateDithering = true;
+        if (choice === '3') mutateColorMode = true;
+    }
     
     const newCol = {
         id: Date.now().toString(),
@@ -3411,6 +3436,24 @@ function addCompareColumn(autoGenerate = false) {
         loading: false,
         error: null
     };
+
+    if (mutatePrimarySet) {
+        if (newCol.setSelections.length > 0 && state.allSets.length > 1) {
+            const currentId = newCol.setSelections[0].set.id;
+            const altSet = state.allSets.find(s => s.id !== currentId) || state.allSets[0];
+            newCol.setSelections[0] = { set: altSet, qty: newCol.setSelections[0].qty };
+        } else if (newCol.setSelections.length === 0 && state.allSets.length > 0) {
+            newCol.setSelections = [{ set: state.allSets[0], qty: 1 }];
+        }
+    }
+    
+    if (mutateDithering) {
+        newCol.dithering = !newCol.dithering;
+    }
+    
+    if (mutateColorMode) {
+        newCol.colorMode = newCol.colorMode === 'pop_art' ? 'gradient' : 'pop_art';
+    }
     
     state.compareColumns.push(newCol);
     renderCompareColumns();
@@ -3449,178 +3492,9 @@ window.removeCompareSet = function(colId, idx) {
 
 window.renderCompareColumns = renderCompareColumns;
 function renderCompareColumns() {
-    if (!compareColumnsContainer) return;
-    
-    // Remove all columns (keep the Add button)
-    const columns = compareColumnsContainer.querySelectorAll('.compare-col');
-    columns.forEach(col => col.remove());
-    
-    // Hide Add button if max reached
-    if (state.compareColumns.length >= 5) {
-        btnAddCompareColumn.classList.add('hidden');
-        btnAddCompareColumn.classList.remove('flex');
-    } else {
-        btnAddCompareColumn.classList.remove('hidden');
-        btnAddCompareColumn.classList.add('flex');
-    }
-    
-    state.compareColumns.forEach((col, idx) => {
-        const colEl = document.createElement('div');
-        colEl.className = 'compare-col flex flex-col gap-4 w-[340px] shrink-0';
-        colEl.dataset.id = col.id;
-        
-        let visualArea = '';
-        if (col.loading) {
-            visualArea = `<div class="aspect-square w-full bg-surface-container-high rounded-xl border border-outline-variant flex flex-col items-center justify-center gap-3">
-                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                <span class="font-label text-xs uppercase tracking-widest text-on-surface-variant">Generating...</span>
-            </div>`;
-        } else if (col.error) {
-           visualArea = `<div class="aspect-square w-full bg-surface-container-high rounded-xl border border-error/50 flex flex-col items-center justify-center p-4 text-center gap-2">
-                <span class="material-symbols-outlined text-error text-3xl">error</span>
-                <span class="font-label text-xs text-error">${col.error}</span>
-                <button class="mt-2 text-xs uppercase text-primary border border-primary/50 px-3 py-1 rounded hover:bg-primary/10" onclick="generateCompareColumn('${col.id}')">Retry</button>
-            </div>`; 
-        } else if (col.mosaicUrl) {
-           visualArea = `<div class="aspect-square w-full bg-surface-container-lowest rounded-xl border border-outline-variant p-2 overflow-hidden relative group">
-                <img src="${col.mosaicUrl}" class="w-full h-full object-contain" />
-                <button class="absolute bottom-4 right-4 bg-background/80 backdrop-blur border border-outline-variant p-2 rounded-lg text-primary hover:text-white transition-colors opacity-0 group-hover:opacity-100" title="Make this the active single mode result" onclick="promoteToPrimary('${col.id}')">
-                    <span class="material-symbols-outlined text-sm">open_in_full</span>
-                </button>
-            </div>`;
-        } else {
-            visualArea = `<div class="aspect-square w-full bg-surface-container-high rounded-xl border border-dashed border-outline-variant flex items-center justify-center cursor-pointer hover:border-primary/50 transition-colors group" onclick="generateCompareColumn('${col.id}')">
-                <div class="flex flex-col items-center gap-3 text-center px-4">
-                    <span class="material-symbols-outlined text-4xl text-on-surface-variant group-hover:text-primary transition-colors">tune</span>
-                    <span class="font-label text-[10px] sm:text-xs text-on-surface-variant uppercase tracking-widest mt-2">Adjust a setting below<br>or click here to generate</span>
-                </div>
-            </div>`;
-        }
-        
-        // Specs Matrix
-        let specsMatrix = '';
-        if (col.mosaicData) {
-            const numColors = col.mosaicData.colors.filter(c => c.used > 0).length;
-            const totalPiecesUsed = col.mosaicData.colors.reduce((sum, c) => sum + (c.used || 0), 0);
-            const isFreeMode = col.setSelections && col.setSelections.length === 0;
-            const piecesLabel = isFreeMode ? 'Total Pieces' : 'Stock Used';
-            const warningInfo = col.mosaicData.warnings && col.mosaicData.warnings.length > 0 
-                ? `<div class="col-span-2 mt-2 px-2 py-1 bg-error-container text-on-error-container text-[10px] font-label rounded font-bold">${col.mosaicData.warnings.length} constraint warnings!</div>`
-                : '';
-            
-            specsMatrix = `
-            <div class="bg-surface-container border border-outline-variant rounded-lg p-3 grid grid-cols-2 gap-2 mt-2 shadow-inner">
-                <div class="flex flex-col">
-                    <span class="font-label text-[9px] uppercase tracking-widest text-on-surface-variant">Colors Used</span>
-                    <span class="font-headline font-bold text-lg text-primary">${numColors}</span>
-                </div>
-                <div class="flex flex-col">
-                    <span class="font-label text-[9px] uppercase tracking-widest text-on-surface-variant">${piecesLabel}</span>
-                    <span class="font-headline font-bold text-lg text-on-surface">${totalPiecesUsed}</span>
-                </div>
-                ${warningInfo}
-            </div>
-            `;
-        }
-        
-        let gradPickers = '';
-        if (col.colorMode === 'gradient') {
-            const inputs = col.gradientColors.map((hex, i) => 
-                `<button data-color="${hex}" style="background-color: ${hex}" class="w-5 h-5 rounded cursor-pointer border border-outline-variant p-0 inline-block shadow-sm arena-gradient-btn" onclick="window.handleArenaColorClick(this, '${col.id}', ${i})" oncontextmenu="event.preventDefault(); window.removeArenaGradientColor('${col.id}', ${i})"></button>`
-            ).join('');
-            const canAdd = col.gradientColors.length < 5;
-            gradPickers = `
-            <div class="flex flex-col gap-1 mt-2">
-                <label class="font-label text-[9px] text-on-surface-variant uppercase tracking-widest">Gradient Palette</label>
-                <div class="flex gap-1 items-center">
-                    ${inputs}
-                    ${canAdd ? `<button class="w-5 h-5 rounded border border-dashed border-primary/50 text-primary flex items-center justify-center text-xs hover:bg-primary/10" onclick="window.addArenaGradientColor('${col.id}')">+</button>` : ''}
-                </div>
-                <span class="text-[8px] text-on-surface-variant">Click to change · Right-click to remove</span>
-            </div>`;
-        }
-
-        let quickSetChipsHTML = '';
-        if (col.setSelections.length === 0) {
-            quickSetChipsHTML = `
-                <div class="flex items-center gap-2 bg-surface-container-high border border-outline-variant rounded-lg px-3 py-1.5 text-xs">
-                    <span class="text-secondary font-bold flex-1">Free Mode (All Colors)</span>
-                </div>`;
-        } else {
-            quickSetChipsHTML = col.setSelections.map((sel, idx) => `
-                <div class="flex items-center gap-1 bg-primary/10 border border-primary/30 rounded-lg px-2 py-1 text-[11px] group">
-                    <span class="flex-1 text-on-surface font-bold truncate" title="${sel.set.name}">${sel.set.name}</span>
-                    <div class="flex items-center gap-0.5 ml-1 shrink-0">
-                        <button class="w-5 h-5 flex items-center justify-center rounded hover:bg-surface-container text-on-surface-variant hover:text-primary transition-colors" onclick="window.updateCompareSetQty('${col.id}', ${idx}, -1)">
-                            <span class="material-symbols-outlined" style="font-size:12px">remove</span>
-                        </button>
-                        <span class="text-primary font-bold w-4 text-center">×${sel.qty}</span>
-                        <button class="w-5 h-5 flex items-center justify-center rounded hover:bg-surface-container text-on-surface-variant hover:text-primary transition-colors" onclick="window.updateCompareSetQty('${col.id}', ${idx}, 1)">
-                            <span class="material-symbols-outlined" style="font-size:12px">add</span>
-                        </button>
-                        <button class="w-5 h-5 flex items-center justify-center rounded hover:bg-surface-container text-on-surface-variant hover:text-secondary transition-colors" title="Replace set" onclick="window.replaceCompareSet(event, '${col.id}', ${idx})">
-                            <span class="material-symbols-outlined" style="font-size:12px">swap_horiz</span>
-                        </button>
-                        <button class="w-5 h-5 flex items-center justify-center rounded hover:bg-surface-container text-on-surface-variant hover:text-error transition-colors ml-0.5" title="Remove set" onclick="window.removeCompareSet('${col.id}', ${idx})">
-                            <span class="material-symbols-outlined" style="font-size:12px">close</span>
-                        </button>
-                    </div>
-                </div>
-            `).join('');
-        }
-
-        let setsPickers = `
-            <div class="flex flex-col gap-1 mt-2 p-2 bg-surface-container-low rounded-lg border border-outline-variant/30">
-                <div class="flex justify-between items-center px-1 mb-1">
-                    <label class="font-label text-[9px] text-on-surface-variant uppercase tracking-widest">LEGO Sets Included</label>
-                    <button class="text-[9px] text-primary hover:text-primary/70 flex items-center gap-1 uppercase font-bold" onclick="window.addCompareSet(event, '${col.id}')">
-                        <span class="material-symbols-outlined" style="font-size:10px">add</span> Add Base
-                    </button>
-                </div>
-                <div class="flex flex-col gap-1 overflow-y-auto max-h-32 custom-scrollbar">
-                    ${quickSetChipsHTML}
-                </div>
-            </div>`;
-
-        colEl.innerHTML = `
-            <div class="flex items-center justify-between border-b border-outline-variant/50 pb-2 mb-2">
-                <h3 class="font-headline font-bold text-secondary text-sm">Variant ${idx + 1}</h3>
-                <button onclick="removeCompareColumn('${col.id}')" class="text-on-surface-variant hover:text-error transition-colors"><span class="material-symbols-outlined" style="font-size:16px">close</span></button>
-            </div>
-            
-            ${visualArea}
-            ${specsMatrix}
-            
-            <div class="flex flex-col gap-3 bg-surface-container-high border border-outline-variant p-4 rounded-xl mt-2 shadow-sm">
-                ${setsPickers}
-                <div class="flex flex-col gap-1">
-                    <label class="font-label text-[10px] uppercase text-on-surface-variant">Color Mode</label>
-                    <select class="bg-surface-container border border-outline-variant text-xs text-on-surface rounded px-2 py-1 outline-none" onchange="window.updateCompareConfig('${col.id}', 'colorMode', this.value)">
-                        <option value="realistic" ${col.colorMode === 'realistic' ? 'selected' : ''}>Realistic</option>
-                        <option value="pop_art" ${col.colorMode === 'pop_art' ? 'selected' : ''}>Pop-Art</option>
-                        <option value="gradient" ${col.colorMode === 'gradient' ? 'selected' : ''}>Gradient Mapping</option>
-                    </select>
-                </div>
-                
-                ${gradPickers}
-                
-                <div class="flex justify-between items-center">
-                    <label class="font-label text-[10px] uppercase text-on-surface-variant">Dithering</label>
-                    <input type="checkbox" ${col.dithering ? 'checked' : ''} class="w-4 h-4 rounded border-outline-variant bg-surface-container accent-primary" onchange="window.updateCompareConfig('${col.id}', 'dithering', this.checked)">
-                </div>
-                
-                <div class="flex flex-col gap-1">
-                    <label class="font-label text-[10px] uppercase text-on-surface-variant flex justify-between">
-                        <span>Contrast</span>
-                        <span class="text-primary font-bold">${col.contrast.toFixed(1)}x</span>
-                    </label>
-                    <input type="range" min="0.5" max="2.0" step="0.1" value="${col.contrast}" class="w-full h-1 bg-surface-container-high rounded-lg appearance-none cursor-pointer accent-primary" onchange="window.updateCompareConfig('${col.id}', 'contrast', parseFloat(this.value))">
-                </div>
-            </div>
-        `;
-        
-        compareColumnsContainer.insertBefore(colEl, btnAddCompareColumn);
-    });
+    window.dispatchEvent(new CustomEvent('update-compare-columns', { 
+        detail: JSON.parse(JSON.stringify(state.compareColumns))
+    }));
 }
 
 window.updateCompareConfig = function(id, key, value) {
@@ -3872,14 +3746,14 @@ async function openProjectsGallery() {
     const modal = $('#projects-modal');
     const loadingEl = $('#projects-loading');
     const emptyEl = $('#projects-empty');
-    const gridEl = $('#projects-grid');
     if (!modal) return;
 
     modal.classList.remove('hidden');
     loadingEl?.classList.remove('hidden');
     emptyEl?.classList.add('hidden');
-    gridEl?.classList.add('hidden');
-    if (gridEl) gridEl.innerHTML = '';
+
+    // Reset Alpine grid to empty/loading state
+    window.dispatchEvent(new CustomEvent('update-projects', { detail: [] }));
 
     try {
         const res = await authFetch(`${API}/api/projects`);
@@ -3893,21 +3767,13 @@ async function openProjectsGallery() {
             emptyEl?.classList.remove('hidden');
             emptyEl?.classList.add('flex');
         } else {
-            gridEl?.classList.remove('hidden');
-            projects.forEach(p => gridEl?.appendChild(_buildProjectCard(p)));
-            gridEl?.querySelectorAll('.btn-load-project').forEach(btn => {
-                btn.addEventListener('click', () => loadProject(btn.dataset.id));
-            });
-            gridEl?.querySelectorAll('.btn-delete-project').forEach(btn => {
-                btn.addEventListener('click', () => openDeleteProjectDialog(btn.dataset.id, btn.dataset.name));
-            });
+            // Alpine component listens for this event and owns the card DOM
+            window.dispatchEvent(new CustomEvent('update-projects', { detail: projects }));
         }
     } catch (e) {
         loadingEl?.classList.add('hidden');
-        if (gridEl) {
-            gridEl.classList.remove('hidden');
-            gridEl.innerHTML = `<div class="col-span-full text-center py-12 text-error text-sm font-label">${e.message}</div>`;
-        }
+        console.error('openProjectsGallery failed:', e);
+        window.dispatchEvent(new CustomEvent('update-projects', { detail: { _error: e.message } }));
     }
 }
 
@@ -4118,6 +3984,10 @@ async function _confirmSaveProject(e, saveAsNew = false) {
 }
 
 // ── Delete Project Dialog ────────────────────────
+
+// Expose project helpers to window so Alpine templates can call them
+window.loadProject = loadProject;
+window.openDeleteProjectDialog = openDeleteProjectDialog;
 
 let _pendingDeleteId = null;
 

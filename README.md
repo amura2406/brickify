@@ -31,14 +31,14 @@ Turn any photo into a buildable LEGO Art mosaic. Pick from official LEGO Art set
 
 ## 🛠 Tech Stack
 
-| Layer    | Tech                  |
-|----------|-----------------------|
-| Backend  | Python, FastAPI       |
-| Frontend | Vanilla HTML/CSS/JS   |
-| Imaging  | Pillow, NumPy         |
-| Package  | uv                    |
+| Layer    | Tech                           |
+|----------|--------------------------------|
+| Backend  | Python, FastAPI                |
+| Frontend | Vanilla HTML/CSS, Alpine.js    |
+| Imaging  | Pillow, NumPy                  |
+| Package  | uv                             |
 
-No frameworks, no build step. The frontend is served as static files by FastAPI.
+No build step middleware. The frontend uses **Alpine.js** via CDN for reactive UI components and is served as static files by FastAPI.
 
 ## 🚀 Getting Started
 

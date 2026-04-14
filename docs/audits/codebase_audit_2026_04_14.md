@@ -35,7 +35,7 @@
   - **Fix Details**: Added `python-dotenv>=1.2.2` and `httpx>=0.27.0` to the un-cached dependency fallback list in `backend/Dockerfile` to ensure correct installation when `pyproject.toml` is skipped.
 
 ## [SEV-4] Frontend Technical Debt
-- [ ] **Implement Client-Side State Safety (Optional Scale Feature)**
-  - **Issue**: Heavy DOM manipulation is done manually in Vue/Alpine's absence, risking disjointed layout states in the 'Compare Arena'.
-  - **Resolution Strategy**: Introduce Alpine.js or Vue.js for managing complex client-side comparisons.
-  - **Fix Details**: *(Leave blank until fixed)*
+- [x] **Migrate Frontend to Alpine.js Reactive Architecture**
+  - **Issue**: Heavy imperative DOM manipulation (`innerHTML`, manual event wiring) in `app.js` made the UI brittle, prone to desync, and vulnerable to XSS.
+  - **Resolution Strategy**: Introduce Alpine.js to manage client-side state. Refactor core UI components (Compare Arena, Sets Grid, Cart, Projects Gallery, Recent Uploads) to use declarative templates and event-based state synchronization.
+  - **Fix Details**: Migrated the legacy imperative logic to an Alpine.js architecture. Replaced manual `innerHTML` building with `x-for` templates and reactive data bindings. Established a `CustomEvent` bridge between `app.js` business logic and Alpine components. Core grids (Sets, Projects, Uploads) and the comparison arena now update reactively via window-dispatched events. Exposed critical helper functions globally to maintain compatibility with existing application logic.
