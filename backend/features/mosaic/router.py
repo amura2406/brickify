@@ -46,8 +46,10 @@ def generate(
     """Generate a LEGO mosaic and render a preview to storage."""
     try:
         img = _download_from_url(req.url)
-    except Exception:
-        raise HTTPException(400, "Cannot fetch cropped image URL")
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error("Failed fetching URL %s", req.url, exc_info=True)
+        raise HTTPException(400, "Cannot fetch cropped image URL") from e
 
     set_data = _resolve_set_data(req.set_id, req.set_selections)
 
@@ -95,8 +97,10 @@ def preview_palette(
     """Uploads palette preview to Firebase Storage and returns URL."""
     try:
         img = _download_from_url(req.url)
-    except Exception:
-        raise HTTPException(400, "Cannot fetch image URL")
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error("Failed fetching URL %s", req.url, exc_info=True)
+        raise HTTPException(400, "Cannot fetch image URL") from e
 
     set_data = _resolve_set_data(req.set_id, req.set_selections)
 

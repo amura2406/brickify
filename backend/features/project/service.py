@@ -20,5 +20,7 @@ class ProjectService:
                 img_data = base64.b64decode(encoded)
                 img = Image.open(BytesIO(img_data))
                 req.mosaic_preview_url = self.provider.upload_image(img, "mosaics", fmt="PNG", user_id=uid)
-            except Exception:
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).error("Failed processing base64 preview", exc_info=True)
                 req.mosaic_preview_url = ""

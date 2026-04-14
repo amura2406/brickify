@@ -69,9 +69,9 @@ def storage_clear(
     try:
         excluded_urls = db.get_all_referenced_urls()
         logger.info("Purge: protecting %d URLs from saved projects", len(excluded_urls))
-    except Exception:
+    except Exception as exc:
         logger.exception("Failed to build exclusion set; aborting purge for safety")
-        raise HTTPException(500, "Failed to build purge exclusion set. No files were deleted.")
+        raise HTTPException(500, "Failed to build purge exclusion set. No files were deleted.") from exc
 
     job_id = str(uuid.uuid4())
     _purge_jobs[job_id] = {"status": "running", "result": None, "error": None}

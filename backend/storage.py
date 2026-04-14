@@ -195,7 +195,7 @@ class FirebaseStorageProvider:
                 try:
                     blob.delete()
                     deleted += 1
-                except Exception:
+                except Exception as exc:
                     logger.warning("Failed to delete blob: %s", blob.name, exc_info=True)
 
         return {"deleted_count": deleted, "protected_count": protected}
