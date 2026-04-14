@@ -2282,6 +2282,7 @@ async function generateMosaic() {
         // Do not reset it to plain croppedImageUrl here!
 
         showTab('build-plan');
+        applyInstantPreview(false); // Make sure the reference layer has an image src
         
         // Ensure UI is synced with current data
         if (window.syncQuickConfigUI) window.syncQuickConfigUI();
@@ -3980,6 +3981,7 @@ async function loadProject(projectId) {
 
         // Leave reference image unchanged to display whatever the preprocessing set it to.
         showTab('build-plan');
+        applyInstantPreview(false); // Make sure the reference layer has an image src
         if (window.syncQuickConfigUI) window.syncQuickConfigUI();
         renderMosaic();
         renderLegend();

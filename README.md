@@ -19,6 +19,7 @@ Turn any photo into a buildable LEGO Art mosaic. Pick from official LEGO Art set
 - **Floyd-Steinberg Dithering** — Distributes color quantization error across neighboring studs, simulating gradients and smooth transitions even with limited palettes.
 - **Image Preprocessing** — Optional contrast enhancement and palette-aware color quantization before mosaic generation, dramatically improving results for low-contrast photos.
 - **Interactive Crop & Zoom** — Drag-to-crop with an ultra-precise proportional scroll wheel zoom (desktop) and pinch-to-zoom (mobile). Includes automatic pan boundaries preventing image gap bleed.
+- **Reference Comparison Slider** — Dynamically compare your generated mosaic against the color-adjusted source photo with an interactive side-by-side slider and 3D preview options.
 - **Responsive & Touch-Optimized** — Fully supports mobile and tablet devices with native-feeling multi-touch gestures and a full-screen, distraction-free crop workspace.
 - **Project Saving & Gallery** — Save your progress, including all settings and crop data, to a personal, secure project gallery backed by Firebase Firestore. Return later to tweak or refine your mosaic.
 - **Google Photos Picker** — Directly import photos from your Google Photos library with a seamless, privacy-centric OAuth integration.
