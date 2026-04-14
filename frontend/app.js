@@ -1147,9 +1147,9 @@ async function pickFromGooglePhotos() {
                 }
 
                 try {
-                    const tokenParam = encodeURIComponent(accessToken);
                     const pollRes = await authFetch(
-                        `${API}/api/google-photos/session/${sessionId}?google_access_token=${tokenParam}`
+                        `${API}/api/google-photos/session/${sessionId}`,
+                        { headers: { 'X-Google-Access-Token': accessToken } }
                     );
                     if (!pollRes.ok) {
                         reject(new Error(`Polling failed (${pollRes.status})`));
@@ -1197,9 +1197,9 @@ async function pickFromGooglePhotos() {
         showStatus('Loading selected photo...');
         cancelBtn?.classList.add('hidden');
 
-        const tokenParam = encodeURIComponent(accessToken);
         const itemsRes = await authFetch(
-            `${API}/api/google-photos/session/${sessionId}/media-items?google_access_token=${tokenParam}`
+            `${API}/api/google-photos/session/${sessionId}/media-items`,
+            { headers: { 'X-Google-Access-Token': accessToken } }
         );
         if (!itemsRes.ok) throw new Error('Failed to retrieve selected photos');
         const itemsData = await itemsRes.json();

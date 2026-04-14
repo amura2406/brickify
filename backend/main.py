@@ -21,7 +21,7 @@ from dotenv import load_dotenv
 load_dotenv(Path(__file__).parent.parent / '.env')
 
 
-from fastapi import FastAPI, Depends, UploadFile, File, HTTPException, Response
+from fastapi import FastAPI, Depends, UploadFile, File, HTTPException, Response, Header
 from fastapi.responses import StreamingResponse
 from pdf_export import generate_instructions_pdf
 from fastapi.staticfiles import StaticFiles
@@ -501,7 +501,7 @@ def gphotos_create_session(
 @app.get("/api/google-photos/session/{session_id}")
 def gphotos_get_session(
     session_id: str,
-    google_access_token: str,
+    x_google_access_token: str = Header(...),
     _user: dict = Depends(require_approved_user),
 ):
     """Poll a Google Photos Picker session status."""
@@ -509,7 +509,7 @@ def gphotos_get_session(
         with httpx.Client(timeout=10) as client:
             resp = client.get(
                 f"{GPHOTOS_PICKER_BASE}/sessions/{session_id}",
-                headers={"Authorization": f"Bearer {google_access_token}"},
+                headers={"Authorization": f"Bearer {x_google_access_token}"},
             )
         if resp.status_code != 200:
             raise HTTPException(502, f"Google Photos API error ({resp.status_code})")
@@ -529,7 +529,7 @@ def gphotos_get_session(
 @app.get("/api/google-photos/session/{session_id}/media-items")
 def gphotos_list_media_items(
     session_id: str,
-    google_access_token: str,
+    x_google_access_token: str = Header(...),
     _user: dict = Depends(require_approved_user),
 ):
     """List picked media items from a completed Picker session."""
@@ -538,7 +538,7 @@ def gphotos_list_media_items(
             resp = client.get(
                 f"{GPHOTOS_PICKER_BASE}/mediaItems",
                 params={"sessionId": session_id},
-                headers={"Authorization": f"Bearer {google_access_token}"},
+                headers={"Authorization": f"Bearer {x_google_access_token}"},
             )
         if resp.status_code != 200:
             raise HTTPException(502, f"Google Photos API error ({resp.status_code})")
