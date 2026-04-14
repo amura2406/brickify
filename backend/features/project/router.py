@@ -38,7 +38,7 @@ def save_project(
                 },
             )
 
-    service.process_base64_preview(req, uid)
+    service.process_base64_images(req, uid)
     project_id = service.db.save_project(uid, req.model_dump())
     return {"project_id": project_id, "name": req.name}
 
@@ -71,7 +71,7 @@ def update_project(
     service: ProjectService = Depends(get_project_service)
 ):
     """Update an existing saved project."""
-    service.process_base64_preview(req, user["uid"])
+    service.process_base64_images(req, user["uid"])
     updated = service.db.update_project(user["uid"], project_id, req.model_dump())
     if not updated:
         raise HTTPException(404, "Project not found")

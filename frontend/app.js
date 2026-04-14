@@ -3584,6 +3584,13 @@ window.promoteToPrimary = function(id) {
     contrastSlider.dispatchEvent(new Event('input'));
     quickContrastSlider.dispatchEvent(new Event('input'));
     
+    // Fix: Dispatching 'input' triggers 'isUserSliding = true' flag in the event listener,
+    // which un-hides the reference layer entirely. Reset it since this is programmatic.
+    window.isUserSliding = false;
+    if (typeof hideReferenceLayerImmediately === 'function') {
+        hideReferenceLayerImmediately();
+    }
+    
     if (preprocessingToggle) {
         preprocessingToggle.checked = col.preprocessing;
         preprocessingToggle.dispatchEvent(new Event('change'));
