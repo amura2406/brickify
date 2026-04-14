@@ -25,14 +25,14 @@
   - **Fix Details**: Replaced remaining `except Exception:` instances in routers/services and storage.py with `except Exception as e/exc`, adding `logger.error/exception(..., exc_info=True)` and explicit `from e` chaining.
 
 ## [SEV-3] Dependency Management & Build Stability
-- [ ] **Explicitly Declare Unmapped Dependencies**
+- [x] **Explicitly Declare Unmapped Dependencies**
   - **Issue**: `httpx` is used but missing from `pyproject.toml`. It is only working accidentally due to `firebase-admin` importing it transitively. 
   - **Resolution Strategy**: Add `httpx` to `pyproject.toml`.
-  - **Fix Details**: *(Leave blank until fixed)*
-- [ ] **Fix Dockerfile Fallback Definitions**
+  - **Fix Details**: Added `httpx>=0.27.0` to main `dependencies` and removed it from `dev-dependencies` in `backend/pyproject.toml`.
+- [x] **Fix Dockerfile Fallback Definitions**
   - **Issue**: `python-dotenv` is omitted from the un-cached dependency block inside the `Dockerfile`.
   - **Resolution Strategy**: Add it to the Dockerfile installation list.
-  - **Fix Details**: *(Leave blank until fixed)*
+  - **Fix Details**: Added `python-dotenv>=1.2.2` and `httpx>=0.27.0` to the un-cached dependency fallback list in `backend/Dockerfile` to ensure correct installation when `pyproject.toml` is skipped.
 
 ## [SEV-4] Frontend Technical Debt
 - [ ] **Implement Client-Side State Safety (Optional Scale Feature)**

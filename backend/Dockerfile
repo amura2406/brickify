@@ -18,6 +18,8 @@ RUN uv pip install --system --no-cache -r pyproject.toml 2>/dev/null || \
         "numpy>=2.0.0" \
         "python-multipart>=0.0.9" \
         "firebase-admin>=6.5.0" \
+        "python-dotenv>=1.2.2" \
+        "httpx>=0.27.0" \
         "reportlab>=4.4.10"
 
 # Copy application code
