@@ -1,5 +1,6 @@
 {
   "hosting": {
+    "site": "brickify999",
     "public": "frontend",
     "ignore": [
       "firebase.json",
