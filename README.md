@@ -105,6 +105,8 @@ flowchart LR
 
 ```
 lego-mosaic-maker/
+├── .gitignore
+├── AGENTS.md        # AI agent instructions & project guidelines (MANDATORY READ)
 ├── backend/
 │   ├── algos/           # Pure functional matrix manipulations
 │   ├── features/        # Business logic feature slices (auth, photo, project, mosaic)
