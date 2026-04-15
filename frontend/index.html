@@ -6,89 +6,21 @@
   <title>BRICKIFY — Turn Photos into LEGO Art</title>
   <meta name="description" content="Transform your photos into buildable LEGO Art mosaics using official LEGO Art set color palettes."/>
   <link rel="icon" type="image/x-icon" href="assets/sets/favicon.ico"/>
-  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <!-- Tailwind CSS (built locally — no CDN dependency) -->
+  <link rel="stylesheet" href="vendor/tailwind.css"/>
+  <!-- Google Fonts -->
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;700;800&family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet"/>
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
-  <script id="tailwind-config">
-    tailwind.config = {
-      darkMode: "class",
-      theme: {
-        extend: {
-          colors: {
-            "primary": "#ff2d78",
-            "secondary": "#00ffcc",
-            "tertiary": "#ffe04a",
-            "background": "#0a0a12",
-            "surface": "#0f0f1a",
-            "surface-container": "#141422",
-            "surface-container-low": "#111118",
-            "surface-container-high": "#1e1e30",
-            "surface-container-highest": "#28283e",
-            "surface-container-lowest": "#0a0a12",
-            "surface-bright": "#1a1a2e",
-            "surface-dim": "#0f0f1a",
-            "surface-variant": "#1e1e30",
-            "surface-tint": "#ff2d78",
-            "on-background": "#e8e0f0",
-            "on-surface": "#e8e0f0",
-            "on-surface-variant": "#a098b0",
-            "on-primary": "#1a0010",
-            "on-secondary": "#001a1a",
-            "on-tertiary": "#1a1000",
-            "primary-container": "#b3004e",
-            "secondary-container": "#004d3d",
-            "tertiary-container": "#665200",
-            "on-primary-container": "#ffe0ec",
-            "on-secondary-container": "#c0fff4",
-            "on-tertiary-container": "#fff0c0",
-            "primary-fixed": "#ffe0ec",
-            "primary-fixed-dim": "#ff80aa",
-            "secondary-fixed": "#c0fff4",
-            "secondary-fixed-dim": "#00e6b8",
-            "tertiary-fixed": "#fff0c0",
-            "tertiary-fixed-dim": "#ffe04a",
-            "outline": "#5a5068",
-            "outline-variant": "#302840",
-            "error": "#ff4444",
-            "error-container": "#3d0f0f",
-            "on-error": "#1a0000",
-            "on-error-container": "#ffa0a0",
-            "inverse-surface": "#e8e0f0",
-            "inverse-on-surface": "#0a0a12",
-            "inverse-primary": "#8c0038",
-            "on-primary-fixed": "#3d0020",
-            "on-primary-fixed-variant": "#8c0038",
-            "on-secondary-fixed": "#001a1a",
-            "on-secondary-fixed-variant": "#004d4d",
-            "on-tertiary-fixed": "#1a1000",
-            "on-tertiary-fixed-variant": "#665200",
-          },
-          fontFamily: {
-            "headline": ["Sora", "sans-serif"],
-            "body": ["Inter", "sans-serif"],
-            "label": ["Space Grotesk", "sans-serif"],
-          },
-          borderRadius: {
-            "DEFAULT": "0.125rem",
-            "lg": "0.25rem",
-            "xl": "0.5rem",
-            "2xl": "0.75rem",
-            "full": "9999px",
-          },
-        },
-      },
-    }
-  </script>
   <link rel="stylesheet" href="styles.css?v=2.0"/>
-  <!-- Three.js for 3D Mode -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <!-- Three.js for 3D Mode (vendored — no CDN dependency) -->
+  <script src="vendor/three.min.js"></script>
+  <script src="vendor/OrbitControls.js"></script>
   <!-- Firebase SDK (v9 compat) -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="auth.js"></script>
-  <!-- Alpine.js for lightweight reactive components -->
-  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <!-- Alpine.js (vendored — no CDN dependency) -->
+  <script defer src="vendor/alpine.min.js"></script>
 </head>
 <body class="bg-background text-on-background font-body min-h-screen flex flex-col selection:bg-primary/30">
 
