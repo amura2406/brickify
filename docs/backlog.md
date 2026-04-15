@@ -1,14 +1,28 @@
 # Project Backlog: LEGO Mosaic Maker
 
-This document tracks future improvements, technical debt remediation, and architectural enhancements. 
+
+> **For AI agents — read before editing this file.**
+>
+> This document is the single source of truth for planned and completed work on this project.
+> Follow these conventions exactly when updating it:
+>
+> **Adding a new task**
+> - Add it under the appropriate `### Section` inside `## 📋 Active Tasks`.
+> - Use `- [ ]` and include a `**Description**` and `**Context**` (and `**Impact**` where relevant).
+> - Never add a task that already exists in the `✅ Completed Tasks` table.
+>
+> **Completing a task**
+> 1. **Remove** the entire bullet (and all its sub-bullets) from `## 📋 Active Tasks`.
+> 2. **Append a new row** to the `✅ Completed Tasks` table with:
+>    - `Task` — the same bold title used in the active list.
+>    - `Date` — today's date in `YYYY-MM-DD` format.
+>    - `Summary` — one or two sentences describing *how* it was done: which files were changed, what the key technical decision was, and what the observable effect is. Be specific — "Fixed the bug" is not acceptable; "Added `preserveZoom` parameter to `renderMosaic()` so history-snap-back passes `true`" is.
+> 3. If a section becomes empty after removing its items, **delete the empty section heading** too.
+> 4. Never leave a `[x]` checked item in `## 📋 Active Tasks` — checked means it must be moved down immediately.
+
 
 ## 📋 Active Tasks
 
-### Bug Fixes
-- [ ] **Zoom Level Not Retained**
-  - **Description**: The zoom level on the single mosaic view is not retained when a user changes configuration or lego sets; it always resets to 100%. State should be preserved.
-- [ ] **Zoom Slider UI Cutoff**
-  - **Description**: The zoom slider on single mosaic view is cut off when revealed because it is too close to the rightmost screen border.
 
 ### Architecture Improvements
 - [ ] **Eliminate Redundant Base64 Mosaic Payloads**
@@ -22,8 +36,8 @@ This document tracks future improvements, technical debt remediation, and archit
 
 ### Alpine.js Modernization
 - [ ] **Complete State Centralization**
-  - **Description**: Move the remaining `state` properties from `app.js` into an `Alpine.store`.
-  - **Context**: Enables two-way binding on inputs (sliders, color pickers) without manual event dispatching.
+  - **Description**: Move the remaining `state` properties from `app.js` into an `Alpine.store`. Key remaining candidates: `imageUrl`, `croppedImageUrl`, `mosaicUrl`, `mosaicData`, `zoom`, `isCompareArena`, `mosaicHistory`, config mirrors (`colorMode`, sliders, etc.), and the loaded project ID/name.
+  - **Context**: Enables two-way binding on inputs (sliders, color pickers) without manual event dispatching. The CustomEvent bridges (sets, cart, recent uploads, compare columns, projects) have already been eliminated — remaining state is the mosaic canvas and config layer.
 - [ ] **UI Componentization**
   - **Description**: Extract Alpine.js `<template>` blocks from `index.html` into a dedicated `frontend/components/` directory.
   - **Context**: Reduces the size of `index.html` and improves maintainability of complex UI structures.
@@ -45,4 +59,7 @@ This document tracks future improvements, technical debt remediation, and archit
 | **Save Project Error (500)** | 2026-04-14 | Fixed crash caused by base64-encoded images (`image_url`, `cropped_image_url`, `mosaic_history[].url`) being written directly into Firestore, exceeding the 1MiB document limit. Backend now intercepts all base64 fields and uploads them to GCS before persistence. |
 | **Compare Arena Button & Reference Bug** | 2026-04-14 | Fixed a critical bug where promoting a column to primary triggered a logic flag (`isUserSliding`) that permanently overlaid the reference image in Single Mode. Reset the flag and ensured the reference layer is hidden after promotion. |
 | **Initial Alpine.js Migration** | 2026-04-14 | Successfully migrated Compare Arena, Sets Grid, Cart, and Projects Gallery to Alpine.js. This was done to eliminate brittle imperative DOM manipulation and mitigate XSS risks associated with `innerHTML`. |
+| **Zoom Level Not Retained** | 2026-04-15 | Added `preserveZoom` parameter to `renderMosaic()`. Fresh generation and project load pass `false` (reset to 100%); history-slider snap-back and compare-column promotion pass `true` to keep the user's zoom level. |
+| **Zoom Slider UI Cutoff** | 2026-04-15 | Changed the zoom popover from `top-full mt-2` (opens downward) to `bottom-full mb-2` (opens upward). Added `overflow-visible` to the right toolbar group so the absolute-positioned popover is never clipped. |
+| **Eliminate CustomEvent Bridges** | 2026-04-15 | Removed all 5 `window.dispatchEvent(new CustomEvent(...))` bridges that existed between `app.js` and Alpine templates. Added `setsLoading`, `recentImages`, `recentLoading`, `recentError`, `projects`, `projectsError`, and `projectsVisible` directly to `Alpine.store('app')`. Templates for sets-grid, cart footer, recent-uploads-grid, compare-mode-view, and projects-grid now read from `$store.app.*` directly, making state flow entirely reactive and unidirectional. |
 

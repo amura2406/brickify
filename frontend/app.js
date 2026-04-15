@@ -30,6 +30,7 @@ document.addEventListener('alpine:init', () => {
         // ── Set Selection ──
         setSelections: [],  // [{set, qty}]
         allSets: [],
+        setsLoading: true,
 
         // ── Image ──
         imageUrl: null,
@@ -67,6 +68,26 @@ document.addEventListener('alpine:init', () => {
         dithering: false,
         contrast_boost: 1.0,
         gradient_colors: ['#000000', '#ff2d78', '#ffffff'],
+
+        // ── Preprocessing Adjustments (single source of truth for all sliders) ──
+        adj_contrast: 1.0,
+        adj_saturation: 0,
+        adj_temperature: 0,
+        adj_sharpen: 0.0,
+        adj_gamma: 1.0,
+        adj_black_point: 0,
+        adj_white_point: 255,
+        adj_posterize: 32,
+
+        // ── Recent Uploads ──
+        recentImages: [],
+        recentLoading: true,
+        recentError: false,
+
+        // ── Projects Gallery ──
+        projects: [],
+        projectsError: '',
+        projectsVisible: false,
     });
 
     // Alias: all existing `state.*` code uses this reference.
@@ -199,7 +220,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!state) {
         console.warn('[Brickify] Alpine store not ready — falling back to plain state object. Check Alpine CDN.');
         state = {
-            setSelections: [], allSets: [], imageUrl: null, imageWidth: 0,
+            setSelections: [], allSets: [], setsLoading: true, imageUrl: null, imageWidth: 0,
             imageHeight: 0, isSquare: false, croppedImageUrl: null,
             mosaicUrl: null, mosaicData: null, zoom: 1, baseScale: 1,
             maxZoom: 5.0, isDev: false, isCompareArena: false,
@@ -208,6 +229,10 @@ document.addEventListener('DOMContentLoaded', () => {
             _loadedProjectId: null, _loadedProjectName: null,
             colorMode: 'pop_art', dithering: false,
             contrast_boost: 1.0, gradient_colors: ['#000000', '#ff2d78', '#ffffff'],
+            adj_contrast: 1.0, adj_saturation: 0, adj_temperature: 0, adj_sharpen: 0.0,
+            adj_gamma: 1.0, adj_black_point: 0, adj_white_point: 255, adj_posterize: 32,
+            recentImages: [], recentLoading: true, recentError: false,
+            projects: [], projectsError: '', projectsVisible: false,
         };
     }
 
@@ -663,12 +688,9 @@ async function renderSets(sets) {
         sets.map(s => fetch(`${API}/api/sets/${s.id}`).then(r => r.json()))
     );
 
+    // Writing directly to the reactive store — Alpine templates read $store.app.allSets
     state.allSets = details;
-
-    // Notify Alpine component — it owns the DOM now
-    window.dispatchEvent(new CustomEvent('update-sets', {
-        detail: { sets: details, cart: state.setSelections },
-    }));
+    state.setsLoading = false;
 }
 
 function createSetCard(set) {
@@ -774,8 +796,9 @@ function removeSetFromCart(setId) {
 }
 
 function renderSelectedSets() {
-    // Notify Alpine components — they own their DOM sections now
-    window.dispatchEvent(new CustomEvent('update-cart', { detail: state.setSelections }));
+    // No-op: Alpine templates read $store.app.setSelections directly.
+    // Retained for call-site compatibility; state mutation already happened before
+    // this is called so Alpine's reactivity picks it up automatically.
 }
 
 function getMergedSetInfo() {
@@ -992,21 +1015,19 @@ function setupUpload() {
 }
 
 async function loadRecentUploads() {
+    state.recentLoading = true;
+    state.recentError = false;
     try {
         const res = await authFetch(`${API}/api/recent-uploads`);
         if (!res.ok) throw new Error('Failed to load');
         const data = await res.json();
-        const images = data.images || [];
-
-        // Alpine component listens for this event and owns the DOM
-        window.dispatchEvent(new CustomEvent('update-recent-uploads', {
-            detail: { images, error: false },
-        }));
+        state.recentImages = data.images || [];
+        state.recentLoading = false;
     } catch (e) {
         console.error('Recent uploads load failed:', e);
-        window.dispatchEvent(new CustomEvent('update-recent-uploads', {
-            detail: { images: [], error: true },
-        }));
+        state.recentImages = [];
+        state.recentError = true;
+        state.recentLoading = false;
     }
 }
 
@@ -2068,18 +2089,56 @@ function getGradientColors(isQuick = false) {
 }
 
 function getPreprocessingParams() {
-    const s = k => sliders[k].main;
+    // Read from the Alpine store — single source of truth, no DOM coupling.
     return {
         preprocessing: true,
-        contrast_boost: parseFloat(s('contrast')?.value ?? 1.0),
-        saturation: parseFloat(s('saturation')?.value ?? 0.0),
-        temperature: parseFloat(s('temperature')?.value ?? 0.0),
-        sharpen: parseFloat(s('sharpen')?.value ?? 0.0),
-        gamma: parseFloat(s('gamma')?.value ?? 1.0),
-        black_point: parseInt(s('black_point')?.value ?? 0, 10),
-        white_point: parseInt(s('white_point')?.value ?? 255, 10),
-        posterize_levels: parseInt(s('posterize')?.value ?? 32, 10)
+        contrast_boost:    state.adj_contrast,
+        saturation:        state.adj_saturation,
+        temperature:       state.adj_temperature,
+        sharpen:           state.adj_sharpen,
+        gamma:             state.adj_gamma,
+        black_point:       state.adj_black_point,
+        white_point:       state.adj_white_point,
+        posterize_levels:  state.adj_posterize,
     };
+}
+
+/**
+ * Restore preprocessing adjustment values from a config object into the Alpine store
+ * and synchronise all slider DOM nodes (main + quick) plus their value labels.
+ *
+ * Store-centric: no synthetic input events → no isUserSliding side-effects.
+ * Safe to call from loadProject, promoteToPrimary, and syncQuickConfigUI.
+ *
+ * @param {Object} cfg - Subset of keys: contrast_boost, saturation, temperature,
+ *                       sharpen, gamma, black_point, white_point, posterize_levels.
+ *                       Missing keys are silently skipped.
+ */
+function _restoreAdjustments(cfg) {
+    // [cfgKey, sliderKey, storeKey, isFloat]
+    const map = [
+        ['contrast_boost',   'contrast',    'adj_contrast',    true],
+        ['saturation',       'saturation',  'adj_saturation',  false],
+        ['temperature',      'temperature', 'adj_temperature', false],
+        ['sharpen',          'sharpen',     'adj_sharpen',     true],
+        ['gamma',            'gamma',       'adj_gamma',       true],
+        ['black_point',      'black_point', 'adj_black_point', false],
+        ['white_point',      'white_point', 'adj_white_point', false],
+        ['posterize_levels', 'posterize',   'adj_posterize',   false],
+    ];
+    for (const [cfgKey, sliderKey, storeKey, isFloat] of map) {
+        if (cfg[cfgKey] === undefined) continue;
+        const v = isFloat ? parseFloat(cfg[cfgKey]) : parseInt(cfg[cfgKey], 10);
+        state[storeKey] = v;
+        const sl = sliders[sliderKey];
+        if (!sl) continue;
+        if (sl.main) sl.main.value = v;
+        if (sl.quick) sl.quick.value = v;
+        const disp = isFloat ? v.toFixed(1) : v;
+        const suffix = sliderKey === 'contrast' ? '\u00d7' : '';
+        if (sl.val) sl.val.textContent = disp + suffix;
+        if (sl.qval) sl.qval.textContent = disp + suffix;
+    }
 }
 
 let previewDebounceMs = 50;
@@ -2223,10 +2282,15 @@ function handleAdjustmentChange(e, isQuick) {
     const kind = t.id.replace('quick-', '').replace('-slider', '');
     const mapped = kind.replace('-', '_');
     const val = t.value;
-    
-    const dispKind = ['contrast', 'gamma', 'sharpen'].includes(kind) ? parseFloat(val).toFixed(1) : parseInt(val, 10);
-    const suffix = kind === 'contrast' ? '×' : '';
-    
+
+    // Write to the Alpine store so getPreprocessingParams() reads fresh values.
+    const isFloat = ['contrast', 'gamma', 'sharpen'].includes(kind);
+    const storeKey = 'adj_' + mapped;
+    if (storeKey in state) state[storeKey] = isFloat ? parseFloat(val) : parseInt(val, 10);
+
+    const dispKind = isFloat ? parseFloat(val).toFixed(1) : parseInt(val, 10);
+    const suffix = kind === 'contrast' ? '\u00d7' : '';
+
     if (sliders[mapped]) {
         if (sliders[mapped][isQuick ? 'qval' : 'val']) sliders[mapped][isQuick ? 'qval' : 'val'].textContent = dispKind + suffix;
         if (sliders[mapped][isQuick ? 'main' : 'quick']) sliders[mapped][isQuick ? 'main' : 'quick'].value = val;
@@ -2239,8 +2303,8 @@ function handleAdjustmentChange(e, isQuick) {
         refLayer.style.clipPath = 'inset(0 0 0 0)';
         refLayer.style.opacity = '1';
     }
-    
-    applyInstantPreview(e.isTrusted); // e.isTrusted handles manual vs programmatic (e.g. initial load)
+
+    applyInstantPreview(e.isTrusted);
 }
 
 function hideReferenceLayerImmediately() {
@@ -2467,7 +2531,7 @@ function updateHistoryUI() {
             // Current mosaic
             if (isPeeking) {
                 isPeeking = false;
-                renderMosaic();
+                renderMosaic(true); // preserve user's zoom level
             }
             return;
         }
@@ -2493,7 +2557,7 @@ function updateHistoryUI() {
         label.textContent = '0';
         if (isPeeking) {
             isPeeking = false;
-            renderMosaic();
+            renderMosaic(true); // preserve user's zoom level
         }
     };
     
@@ -2507,7 +2571,7 @@ function updateHistoryUI() {
 // ═════════════════════════════════════════════════
 //  STEP 4: BUILD PLAN — MOSAIC RENDER
 // ═════════════════════════════════════════════════
-function renderMosaic() {
+function renderMosaic(preserveZoom = false) {
     const { grid, colors, width, height } = state.mosaicData;
     const studSize = 15;
     const padding = 1;
@@ -2560,8 +2624,10 @@ function renderMosaic() {
     const wrapperWidth = mosaicWrapper.clientWidth - 32;
     state.baseScale = Math.min(1, Math.max(0.01, wrapperWidth / mosaicCanvas.width));
     
-    // Default zoom: 1.0 = "100%" which visually corresponds to 35% of full-resolution
-    state.zoom = 1.0;
+    // Default zoom: 1.0 = "100%" which visually corresponds to 35% of full-resolution.
+    // Only reset if this is a fresh render (new generation or project load).
+    // When preserveZoom=true (e.g. history peek snap-back), keep whatever the user set.
+    if (!preserveZoom) state.zoom = 1.0;
     
     // Calculate dynamic max zoom: True native 1:1 resolution (1 stud = 15px) is achieved when finalScale = 1.0
     // finalScale is state.baseScale * state.zoom, so to hit 1.0, zoom = 1.0 / state.baseScale
@@ -2953,11 +3019,21 @@ function setupResult() {
     function syncQuickConfigUI() {
         renderQuickChips();
         quickDitherToggle.checked = $('#dithering-toggle').checked;
-        quickContrastSlider.value = contrastSlider.value;
-        quickContrastValue.textContent = parseFloat(contrastSlider.value).toFixed(1);
         if (quickColorModeSelect && colorModeSelect) {
             quickColorModeSelect.value = colorModeSelect.value;
         }
+        // Sync all preprocessing sliders + labels from the Alpine store.
+        // _restoreAdjustments writes store values back to both slider DOM nodes.
+        _restoreAdjustments({
+            contrast_boost:   state.adj_contrast,
+            saturation:       state.adj_saturation,
+            temperature:      state.adj_temperature,
+            sharpen:          state.adj_sharpen,
+            gamma:            state.adj_gamma,
+            black_point:      state.adj_black_point,
+            white_point:      state.adj_white_point,
+            posterize_levels: state.adj_posterize,
+        });
     }
     window.syncQuickConfigUI = syncQuickConfigUI;
     syncQuickConfigUI();
@@ -3553,9 +3629,10 @@ window.removeCompareSet = function(colId, idx) {
 
 window.renderCompareColumns = renderCompareColumns;
 function renderCompareColumns() {
-    window.dispatchEvent(new CustomEvent('update-compare-columns', { 
-        detail: JSON.parse(JSON.stringify(state.compareColumns))
-    }));
+    // compareColumns lives in the Alpine store ($store.app.compareColumns).
+    // Alpine's reactivity picks up changes automatically when elements of the
+    // array are replaced. Force a new array reference so Alpine detects the change.
+    state.compareColumns = JSON.parse(JSON.stringify(state.compareColumns));
 }
 
 window.updateCompareConfig = function(id, key, value) {
@@ -3640,14 +3717,9 @@ window.promoteToPrimary = function(id) {
     quickDitherToggle.checked = col.dithering;
     $('#dithering-toggle').dispatchEvent(new Event('change'));
 
-    contrastSlider.value = col.contrast;
-    quickContrastSlider.value = col.contrast;
-    contrastSlider.dispatchEvent(new Event('input'));
-    quickContrastSlider.dispatchEvent(new Event('input'));
-    
-    // Fix: Dispatching 'input' triggers 'isUserSliding = true' flag in the event listener,
-    // which un-hides the reference layer entirely. Reset it since this is programmatic.
-    window.isUserSliding = false;
+    // Write contrast directly to the store and sync both slider DOM nodes.
+    // Replaces synthetic Event('input') dispatch which set isUserSliding=true.
+    _restoreAdjustments({ contrast_boost: col.contrast });
     if (typeof hideReferenceLayerImmediately === 'function') {
         hideReferenceLayerImmediately();
     }
@@ -3666,7 +3738,7 @@ window.promoteToPrimary = function(id) {
     
     switchResultMode('single');
     
-    renderMosaic();
+    renderMosaic(true); // preserve user's zoom level when promoting a compare column
     renderLegend();
     if (window.update3DMosaic) window.update3DMosaic();
 }
@@ -3820,8 +3892,10 @@ async function openProjectsGallery() {
     loadingEl?.classList.remove('hidden');
     emptyEl?.classList.add('hidden');
 
-    // Reset Alpine grid to empty/loading state
-    window.dispatchEvent(new CustomEvent('update-projects', { detail: [] }));
+    // Reset Alpine store grid to empty/loading state
+    state.projects = [];
+    state.projectsError = '';
+    state.projectsVisible = false;
 
     try {
         const res = await authFetch(`${API}/api/projects`);
@@ -3835,13 +3909,15 @@ async function openProjectsGallery() {
             emptyEl?.classList.remove('hidden');
             emptyEl?.classList.add('flex');
         } else {
-            // Alpine component listens for this event and owns the card DOM
-            window.dispatchEvent(new CustomEvent('update-projects', { detail: projects }));
+            // Alpine store mutation — template reads $store.app.projects directly
+            state.projects = projects;
+            state.projectsVisible = true;
         }
     } catch (e) {
         loadingEl?.classList.add('hidden');
         console.error('openProjectsGallery failed:', e);
-        window.dispatchEvent(new CustomEvent('update-projects', { detail: { _error: e.message } }));
+        state.projectsError = e.message;
+        state.projectsVisible = true;
     }
 }
 
@@ -3887,24 +3963,9 @@ async function loadProject(projectId) {
         // Restore config UI
         const cfg = project.config || {};
         if ($('#dithering-toggle') && cfg.dithering !== undefined) $('#dithering-toggle').checked = cfg.dithering;
-        if (cfg.contrast_boost !== undefined) sliders.contrast.main.value = cfg.contrast_boost;
-        if (cfg.saturation !== undefined) sliders.saturation.main.value = cfg.saturation;
-        if (cfg.temperature !== undefined) sliders.temperature.main.value = cfg.temperature;
-        if (cfg.sharpen !== undefined) sliders.sharpen.main.value = cfg.sharpen;
-        if (cfg.gamma !== undefined) sliders.gamma.main.value = cfg.gamma;
-        if (cfg.black_point !== undefined) sliders.black_point.main.value = cfg.black_point;
-        if (cfg.white_point !== undefined) sliders.white_point.main.value = cfg.white_point;
-        if (cfg.posterize_levels !== undefined) sliders.posterize.main.value = cfg.posterize_levels;
-        
-        // Trigger generic change handle to update labels and quick tab
-        if (sliders.contrast.main) sliders.contrast.main.dispatchEvent(new Event('input'));
-        if (sliders.saturation.main) sliders.saturation.main.dispatchEvent(new Event('input'));
-        if (sliders.temperature.main) sliders.temperature.main.dispatchEvent(new Event('input'));
-        if (sliders.sharpen.main) sliders.sharpen.main.dispatchEvent(new Event('input'));
-        if (sliders.gamma.main) sliders.gamma.main.dispatchEvent(new Event('input'));
-        if (sliders.black_point.main) sliders.black_point.main.dispatchEvent(new Event('input'));
-        if (sliders.white_point.main) sliders.white_point.main.dispatchEvent(new Event('input'));
-        if (sliders.posterize.main) sliders.posterize.main.dispatchEvent(new Event('input'));
+        // Restore all preprocessing sliders to the store + sync both main and quick DOM nodes.
+        // _restoreAdjustments avoids synthetic input events (no isUserSliding side-effects).
+        _restoreAdjustments(cfg);
         if (colorModeSelect && cfg.color_mode) colorModeSelect.value = cfg.color_mode;
         if (cfg.target_width) state.targetW = cfg.target_width;
         if (cfg.target_height) state.targetH = cfg.target_height;
