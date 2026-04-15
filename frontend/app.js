@@ -674,22 +674,27 @@ async function loadSets() {
         await renderSets(data.sets);
     } catch (e) {
         console.error('Failed to load sets:', e);
-        setsGrid.innerHTML = `
-            <div class="col-span-full flex flex-col items-center justify-center py-20 gap-4 text-on-surface-variant">
-                <span class="material-symbols-outlined text-5xl text-primary/40">wifi_off</span>
-                <p class="font-label text-sm uppercase tracking-widest">Failed to load sets. Is the server running?</p>
-            </div>
-        `;
+        // Flip setsLoading off so the Alpine empty-state template renders.
+        // Avoid innerHTML injection — Alpine owns this DOM and discards direct writes.
+        state.allSets = [];
+        state.setsLoading = false;
     }
 }
 
 async function renderSets(sets) {
     const details = await Promise.all(
-        sets.map(s => fetch(`${API}/api/sets/${s.id}`).then(r => r.json()))
+        sets.map(s =>
+            fetch(`${API}/api/sets/${s.id}`)
+                .then(r => r.json())
+                .catch(err => {
+                    console.warn(`[Brickify] Could not load details for set ${s.id}:`, err);
+                    return null;  // skip this set rather than aborting all
+                })
+        )
     );
 
     // Writing directly to the reactive store — Alpine templates read $store.app.allSets
-    state.allSets = details;
+    state.allSets = details.filter(Boolean);
     state.setsLoading = false;
 }
 
