@@ -9,27 +9,70 @@
 
 const API = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? 'http://localhost:8000' : '';
 
-// ── State ──
-let state = {
-    setSelections: [],  // [{set, qty}]
-    allSets: [],
-    imageUrl: null,
-    imageWidth: 0,
-    imageHeight: 0,
-    isSquare: false,
-    croppedImageUrl: null,
-    mosaicUrl: null,
-    mosaicData: null,
-    zoom: 1,
-    baseScale: 1,
-    isDev: false,
-    compareColumns: [],
-    isCompareArena: false,
-    targetW: 0,
-    targetH: 0,
-    mosaicHistory: [], // max 5 items
-    historyIndex: -1,
-};
+// ── State (reactive via Alpine.store) ──
+//
+// The canonical state object lives in Alpine.store('app') so Alpine components
+// can access it via $store.app.* without any CustomEvent bridges.
+//
+// The `state` alias below is set during the `alpine:init` event so that all
+// existing imperative code (state.zoom, state.setSelections, etc.) keeps working
+// unchanged. Because `state` is a reference to the same reactive proxy object,
+// mutations through either path are immediately visible to Alpine templates.
+//
+// IMPORTANT: `alpine:init` fires (for defer scripts) after app.js parses but
+// before DOMContentLoaded, so `state` is guaranteed to be the store by the time
+// initAppFlow() and friends run.
+
+let state = null; // assigned to Alpine.store('app') in alpine:init below
+
+document.addEventListener('alpine:init', () => {
+    Alpine.store('app', {
+        // ── Set Selection ──
+        setSelections: [],  // [{set, qty}]
+        allSets: [],
+
+        // ── Image ──
+        imageUrl: null,
+        imageWidth: 0,
+        imageHeight: 0,
+        isSquare: false,
+        croppedImageUrl: null,
+
+        // ── Mosaic ──
+        mosaicUrl: null,
+        mosaicData: null,
+        zoom: 1,
+        baseScale: 1,
+        maxZoom: 5.0,
+
+        // ── UI Mode ──
+        isDev: false,
+        isCompareArena: false,
+        compareColumns: [],
+
+        // ── Target Resolution ──
+        targetW: 0,
+        targetH: 0,
+
+        // ── History ──
+        mosaicHistory: [],  // max 6 items (current + 5 previous)
+        historyIndex: -1,
+
+        // ── Project (set when a project is loaded/saved) ──
+        _loadedProjectId: null,
+        _loadedProjectName: null,
+
+        // ── Config mirrors (synced by promoteToPrimary) ──
+        colorMode: 'pop_art',
+        dithering: false,
+        contrast_boost: 1.0,
+        gradient_colors: ['#000000', '#ff2d78', '#ffffff'],
+    });
+
+    // Alias: all existing `state.*` code uses this reference.
+    // This is safe because Alpine.store returns the same reactive proxy object.
+    state = Alpine.store('app');
+});
 
 // ── DOM Refs ──
 const $ = (sel) => document.querySelector(sel);
@@ -150,6 +193,24 @@ const adminPendingList = $('#admin-pending-list');
 
 // ── Init ──
 document.addEventListener('DOMContentLoaded', () => {
+    // Timing guard: alpine:init fires before DOMContentLoaded for defer scripts,
+    // so `state` should already be the Alpine store at this point.
+    // Fall back to a plain object only if something went wrong (e.g. CDN failure).
+    if (!state) {
+        console.warn('[Brickify] Alpine store not ready — falling back to plain state object. Check Alpine CDN.');
+        state = {
+            setSelections: [], allSets: [], imageUrl: null, imageWidth: 0,
+            imageHeight: 0, isSquare: false, croppedImageUrl: null,
+            mosaicUrl: null, mosaicData: null, zoom: 1, baseScale: 1,
+            maxZoom: 5.0, isDev: false, isCompareArena: false,
+            compareColumns: [], targetW: 0, targetH: 0,
+            mosaicHistory: [], historyIndex: -1,
+            _loadedProjectId: null, _loadedProjectName: null,
+            colorMode: 'pop_art', dithering: false,
+            contrast_boost: 1.0, gradient_colors: ['#000000', '#ff2d78', '#ffffff'],
+        };
+    }
+
     initAppFlow();
     setupNavTabs();
     loadSets();
@@ -2544,12 +2605,12 @@ function applyZoom() {
     wrapper.style.margin = '0 auto';
     wrapper.style.transform = `translate(${mosaicState.panX}px, ${mosaicState.panY}px)`;
 
-    const displayPercent = Math.round(state.zoom * 100);
-    $('#zoom-label').textContent = `${displayPercent}%`;
+    // Note: zoom-label text content is now handled reactively via Alpine x-text
+    // binding in index.html ($store.app.zoom), so no manual DOM update is needed here.
     
     // Sync zoom slider if it exists
     const zoomSlider = document.getElementById('zoom-slider');
-    if (zoomSlider) zoomSlider.value = displayPercent;
+    if (zoomSlider) zoomSlider.value = Math.round(state.zoom * 100);
 }
 
 function renderLegend() {

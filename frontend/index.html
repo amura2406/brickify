@@ -857,10 +857,11 @@
                 <button id="btn-3d" class="px-2 py-1 text-[10px] font-label uppercase tracking-wider rounded-md transition-all text-on-surface-variant hover:text-on-surface touch-target">3D</button>
               </div>
               <!-- Zoom (clickable label → slider popover) -->
-              <div class="relative pointer-events-auto" id="zoom-control-wrapper">
+              <!-- x-data gives this wrapper an Alpine scope to access $store.app.zoom -->
+              <div class="relative pointer-events-auto" id="zoom-control-wrapper" x-data>
                 <button id="btn-zoom-toggle" class="flex items-center gap-1 px-2 py-1 rounded-lg border border-outline-variant hover:border-primary/50 transition-all text-xs font-label text-on-surface-variant hover:text-primary touch-target" title="Adjust zoom">
                   <span class="material-symbols-outlined" style="font-size:16px">search</span>
-                  <span id="zoom-label" class="tabular-nums">100%</span>
+                  <span id="zoom-label" class="tabular-nums" x-text="Math.round($store.app.zoom * 100) + '%'">100%</span>
                   <span class="material-symbols-outlined" style="font-size:12px">expand_more</span>
                 </button>
                 <!-- Zoom slider popover -->
@@ -1394,6 +1395,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=3.5"></script>
+  <script src="app.js?v=3.6"></script>
 </body>
 </html>
