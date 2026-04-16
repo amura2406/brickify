@@ -24,9 +24,6 @@
 ## 📋 Active Tasks
 
 ### UI / UX Improvements
-- [ ] **Center Mosaic Canvas Vertically and Horizontally**
-  - **Description**: The mosaic canvas is centered horizontally but not vertically within the canvas wrapper. Fix the layout so the mosaic is centered on both axes, and ensure centering is preserved when zooming in/out via the slider.
-  - **Context**: The parent flex container lacks proper height constraints for vertical centering to work. `applyZoom()` also needs adjustment to maintain centering during zoom changes.
 - [ ] **Remove Obsolete Mosaic Config Step**
   - **Description**: Delete the "Mosaic Config" sidebar step (`step-options`) that appears between cropping and mosaic generation. All config controls already exist in the Quick Config panel on the build-plan page. After cropping, the flow should go directly to generating the mosaic with default config.
   - **Impact**: Simpler user flow (crop → auto-generate → view), one fewer navigation step.
@@ -65,6 +62,7 @@
 | Task | Date | Summary |
 | :--- | :--- | :--- |
 | **Save Project Error (500)** | 2026-04-14 | Fixed crash caused by base64-encoded images (`image_url`, `cropped_image_url`, `mosaic_history[].url`) being written directly into Firestore, exceeding the 1MiB document limit. Backend now intercepts all base64 fields and uploads them to GCS before persistence. |
+| **Center Mosaic Canvas Vertically and Horizontally** | 2026-04-16 | Fixed the layout to properly center the canvas along both axes by adding Tailwind classes `flex items-center justify-center` to the `#mosaic-canvas-wrapper` container in `index.html` and modifying `margin` to `auto` in `app.js`'s `applyZoom()` function. Centering is preserved when zooming. |
 | **Compare Arena Button & Reference Bug** | 2026-04-14 | Fixed a critical bug where promoting a column to primary triggered a logic flag (`isUserSliding`) that permanently overlaid the reference image in Single Mode. Reset the flag and ensured the reference layer is hidden after promotion. |
 | **Initial Alpine.js Migration** | 2026-04-14 | Successfully migrated Compare Arena, Sets Grid, Cart, and Projects Gallery to Alpine.js. This was done to eliminate brittle imperative DOM manipulation and mitigate XSS risks associated with `innerHTML`. |
 | **Zoom Level Not Retained** | 2026-04-16 | Extended `preserveZoom` coverage: (1) `generateMosaic()` now captures `isRegeneration = !!state.mosaicData` before the API call and passes it to `renderMosaic(isRegeneration)`, so re-generations (LEGO set changes, config tweaks) keep the user's zoom while the first generation still resets to 100%. (2) `switchResultMode('single')` no longer resets `state.zoom = 1.0` — it recalculates `baseScale` for the single-mode container width but preserves the user's zoom level. History snap-back and compare-column promotion already passed `true`. |

@@ -2664,7 +2664,7 @@ function applyZoom() {
     const wrapper = $('#comparison-wrapper');
     wrapper.style.width = cw + 'px';
     wrapper.style.height = ch + 'px';
-    wrapper.style.margin = '0 auto';
+    wrapper.style.margin = 'auto';
     wrapper.style.transform = `translate(${mosaicState.panX}px, ${mosaicState.panY}px)`;
 
     // Note: zoom-label text content is now handled reactively via Alpine x-text
