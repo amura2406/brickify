@@ -2634,17 +2634,11 @@ function renderMosaic(preserveZoom = false) {
     // When preserveZoom=true (e.g. history peek snap-back), keep whatever the user set.
     if (!preserveZoom) state.zoom = 1.0;
     
-    // Calculate dynamic max zoom: True native 1:1 resolution (1 stud = 15px) is achieved when finalScale = 1.0
-    // finalScale is state.baseScale * state.zoom, so to hit 1.0, zoom = 1.0 / state.baseScale
-    // Cap at a reasonable max (e.g., 5.0) to prevent excessive zooming on very small images
-    state.maxZoom = Math.min(5.0, Math.max(1.0, 1.0 / state.baseScale));
-    
-    // Update zoom slider max
-    const zoomSlider = document.getElementById('zoom-slider');
-    if (zoomSlider) {
-        const maxPercent = Math.round(state.maxZoom * 100);
-        zoomSlider.max = maxPercent;
-    }
+    // maxZoom is a fixed 5.0 (500%) — the slider's own max="500" in HTML already
+    // enforces this upper bound. We used to cap dynamically at 1.0/baseScale
+    // ("native 1:1 pixel resolution") but that made the slider feel broken for
+    // large mosaics where 1:1 is only 160%, leaving most of the slider track dead.
+    state.maxZoom = 5.0;
 
     if (typeof mosaicState !== 'undefined') {
         mosaicState.panX = 0;
