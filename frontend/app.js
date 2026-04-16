@@ -2638,7 +2638,7 @@ function renderMosaic(preserveZoom = false) {
     // enforces this upper bound. We used to cap dynamically at 1.0/baseScale
     // ("native 1:1 pixel resolution") but that made the slider feel broken for
     // large mosaics where 1:1 is only 160%, leaving most of the slider track dead.
-    state.maxZoom = 5.0;
+    state.maxZoom = 3.0;
 
     if (typeof mosaicState !== 'undefined') {
         mosaicState.panX = 0;
