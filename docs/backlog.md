@@ -34,6 +34,10 @@
   - **Description**: Stop sending `mosaic_preview_url` and `mosaic_history[].url` (large base64 PNG snapshots) in the save payload. The frontend already has `renderMosaic()` / `renderOffscreenMosaic()` which can reconstruct the mosaic purely from `mosaic_data` (2D grid + color palette). The save payload should only contain `mosaic_data` and config — not rendered images.
   - **Impact**: Reduces save payload from ~5MB to ~50KB. Eliminates Firestore document size limit risk. History entries become lightweight (config + grid only, no PNG snapshots).
   - **Context**: Root cause of the recently fixed Save Project Error — base64 images bloated Firestore documents past the 1MiB limit.
+- [ ] **Break Down `app.js` into Multiple Modules**
+  - **Description**: Decompose the monolithic `frontend/app.js` into smaller, focused files organized by responsibility (e.g., mosaic rendering, image preprocessing, zoom/canvas controls, project save/load, API client, state initialization). Extract shared helper functions to eliminate repetition.
+  - **Impact**: Dramatically improves readability, reduces merge conflicts, enables independent testing of each module, and makes onboarding easier.
+  - **Context**: `app.js` currently contains all application logic — mosaic generation orchestration, canvas rendering, zoom handling, image cropping, project CRUD, API calls, and state management — in a single file. This violates SRP and makes the codebase hard to navigate and maintain. Should be done in conjunction with or after the Frontend Build Step Integration task (Vite/Webpack) to enable proper ES module imports.
 - [ ] **Server-Side Gallery Thumbnails**
   - **Description**: Generate a small (~100px wide) mosaic thumbnail server-side at save time using Pillow, derived from `mosaic_data`. Store this tiny image in GCS and return the URL for the project gallery list.
   - **Impact**: Gallery loads fast with static `<img>` tags (no client-side canvas rendering per card). Thumbnail is ~5KB vs. current full-resolution PNG screenshots.
