@@ -5,12 +5,12 @@ router = APIRouter(prefix="/api/sets", tags=["lego_sets"])
 
 @router.get("")
 def list_sets():
-    """List all available LEGO Art sets."""
+    """List all available LEGO Art sets (with full detail)."""
     sets = []
     for set_id in LEGO_SETS:
-        info = get_set_info(set_id)
-        if info:
-            sets.append(info)
+        detail = get_set_detail(set_id)
+        if detail:
+            sets.append(detail)
     return {"sets": sets}
 
 @router.get("/{set_id}")

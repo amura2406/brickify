@@ -682,19 +682,9 @@ async function loadSets() {
 }
 
 async function renderSets(sets) {
-    const details = await Promise.all(
-        sets.map(s =>
-            fetch(`${API}/api/sets/${s.id}`)
-                .then(r => r.json())
-                .catch(err => {
-                    console.warn(`[Brickify] Could not load details for set ${s.id}:`, err);
-                    return null;  // skip this set rather than aborting all
-                })
-        )
-    );
-
     // Writing directly to the reactive store — Alpine templates read $store.app.allSets
-    state.allSets = details.filter(Boolean);
+    // The input 'sets' array now contains full details from the /api/sets endpoint
+    state.allSets = sets.filter(Boolean);
     state.setsLoading = false;
 }
 
