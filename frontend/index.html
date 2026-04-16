@@ -789,16 +789,17 @@
                   <span id="zoom-label" class="tabular-nums" x-text="Math.round($store.app.zoom * 100) + '%'">100%</span>
                   <span class="material-symbols-outlined" style="font-size:12px">expand_more</span>
                 </button>
-                <!-- Zoom slider popover -->
-                <div id="zoom-popover" class="hidden absolute right-0 bottom-full mb-2 z-40 bg-surface-container-high/95 backdrop-blur-md border border-outline-variant rounded-xl shadow-2xl p-3 w-48 pointer-events-auto">
-                  <div class="flex items-center justify-between mb-2">
-                    <span class="text-[9px] font-label uppercase tracking-widest text-on-surface-variant">Zoom</span>
-                    <button id="btn-zoom-reset" class="text-[9px] font-label text-primary hover:text-white uppercase tracking-widest">Reset</button>
+                <!-- Zoom slider popover — vertical layout avoids right-edge clipping -->
+                <!-- Note: uses style display:none (not Tailwind hidden) so JS can set display:flex -->
+                <div id="zoom-popover" class="flex flex-col items-center gap-2 absolute right-0 bottom-full mb-2 z-40 bg-surface-container-high/95 backdrop-blur-md border border-outline-variant rounded-xl shadow-2xl px-2 py-3 w-10 pointer-events-auto" style="display:none;">
+                  <span class="text-[8px] font-label text-on-surface-variant/80 tabular-nums leading-none" id="zoom-popover-label">100%</span>
+                  <!-- Vertical range slider via writing-mode -->
+                  <div class="flex items-center justify-center" style="height:120px;width:20px;">
+                    <input type="range" id="zoom-slider" min="50" max="500" step="10" value="100"
+                      class="appearance-none cursor-pointer accent-primary"
+                      style="writing-mode:vertical-lr;direction:rtl;width:120px;height:16px;transform:rotate(180deg);">
                   </div>
-                  <input type="range" id="zoom-slider" min="50" max="500" step="10" value="100" class="w-full h-1 bg-surface-container-highest rounded-lg appearance-none cursor-pointer accent-primary">
-                  <div class="flex justify-between mt-1 text-[8px] font-label text-on-surface-variant/60">
-                    <span>50%</span><span>500%</span>
-                  </div>
+                  <button id="btn-zoom-reset" class="text-[8px] font-label text-primary hover:text-white leading-none" title="Reset zoom">↺</button>
                 </div>
               </div>
             </div>
@@ -1313,6 +1314,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=3.8"></script>
+  <script src="app.js?v=3.9"></script>
 </body>
 </html>

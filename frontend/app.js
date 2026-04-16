@@ -2644,9 +2644,6 @@ function renderMosaic(preserveZoom = false) {
     if (zoomSlider) {
         const maxPercent = Math.round(state.maxZoom * 100);
         zoomSlider.max = maxPercent;
-        // Update footer label
-        const maxLabel = zoomSlider.parentElement?.querySelector('.flex.justify-between span:last-child');
-        if (maxLabel) maxLabel.textContent = `${maxPercent}%`;
     }
 
     if (typeof mosaicState !== 'undefined') {
@@ -2679,9 +2676,11 @@ function applyZoom() {
     // Note: zoom-label text content is now handled reactively via Alpine x-text
     // binding in index.html ($store.app.zoom), so no manual DOM update is needed here.
     
-    // Sync zoom slider if it exists
+    // Sync zoom slider + popover label if they exist
     const zoomSlider = document.getElementById('zoom-slider');
+    const zoomPopoverLabel = document.getElementById('zoom-popover-label');
     if (zoomSlider) zoomSlider.value = Math.round(state.zoom * 100);
+    if (zoomPopoverLabel) zoomPopoverLabel.textContent = Math.round(state.zoom * 100) + '%';
 }
 
 function renderLegend() {
@@ -2740,12 +2739,13 @@ function setupResult() {
     if (zoomToggleBtn && zoomPopover) {
         zoomToggleBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            zoomPopover.classList.toggle('hidden');
+            const isOpen = zoomPopover.style.display !== 'none';
+            zoomPopover.style.display = isOpen ? 'none' : 'flex';
         });
         // Close popover on outside click
         document.addEventListener('click', (e) => {
             if (!zoomPopover.contains(e.target) && e.target !== zoomToggleBtn && !zoomToggleBtn.contains(e.target)) {
-                zoomPopover.classList.add('hidden');
+                zoomPopover.style.display = 'none';
             }
         });
     }
