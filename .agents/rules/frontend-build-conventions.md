@@ -73,6 +73,40 @@ After editing `tailwind.config.js`, always run `npm run build:css` and commit th
 3. Commit the updated vendor file.
 4. Deploy.
 
+### Cache-Busting Strategy (MANDATORY)
+
+This project uses a **two-tier caching architecture**:
+
+1. **HTML files** (`index.html`, `privacy.html`, etc.) — served with `Cache-Control: no-cache`. Browsers always revalidate with the CDN. This guarantees users get the latest asset references on every visit.
+
+2. **Versioned assets** (`app.js?v=X.Y`, `styles.css?v=X.Y`) — served with `Cache-Control: public, max-age=604800, immutable`. Browsers cache these aggressively and **never re-validate** as long as the URL is unchanged.
+
+**The version query string is the ONLY mechanism for cache invalidation.** If you modify `app.js` or `styles.css` and deploy without bumping the `?v=` parameter, users will continue seeing the old file indefinitely.
+
+#### Rules for Agents
+
+1. **When you modify `app.js`**: You MUST bump the version in `index.html`:
+   ```html
+   <!-- Before -->  <script src="app.js?v=3.8"></script>
+   <!-- After  -->  <script src="app.js?v=3.9"></script>
+   ```
+
+2. **When you modify `styles.css`**: You MUST bump the version in `index.html`:
+   ```html
+   <!-- Before -->  <link rel="stylesheet" href="styles.css?v=2.1"/>
+   <!-- After  -->  <link rel="stylesheet" href="styles.css?v=2.2"/>
+   ```
+
+3. **When you modify `auth.js`**: Add a version query string if one doesn't exist, or bump it.
+
+4. **Versioning scheme**: Use simple decimal increments (e.g., `3.8` → `3.9` → `3.10`).
+
+5. **When in doubt, bump**: It costs nothing to bump a version unnecessarily. It costs a lot to forget — users get silently stuck on stale code with no error.
+
+6. **`vendor/tailwind.css` is exempt**: It is rebuilt fresh from source each deploy and has no version string. The `immutable` cache header will serve the CDN's latest version after Firebase purges on deploy.
+
+> **Anti-pattern**: Never remove version query strings. Never set them statically. Always increment.
+
 ### Related Rules
 - Project Structure @project-structure.md
 - Deploy Workflow @workflows/deploy.md

@@ -58,8 +58,20 @@ generated CSS. See Frontend Build Conventions @rules/frontend-build-conventions.
 export NVM_DIR="$HOME/.nvm" && [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" && npm run build:css
 ```
 
+**Step 2 — verify cache-busting versions were bumped (MANDATORY):**
+
+If `app.js`, `styles.css`, or `auth.js` were modified in this conversation, you MUST verify
+that their `?v=` query string in `index.html` was incremented. If not, bump it now before
+deploying. Failure to do this means users with cached assets will be stuck on stale code
+with **no error and no indication** — a silent, invisible regression.
+
+Check with:
 ```bash
-# Step 2 — deploy hosting
+grep -E 'app\.js\?v=|styles\.css\?v=|auth\.js\?v=' frontend/index.html
+```
+
+```bash
+# Step 3 — deploy hosting
 export NVM_DIR="$HOME/.nvm" && [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" && npx firebase-tools deploy --only hosting --project brickify999
 ```
 
