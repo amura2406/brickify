@@ -154,20 +154,7 @@ const targetResolutionSelect = $('#target-resolution-select');
 const btnRotateCrop = $('#btn-rotate-crop');
 const btnRotateImage = $('#btn-rotate-image');
 const preprocessingToggle = { checked: true }; // UI element removed
-const sliders = {
-    contrast: { main: $('#contrast-slider'), val: $('#contrast-value'), quick: $('#quick-contrast-slider'), qval: $('#quick-contrast-value') },
-    saturation: { main: $('#saturation-slider'), val: $('#saturation-value'), quick: $('#quick-saturation-slider'), qval: $('#quick-saturation-value') },
-    temperature: { main: $('#temperature-slider'), val: $('#temperature-value'), quick: $('#quick-temperature-slider'), qval: $('#quick-temperature-value') },
-    sharpen: { main: $('#sharpen-slider'), val: $('#sharpen-value'), quick: $('#quick-sharpen-slider'), qval: $('#quick-sharpen-value') },
-    gamma: { main: $('#gamma-slider'), val: $('#gamma-value'), quick: $('#quick-gamma-slider'), qval: $('#quick-gamma-value') },
-    black_point: { main: $('#black-point-slider'), val: $('#black-point-value'), quick: $('#quick-black-point-slider'), qval: $('#quick-black-point-value') },
-    white_point: { main: $('#white-point-slider'), val: $('#white-point-value'), quick: $('#quick-white-point-slider'), qval: $('#quick-white-point-value') },
-    posterize: { main: $('#posterize-slider'), val: $('#posterize-value'), quick: $('#quick-posterize-slider'), qval: $('#quick-posterize-value') }
-};
-const contrastSlider = sliders.contrast.main;
-const contrastValue = sliders.contrast.val;
-const quickContrastSlider = sliders.contrast.quick;
-const quickContrastValue = sliders.contrast.qval;
+// Legacy slider refs removed (now using Alpine.js stores)
 
 const btnToggleAdvancedAdjustments = $('#btn-toggle-advanced-adjustments');
 const advancedAdjustments = $('#advanced-adjustments');
@@ -2109,32 +2096,7 @@ function getPreprocessingParams() {
  *                       sharpen, gamma, black_point, white_point, posterize_levels.
  *                       Missing keys are silently skipped.
  */
-function _restoreAdjustments(cfg) {
-    // [cfgKey, sliderKey, storeKey, isFloat]
-    const map = [
-        ['contrast_boost',   'contrast',    'adj_contrast',    true],
-        ['saturation',       'saturation',  'adj_saturation',  false],
-        ['temperature',      'temperature', 'adj_temperature', false],
-        ['sharpen',          'sharpen',     'adj_sharpen',     true],
-        ['gamma',            'gamma',       'adj_gamma',       true],
-        ['black_point',      'black_point', 'adj_black_point', false],
-        ['white_point',      'white_point', 'adj_white_point', false],
-        ['posterize_levels', 'posterize',   'adj_posterize',   false],
-    ];
-    for (const [cfgKey, sliderKey, storeKey, isFloat] of map) {
-        if (cfg[cfgKey] === undefined) continue;
-        const v = isFloat ? parseFloat(cfg[cfgKey]) : parseInt(cfg[cfgKey], 10);
-        state[storeKey] = v;
-        const sl = sliders[sliderKey];
-        if (!sl) continue;
-        if (sl.main) sl.main.value = v;
-        if (sl.quick) sl.quick.value = v;
-        const disp = isFloat ? v.toFixed(1) : v;
-        const suffix = sliderKey === 'contrast' ? '\u00d7' : '';
-        if (sl.val) sl.val.textContent = disp + suffix;
-        if (sl.qval) sl.qval.textContent = disp + suffix;
-    }
-}
+// _restoreAdjustments removed (sync now atomic via store assignment)
 
 let previewDebounceMs = 50;
 let previewTimeoutId = null;
@@ -2278,76 +2240,21 @@ function applyInstantPreview(isManualInteraction = false) {
     }, previewDebounceMs);
 }
 
-function handleAdjustmentChange(e, isQuick) {
-    const t = e.target;
-    const kind = t.id.replace('quick-', '').replace('-slider', '');
-    const mapped = kind.replace('-', '_');
-    const val = t.value;
+window._onSliderInput = () => {
+    applyInstantPreview(true);
+};
 
-    // Write to the Alpine store so getPreprocessingParams() reads fresh values.
-    const isFloat = ['contrast', 'gamma', 'sharpen'].includes(kind);
-    const storeKey = 'adj_' + mapped;
-    if (storeKey in state) state[storeKey] = isFloat ? parseFloat(val) : parseInt(val, 10);
-
-    const dispKind = isFloat ? parseFloat(val).toFixed(1) : parseInt(val, 10);
-    const suffix = kind === 'contrast' ? '\u00d7' : '';
-
-    if (sliders[mapped]) {
-        if (sliders[mapped][isQuick ? 'qval' : 'val']) sliders[mapped][isQuick ? 'qval' : 'val'].textContent = dispKind + suffix;
-        if (sliders[mapped][isQuick ? 'main' : 'quick']) sliders[mapped][isQuick ? 'main' : 'quick'].value = val;
-        if (sliders[mapped][isQuick ? 'val' : 'qval']) sliders[mapped][isQuick ? 'val' : 'qval'].textContent = dispKind + suffix;
-    }
-    const refLayer = $('#reference-layer');
-    // IMMEDIATELY show the reference layer in quick mode to avoid wait for processing
-    if (isQuick && window.isUserSliding && refLayer) {
-        refLayer.classList.remove('hidden');
-        refLayer.style.clipPath = 'inset(0 0 0 0)';
-        refLayer.style.opacity = '1';
-    }
-
-    applyInstantPreview(e.isTrusted);
-}
-
-function hideReferenceLayerImmediately() {
-    const refLayer = $('#reference-layer');
-    if (!refLayer) return;
-    if (!isComparisonActive) {
-        refLayer.classList.add('hidden');
+window._onSliderChange = () => {
+    const isQuick = $('#tab-build-plan').style.display !== 'none';
+    if (!isQuick) {
+        applyInstantPreview(true);
     } else {
-        const compSlider = $('#comparison-slider');
-        if (compSlider) {
-            refLayer.style.clipPath = `inset(0 ${100 - compSlider.value}% 0 0)`;
-        }
+        hideReferenceLayerImmediately();
+        generateMosaic();
     }
-}
+};
 
 function setupPreprocessingControls() {
-    for (const [key, obj] of Object.entries(sliders)) {
-        if (obj.main) {
-            obj.main.addEventListener('input', (e) => { window.isUserSliding = true; handleAdjustmentChange(e, false); });
-            obj.main.addEventListener('change', (e) => {
-                window.isUserSliding = false;
-                const isQuick = $('#tab-build-plan').style.display !== 'none';
-                if (!isQuick) applyInstantPreview(e.isTrusted); // For main generate button to be clicked next
-                else {
-                    hideReferenceLayerImmediately();
-                    generateMosaic();
-                }
-            });
-        }
-        if (obj.quick) {
-            obj.quick.addEventListener('input', (e) => { window.isUserSliding = true; handleAdjustmentChange(e, true); });
-            obj.quick.addEventListener('change', () => {
-                window.isUserSliding = false;
-                const isQuick = $('#tab-build-plan').style.display !== 'none';
-                if (isQuick) {
-                    hideReferenceLayerImmediately();
-                    generateMosaic();
-                }
-            });
-        }
-    }
-
     [btnToggleAdvancedAdjustments, btnQuickToggleAdvanced].forEach(btn => {
         if (!btn) return;
         btn.addEventListener('click', (e) => {
@@ -3021,18 +2928,7 @@ function setupResult() {
         if (quickColorModeSelect && colorModeSelect) {
             quickColorModeSelect.value = colorModeSelect.value;
         }
-        // Sync all preprocessing sliders + labels from the Alpine store.
-        // _restoreAdjustments writes store values back to both slider DOM nodes.
-        _restoreAdjustments({
-            contrast_boost:   state.adj_contrast,
-            saturation:       state.adj_saturation,
-            temperature:      state.adj_temperature,
-            sharpen:          state.adj_sharpen,
-            gamma:            state.adj_gamma,
-            black_point:      state.adj_black_point,
-            white_point:      state.adj_white_point,
-            posterize_levels: state.adj_posterize,
-        });
+        // With Alpine.js binding, store changes automatically reflect in the UI.
     }
     window.syncQuickConfigUI = syncQuickConfigUI;
     syncQuickConfigUI();
@@ -3559,8 +3455,8 @@ function addCompareColumn(autoGenerate = false, isUserInteraction = false) {
         id: Date.now().toString(),
         colorMode: lastCol ? lastCol.colorMode : (colorModeSelect ? colorModeSelect.value : 'realistic'),
         dithering: lastCol ? lastCol.dithering : $('#dithering-toggle').checked,
-        contrast: lastCol ? lastCol.contrast : parseFloat(contrastSlider.value),
-        preprocessing: lastCol ? lastCol.preprocessing : preprocessingToggle.checked,
+        contrast: lastCol ? lastCol.contrast : state.adj_contrast,
+        preprocessing: lastCol ? lastCol.preprocessing : true,
         gradientColors: lastCol ? [...lastCol.gradientColors] : getGradientColors(),
         setSelections: (lastCol ? lastCol.setSelections : state.setSelections).map(s => ({ set: s.set, qty: s.qty })),
         mosaicUrl: null,
@@ -3712,9 +3608,8 @@ window.promoteToPrimary = function(id) {
     quickDitherToggle.checked = col.dithering;
     $('#dithering-toggle').dispatchEvent(new Event('change'));
 
-    // Write contrast directly to the store and sync both slider DOM nodes.
-    // Replaces synthetic Event('input') dispatch which set isUserSliding=true.
-    _restoreAdjustments({ contrast_boost: col.contrast });
+    // Sync adjustments directly to the store.
+    state.adj_contrast = col.contrast;
     if (typeof hideReferenceLayerImmediately === 'function') {
         hideReferenceLayerImmediately();
     }
@@ -3958,9 +3853,15 @@ async function loadProject(projectId) {
         // Restore config UI
         const cfg = project.config || {};
         if ($('#dithering-toggle') && cfg.dithering !== undefined) $('#dithering-toggle').checked = cfg.dithering;
-        // Restore all preprocessing sliders to the store + sync both main and quick DOM nodes.
-        // _restoreAdjustments avoids synthetic input events (no isUserSliding side-effects).
-        _restoreAdjustments(cfg);
+        // Restore all preprocessing sliders to the store.
+        state.adj_contrast = cfg.contrast_boost ?? 1.0;
+        state.adj_saturation = cfg.saturation ?? 0;
+        state.adj_temperature = cfg.temperature ?? 0;
+        state.adj_sharpen = cfg.sharpen ?? 0.0;
+        state.adj_gamma = cfg.gamma ?? 1.0;
+        state.adj_black_point = cfg.black_point ?? 0;
+        state.adj_white_point = cfg.white_point ?? 255;
+        state.adj_posterize = cfg.posterize_levels ?? 32;
         if (colorModeSelect && cfg.color_mode) colorModeSelect.value = cfg.color_mode;
         if (cfg.target_width) state.targetW = cfg.target_width;
         if (cfg.target_height) state.targetH = cfg.target_height;

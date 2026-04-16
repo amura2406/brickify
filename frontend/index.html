@@ -11,7 +11,7 @@
   <!-- Google Fonts -->
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;700;800&family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet"/>
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
-  <link rel="stylesheet" href="styles.css?v=2.2"/>
+  <link rel="stylesheet" href="styles.css?v=2.3"/>
   <!-- Three.js for 3D Mode (vendored — no CDN dependency) -->
   <script src="vendor/three.min.js"></script>
   <script src="vendor/OrbitControls.js"></script>
@@ -587,7 +587,7 @@
               </div>
               <span class="text-[10px] text-on-surface-variant uppercase mt-1">Algorithm Strategy</span>
             </div>
-            <select id="color-mode-select" class="bg-surface-container-highest border border-outline-variant text-sm text-on-surface rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-secondary focus:border-secondary transition-all">
+            <select id="color-mode-select" x-model="$store.app.colorMode" x-on:change="window._onColorModeChange?.()" class="bg-surface-container-highest border border-outline-variant text-sm text-on-surface rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-secondary focus:border-secondary transition-all">
               <option value="realistic">Realistic (Color Match)</option>
               <option value="pop_art" selected>Pop-Art (Luminance Match)</option>
               <option value="gradient">Gradient Mapping</option>
@@ -615,36 +615,48 @@
               <div class="space-y-2 flex flex-col" data-adjust="contrast">
                 <div class="flex justify-between items-center">
                   <span class="font-label text-[10px] uppercase tracking-wider text-on-surface">Contrast (CLAHE)</span>
-                  <span id="contrast-value" class="font-label text-[10px] text-tertiary font-bold">1.0×</span>
+                  <span id="contrast-value" x-text="$store.app.adj_contrast.toFixed(1) + '×'" class="font-label text-[10px] text-tertiary font-bold">1.0×</span>
                 </div>
-                <input type="range" id="contrast-slider" min="0" max="2" step="0.1" value="1.0" class="neon-slider w-full"/>
+                <input type="range" id="contrast-slider" min="0" max="2" step="0.1" value="1.0" class="neon-slider w-full"
+                       x-model.number="$store.app.adj_contrast"
+                       x-on:input="window.isUserSliding = true; window._onSliderInput?.()"
+                       x-on:change="window.isUserSliding = false; window._onSliderChange?.()"/>
               </div>
 
               <!-- Saturation -->
               <div class="space-y-2 flex flex-col" data-adjust="saturation">
                 <div class="flex justify-between items-center">
                   <span class="font-label text-[10px] uppercase tracking-wider text-on-surface">Saturation</span>
-                  <span id="saturation-value" class="font-label text-[10px] text-tertiary font-bold">0%</span>
+                  <span id="saturation-value" x-text="$store.app.adj_saturation + '%'" class="font-label text-[10px] text-tertiary font-bold">0%</span>
                 </div>
-                <input type="range" id="saturation-slider" min="-100" max="100" step="1" value="0" class="neon-slider w-full"/>
+                <input type="range" id="saturation-slider" min="-100" max="100" step="1" value="0" class="neon-slider w-full"
+                       x-model.number="$store.app.adj_saturation"
+                       x-on:input="window.isUserSliding = true; window._onSliderInput?.()"
+                       x-on:change="window.isUserSliding = false; window._onSliderChange?.()"/>
               </div>
 
               <!-- Temperature -->
               <div class="space-y-2 flex flex-col" data-adjust="temperature">
                 <div class="flex justify-between items-center">
                   <span class="font-label text-[10px] uppercase tracking-wider text-on-surface">Temperature</span>
-                  <span id="temperature-value" class="font-label text-[10px] text-tertiary font-bold">0</span>
+                  <span id="temperature-value" x-text="$store.app.adj_temperature" class="font-label text-[10px] text-tertiary font-bold">0</span>
                 </div>
-                <input type="range" id="temperature-slider" min="-50" max="50" step="1" value="0" class="neon-slider w-full"/>
+                <input type="range" id="temperature-slider" min="-50" max="50" step="1" value="0" class="neon-slider w-full"
+                       x-model.number="$store.app.adj_temperature"
+                       x-on:input="window.isUserSliding = true; window._onSliderInput?.()"
+                       x-on:change="window.isUserSliding = false; window._onSliderChange?.()"/>
               </div>
 
               <!-- Sharpen -->
               <div class="space-y-2 flex flex-col" data-adjust="sharpen">
                 <div class="flex justify-between items-center">
                   <span class="font-label text-[10px] uppercase tracking-wider text-on-surface">Sharpen</span>
-                  <span id="sharpen-value" class="font-label text-[10px] text-tertiary font-bold">0.0</span>
+                  <span id="sharpen-value" x-text="$store.app.adj_sharpen.toFixed(1)" class="font-label text-[10px] text-tertiary font-bold">0.0</span>
                 </div>
-                <input type="range" id="sharpen-slider" min="0" max="5" step="0.1" value="0" class="neon-slider w-full"/>
+                <input type="range" id="sharpen-slider" min="0" max="5" step="0.1" value="0" class="neon-slider w-full"
+                       x-model.number="$store.app.adj_sharpen"
+                       x-on:input="window.isUserSliding = true; window._onSliderInput?.()"
+                       x-on:change="window.isUserSliding = false; window._onSliderChange?.()"/>
               </div>
               
               <div id="advanced-adjustments" class="hidden space-y-4 flex flex-col mt-4">
@@ -652,36 +664,48 @@
                 <div class="space-y-2 flex flex-col" data-adjust="gamma">
                   <div class="flex justify-between items-center">
                     <span class="font-label text-[10px] uppercase tracking-wider text-on-surface">Gamma (Midtones)</span>
-                    <span id="gamma-value" class="font-label text-[10px] text-tertiary font-bold">1.0</span>
+                    <span id="gamma-value" x-text="$store.app.adj_gamma.toFixed(1)" class="font-label text-[10px] text-tertiary font-bold">1.0</span>
                   </div>
-                  <input type="range" id="gamma-slider" min="0.2" max="3.0" step="0.1" value="1.0" class="neon-slider w-full"/>
+                  <input type="range" id="gamma-slider" min="0.2" max="3.0" step="0.1" value="1.0" class="neon-slider w-full"
+                         x-model.number="$store.app.adj_gamma"
+                         x-on:input="window.isUserSliding = true; window._onSliderInput?.()"
+                         x-on:change="window.isUserSliding = false; window._onSliderChange?.()"/>
                 </div>
 
                 <!-- Shadows (Black Point) -->
                 <div class="space-y-2 flex flex-col" data-adjust="black-point">
                   <div class="flex justify-between items-center">
                     <span class="font-label text-[10px] uppercase tracking-wider text-on-surface">Shadows Cutoff</span>
-                    <span id="black-point-value" class="font-label text-[10px] text-tertiary font-bold">0</span>
+                    <span id="black-point-value" x-text="$store.app.adj_black_point" class="font-label text-[10px] text-tertiary font-bold">0</span>
                   </div>
-                  <input type="range" id="black-point-slider" min="0" max="100" step="1" value="0" class="neon-slider w-full"/>
+                  <input type="range" id="black-point-slider" min="0" max="100" step="1" value="0" class="neon-slider w-full"
+                         x-model.number="$store.app.adj_black_point"
+                         x-on:input="window.isUserSliding = true; window._onSliderInput?.()"
+                         x-on:change="window.isUserSliding = false; window._onSliderChange?.()"/>
                 </div>
 
                 <!-- Highlights (White Point) -->
                 <div class="space-y-2 flex flex-col" data-adjust="white-point">
                   <div class="flex justify-between items-center">
                     <span class="font-label text-[10px] uppercase tracking-wider text-on-surface">Highlights Limit</span>
-                    <span id="white-point-value" class="font-label text-[10px] text-tertiary font-bold">255</span>
+                    <span id="white-point-value" x-text="$store.app.adj_white_point" class="font-label text-[10px] text-tertiary font-bold">255</span>
                   </div>
-                  <input type="range" id="white-point-slider" min="155" max="255" step="1" value="255" class="neon-slider w-full"/>
+                  <input type="range" id="white-point-slider" min="155" max="255" step="1" value="255" class="neon-slider w-full"
+                         x-model.number="$store.app.adj_white_point"
+                         x-on:input="window.isUserSliding = true; window._onSliderInput?.()"
+                         x-on:change="window.isUserSliding = false; window._onSliderChange?.()"/>
                 </div>
 
                 <!-- Posterize -->
                 <div class="space-y-2 flex flex-col" data-adjust="posterize" id="posterize-group">
                   <div class="flex justify-between items-center">
                     <span class="font-label text-[10px] uppercase tracking-wider text-on-surface">Posterize Levels</span>
-                    <span id="posterize-value" class="font-label text-[10px] text-tertiary font-bold">32</span>
+                    <span id="posterize-value" x-text="$store.app.adj_posterize" class="font-label text-[10px] text-tertiary font-bold">32</span>
                   </div>
-                  <input type="range" id="posterize-slider" min="2" max="32" step="1" value="32" class="neon-slider w-full"/>
+                  <input type="range" id="posterize-slider" min="2" max="32" step="1" value="32" class="neon-slider w-full"
+                         x-model.number="$store.app.adj_posterize"
+                         x-on:input="window.isUserSliding = true; window._onSliderInput?.()"
+                         x-on:change="window.isUserSliding = false; window._onSliderChange?.()"/>
                 </div>
               </div>
             </div>
@@ -701,7 +725,9 @@
               <span class="text-[10px] text-on-surface-variant uppercase mt-1" id="dithering-subtitle">Simulate Smooth Gradients</span>
             </div>
             <label class="relative w-12 h-6 cursor-pointer" id="dithering-toggle-label">
-              <input type="checkbox" id="dithering-toggle" class="sr-only peer"/>
+              <input type="checkbox" id="dithering-toggle" class="sr-only peer"
+                     x-model="$store.app.dithering"
+                     x-on:change="window._onDitheringChange?.()"/>
               <div class="w-12 h-6 bg-surface-container-highest rounded-full border border-outline-variant peer-checked:border-secondary/50 transition-colors peer-disabled:opacity-50"></div>
               <div class="absolute top-1 left-1 w-4 h-4 bg-on-surface-variant peer-checked:bg-secondary peer-checked:shadow-[0_0_8px_#00ffcc] rounded-full peer-checked:translate-x-6 transition-all duration-200 peer-disabled:bg-surface-container peer-disabled:shadow-none peer-disabled:translate-x-1"></div>
             </label>
@@ -872,7 +898,7 @@
 
                 <div class="flex items-center justify-between">
                   <label class="font-label text-xs text-on-surface-variant">Color Mode</label>
-                  <select id="quick-color-mode-select" class="bg-surface-container-high border border-outline-variant text-xs text-on-surface rounded-md px-2 py-1 outline-none focus:ring-1 focus:ring-primary focus:border-primary">
+                  <select id="quick-color-mode-select" x-model="$store.app.colorMode" x-on:change="window._onColorModeChange?.()" class="bg-surface-container-high border border-outline-variant text-xs text-on-surface rounded-md px-2 py-1 outline-none focus:ring-1 focus:ring-primary focus:border-primary">
                     <option value="realistic">Realistic</option>
                     <option value="pop_art" selected>Pop-Art</option>
                     <option value="gradient">Gradient</option>
@@ -892,7 +918,9 @@
                 <div class="flex items-center justify-between" id="quick-dither-wrapper">
                   <label class="font-label text-xs text-on-surface-variant" id="quick-dither-label">Dithering (Quality)</label>
                   <label class="relative inline-flex items-center cursor-pointer" id="quick-dither-toggle-label">
-                    <input type="checkbox" id="quick-dither-toggle" class="sr-only peer" checked>
+                    <input type="checkbox" id="quick-dither-toggle" class="sr-only peer"
+                           x-model="$store.app.dithering"
+                           x-on:change="window._onDitheringChange?.()"/>
                     <div class="w-9 h-5 bg-surface-container-high peer-focus:outline-none rounded-full peer peer-disabled:opacity-50 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-on-surface peer-disabled:after:bg-on-surface-variant/50 after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary border border-outline-variant"></div>
                   </label>
                 </div>
@@ -903,56 +931,80 @@
                     <!-- Contrast -->
                     <div class="flex flex-col gap-1" data-adjust="contrast">
                       <label class="font-label text-[10px] text-on-surface-variant flex justify-between">
-                        <span>Contrast</span><span id="quick-contrast-value" class="text-tertiary font-bold">1.0</span>
+                        <span>Contrast</span><span id="quick-contrast-value" x-text="$store.app.adj_contrast.toFixed(1)" class="text-tertiary font-bold">1.0</span>
                       </label>
-                      <input type="range" id="quick-contrast-slider" min="0" max="2" step="0.1" value="1.0" class="w-full h-1 bg-surface-container-high rounded-lg appearance-none cursor-pointer accent-primary">
+                      <input type="range" id="quick-contrast-slider" min="0" max="2" step="0.1" value="1.0" class="w-full h-1 bg-surface-container-high rounded-lg appearance-none cursor-pointer accent-primary"
+                             x-model.number="$store.app.adj_contrast"
+                             x-on:input="window.isUserSliding = true; window._onSliderInput?.()"
+                             x-on:change="window.isUserSliding = false; window._onSliderChange?.()"/>
                     </div>
                     <!-- Saturation -->
                     <div class="flex flex-col gap-1" data-adjust="saturation">
                       <label class="font-label text-[10px] text-on-surface-variant flex justify-between">
-                        <span>Saturation</span><span id="quick-saturation-value" class="text-tertiary font-bold">0</span>
+                        <span>Saturation</span><span id="quick-saturation-value" x-text="$store.app.adj_saturation" class="text-tertiary font-bold">0</span>
                       </label>
-                      <input type="range" id="quick-saturation-slider" min="-100" max="100" step="1" value="0" class="w-full h-1 bg-surface-container-high rounded-lg appearance-none cursor-pointer accent-primary">
+                      <input type="range" id="quick-saturation-slider" min="-100" max="100" step="1" value="0" class="w-full h-1 bg-surface-container-high rounded-lg appearance-none cursor-pointer accent-primary"
+                             x-model.number="$store.app.adj_saturation"
+                             x-on:input="window.isUserSliding = true; window._onSliderInput?.()"
+                             x-on:change="window.isUserSliding = false; window._onSliderChange?.()"/>
                     </div>
                     <!-- Temperature -->
                     <div class="flex flex-col gap-1" data-adjust="temperature">
                       <label class="font-label text-[10px] text-on-surface-variant flex justify-between">
-                        <span>Temperature</span><span id="quick-temperature-value" class="text-tertiary font-bold">0</span>
+                        <span>Temperature</span><span id="quick-temperature-value" x-text="$store.app.adj_temperature" class="text-tertiary font-bold">0</span>
                       </label>
-                      <input type="range" id="quick-temperature-slider" min="-50" max="50" step="1" value="0" class="w-full h-1 bg-surface-container-high rounded-lg appearance-none cursor-pointer accent-primary">
+                      <input type="range" id="quick-temperature-slider" min="-50" max="50" step="1" value="0" class="w-full h-1 bg-surface-container-high rounded-lg appearance-none cursor-pointer accent-primary"
+                             x-model.number="$store.app.adj_temperature"
+                             x-on:input="window.isUserSliding = true; window._onSliderInput?.()"
+                             x-on:change="window.isUserSliding = false; window._onSliderChange?.()"/>
                     </div>
                     <!-- Sharpen -->
                     <div class="flex flex-col gap-1" data-adjust="sharpen">
                       <label class="font-label text-[10px] text-on-surface-variant flex justify-between">
-                        <span>Sharpen</span><span id="quick-sharpen-value" class="text-tertiary font-bold">0.0</span>
+                        <span>Sharpen</span><span id="quick-sharpen-value" x-text="$store.app.adj_sharpen.toFixed(1)" class="text-tertiary font-bold">0.0</span>
                       </label>
-                      <input type="range" id="quick-sharpen-slider" min="0" max="5" step="0.1" value="0" class="w-full h-1 bg-surface-container-high rounded-lg appearance-none cursor-pointer accent-primary">
+                      <input type="range" id="quick-sharpen-slider" min="0" max="5" step="0.1" value="0" class="w-full h-1 bg-surface-container-high rounded-lg appearance-none cursor-pointer accent-primary"
+                             x-model.number="$store.app.adj_sharpen"
+                             x-on:input="window.isUserSliding = true; window._onSliderInput?.()"
+                             x-on:change="window.isUserSliding = false; window._onSliderChange?.()"/>
                     </div>
                     
                     <div id="quick-advanced-adjustments" class="hidden space-y-3 flex flex-col mt-2">
                       <div class="flex flex-col gap-1" data-adjust="gamma">
                         <label class="font-label text-[10px] text-on-surface-variant flex justify-between">
-                          <span>Gamma</span><span id="quick-gamma-value" class="text-tertiary font-bold">1.0</span>
+                          <span>Gamma</span><span id="quick-gamma-value" x-text="$store.app.adj_gamma.toFixed(1)" class="text-tertiary font-bold">1.0</span>
                         </label>
-                        <input type="range" id="quick-gamma-slider" min="0.2" max="3.0" step="0.1" value="1.0" class="w-full h-1 bg-surface-container-high rounded-lg appearance-none cursor-pointer accent-primary">
+                        <input type="range" id="quick-gamma-slider" min="0.2" max="3.0" step="0.1" value="1.0" class="w-full h-1 bg-surface-container-high rounded-lg appearance-none cursor-pointer accent-primary"
+                               x-model.number="$store.app.adj_gamma"
+                               x-on:input="window.isUserSliding = true; window._onSliderInput?.()"
+                               x-on:change="window.isUserSliding = false; window._onSliderChange?.()"/>
                       </div>
                       <div class="flex flex-col gap-1" data-adjust="black-point">
                         <label class="font-label text-[10px] text-on-surface-variant flex justify-between">
-                          <span>Shadows</span><span id="quick-black-point-value" class="text-tertiary font-bold">0</span>
+                          <span>Shadows</span><span id="quick-black-point-value" x-text="$store.app.adj_black_point" class="text-tertiary font-bold">0</span>
                         </label>
-                        <input type="range" id="quick-black-point-slider" min="0" max="100" step="1" value="0" class="w-full h-1 bg-surface-container-high rounded-lg appearance-none cursor-pointer accent-primary">
+                        <input type="range" id="quick-black-point-slider" min="0" max="100" step="1" value="0" class="w-full h-1 bg-surface-container-high rounded-lg appearance-none cursor-pointer accent-primary"
+                               x-model.number="$store.app.adj_black_point"
+                               x-on:input="window.isUserSliding = true; window._onSliderInput?.()"
+                               x-on:change="window.isUserSliding = false; window._onSliderChange?.()"/>
                       </div>
                       <div class="flex flex-col gap-1" data-adjust="white-point">
                         <label class="font-label text-[10px] text-on-surface-variant flex justify-between">
-                          <span>Highlights</span><span id="quick-white-point-value" class="text-tertiary font-bold">255</span>
+                          <span>Highlights</span><span id="quick-white-point-value" x-text="$store.app.adj_white_point" class="text-tertiary font-bold">255</span>
                         </label>
-                        <input type="range" id="quick-white-point-slider" min="155" max="255" step="1" value="255" class="w-full h-1 bg-surface-container-high rounded-lg appearance-none cursor-pointer accent-primary">
+                        <input type="range" id="quick-white-point-slider" min="155" max="255" step="1" value="255" class="w-full h-1 bg-surface-container-high rounded-lg appearance-none cursor-pointer accent-primary"
+                               x-model.number="$store.app.adj_white_point"
+                               x-on:input="window.isUserSliding = true; window._onSliderInput?.()"
+                               x-on:change="window.isUserSliding = false; window._onSliderChange?.()"/>
                       </div>
                       <div class="flex flex-col gap-1 hidden" data-adjust="posterize" id="quick-posterize-group">
                         <label class="font-label text-[10px] text-on-surface-variant flex justify-between">
-                          <span>Posterize</span><span id="quick-posterize-value" class="text-tertiary font-bold">32</span>
+                          <span>Posterize</span><span id="quick-posterize-value" x-text="$store.app.adj_posterize" class="text-tertiary font-bold">32</span>
                         </label>
-                        <input type="range" id="quick-posterize-slider" min="2" max="32" step="1" value="32" class="w-full h-1 bg-surface-container-high rounded-lg appearance-none cursor-pointer accent-primary">
+                        <input type="range" id="quick-posterize-slider" min="2" max="32" step="1" value="32" class="w-full h-1 bg-surface-container-high rounded-lg appearance-none cursor-pointer accent-primary"
+                               x-model.number="$store.app.adj_posterize"
+                               x-on:input="window.isUserSliding = true; window._onSliderInput?.()"
+                               x-on:change="window.isUserSliding = false; window._onSliderChange?.()"/>
                       </div>
                     </div>
                     
@@ -1136,7 +1188,7 @@
     </div>
 
     <footer class="bg-background border-t border-outline-variant/30 py-3 sm:py-4 px-4 sm:px-8 flex flex-col sm:flex-row justify-between items-center text-on-surface-variant mt-auto gap-2 safe-area-bottom">
-      <div class="font-label text-[9px] sm:text-[10px] uppercase tracking-widest text-center sm:text-left">© 2024 BRICKIFY NEON. NOT AN OFFICIAL LEGO PRODUCT. <span class="ml-2 opacity-50">v1.1.3</span></div>
+      <div class="font-label text-[9px] sm:text-[10px] uppercase tracking-widest text-center sm:text-left">© 2024 BRICKIFY NEON. NOT AN OFFICIAL LEGO PRODUCT. <span class="ml-2 opacity-50">v1.2.0</span></div>
       <div class="flex gap-4 sm:gap-6 font-label text-[9px] sm:text-[10px] uppercase tracking-widest">
         <a class="hover:text-tertiary transition-colors" href="/terms.html">Terms</a>
         <a class="hover:text-tertiary transition-colors" href="/privacy.html">Privacy</a>
@@ -1313,6 +1365,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=3.13"></script>
+  <script src="app.js?v=3.14"></script>
 </body>
 </html>
