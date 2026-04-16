@@ -243,18 +243,17 @@ class FirestoreDatabaseProvider:
 
         This is an admin-only, infrequent operation (called only before a purge).
         Reads summary docs only (no detail docs needed — URLs are in summaries).
+        Uses collection_group to avoid N+1 query.
         """
         urls: set[str] = set()
-        # List all user documents
-        users_ref = self._db.collection("users")
-        for user_doc in users_ref.list_documents():
-            summaries = user_doc.collection("project_summaries").get()
-            for doc in summaries:
-                data = doc.to_dict() or {}
-                for key in ("image_url", "cropped_image_url", "thumbnail_url"):
-                    url = data.get(key, "")
-                    if url:
-                        urls.add(url)
+        # Query across all project_summaries collections
+        summaries = self._db.collection_group("project_summaries").get()
+        for doc in summaries:
+            data = doc.to_dict() or {}
+            for key in ("image_url", "cropped_image_url", "thumbnail_url"):
+                url = data.get(key, "")
+                if url:
+                    urls.add(url)
         return urls
 
 
