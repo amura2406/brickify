@@ -2376,6 +2376,10 @@ async function generateMosaic() {
         $('#mosaic-canvas-wrapper').appendChild(loadingOverlay);
     }
 
+    // Capture whether a mosaic already exists — if so, this is a re-generation
+    // (e.g. user changed LEGO sets or tweaked config) and we should keep their zoom.
+    const isRegeneration = !!state.mosaicData;
+
     try {
         const isQuickCol = quickColorModeSelect && quickColorModeSelect.value === 'gradient';
         const res = await authFetch(`${API}/api/generate`, {
@@ -2420,14 +2424,14 @@ async function generateMosaic() {
 
         showTab('build-plan');
         applyInstantPreview(false); // Make sure the reference layer has an image src
-        
+
         // Ensure UI is synced with current data
         if (window.syncQuickConfigUI) window.syncQuickConfigUI();
 
-        renderMosaic();
+        renderMosaic(isRegeneration); // preserve zoom when re-generating (set change, config tweak)
         renderLegend();
         hideReferenceLayerImmediately();
-        
+
         // Update 3D model if it's currently active
         // Wait for canvas to be visible to avoid size issues
         setTimeout(() => {
@@ -3500,14 +3504,14 @@ function switchResultMode(mode) {
     if (state.isCompareArena) {
         btnModeSingle.classList.remove('text-primary', 'border-primary');
         btnModeSingle.classList.add('text-on-surface-variant', 'border-transparent');
-        
+
         btnModeCompare.classList.remove('text-on-surface-variant', 'border-transparent');
         btnModeCompare.classList.add('text-primary', 'border-primary');
-        
+
         singleModeView.classList.add('hidden');
         singleModeView.classList.remove('flex');
         compareModeView.classList.remove('hidden');
-        
+
         // Initialize if empty
         if (state.compareColumns.length === 0) {
             addCompareColumn(true);
@@ -3516,22 +3520,22 @@ function switchResultMode(mode) {
     } else {
         btnModeCompare.classList.remove('text-primary', 'border-primary');
         btnModeCompare.classList.add('text-on-surface-variant', 'border-transparent');
-        
+
         btnModeSingle.classList.remove('text-on-surface-variant', 'border-transparent');
         btnModeSingle.classList.add('text-primary', 'border-primary');
-        
+
         compareModeView.classList.add('hidden');
         singleModeView.classList.remove('hidden');
         singleModeView.classList.add('flex');
 
-        // Feature 6: Reset zoom/pan when switching back to single mode
-        // Reset zoom to 35% default when switching back
+        // Recalculate baseScale for single-mode container width, but preserve
+        // the user's zoom level so switching modes doesn't discard their zoom.
         const cw = mosaicCanvas ? mosaicCanvas.width : 480;
         const wWidth = singleModeView ? (singleModeView.clientWidth - 32) : 800;
         const bs = (cw && wWidth > 0) ? Math.min(1, Math.max(0.01, wWidth / cw)) : 1;
         state.baseScale = bs;
-        state.zoom = 1.0;
-        
+        // Preserve state.zoom — do NOT reset to 1.0
+
         mosaicState.panX = 0;
         mosaicState.panY = 0;
         if (state.mosaicData) applyZoom();
