@@ -3528,17 +3528,13 @@ function switchResultMode(mode) {
         singleModeView.classList.remove('hidden');
         singleModeView.classList.add('flex');
 
-        // Recalculate baseScale for single-mode container width, but preserve
-        // the user's zoom level so switching modes doesn't discard their zoom.
-        const cw = mosaicCanvas ? mosaicCanvas.width : 480;
-        const wWidth = singleModeView ? (singleModeView.clientWidth - 32) : 800;
-        const bs = (cw && wWidth > 0) ? Math.min(1, Math.max(0.01, wWidth / cw)) : 1;
-        state.baseScale = bs;
-        // Preserve state.zoom — do NOT reset to 1.0
-
-        mosaicState.panX = 0;
-        mosaicState.panY = 0;
-        if (state.mosaicData) applyZoom();
+        if (state.mosaicData) {
+            // Defer to next frame so the single-mode container is visible and has a
+            // real clientWidth before renderMosaic reads mosaicWrapper.clientWidth.
+            // renderMosaic(true) recalculates baseScale AND maxZoom for the current
+            // container size while preserving state.zoom — the safe, DRY path.
+            requestAnimationFrame(() => renderMosaic(true));
+        }
     }
 }
 
