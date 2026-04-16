@@ -977,7 +977,7 @@
             </div>
           </template>
 
-          <button id="btn-add-compare-column" x-show="columns.length < 5" class="flex flex-col items-center justify-center gap-3 w-[300px] h-[500px] border-2 border-dashed border-outline-variant/50 rounded-xl text-on-surface-variant hover:text-primary hover:border-primary/50 hover:bg-surface-container/30 transition-all font-label uppercase tracking-widest text-sm touch-target shrink-0">
+          <button id="btn-add-compare-column" x-show="$store.app.compareColumns.length < 5" class="flex flex-col items-center justify-center gap-3 w-[300px] h-[500px] border-2 border-dashed border-outline-variant/50 rounded-xl text-on-surface-variant hover:text-primary hover:border-primary/50 hover:bg-surface-container/30 transition-all font-label uppercase tracking-widest text-sm touch-target shrink-0">
             <span class="material-symbols-outlined text-4xl">add_box</span>
             Add Column
           </button>
