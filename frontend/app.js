@@ -138,7 +138,6 @@ const btnContinueSets = $('#btn-continue-sets');
 // Editor tab
 const stepUpload = $('#step-upload');
 const stepCrop = $('#step-crop');
-const stepOptions = $('#step-options');
 const uploadZone = $('#upload-zone');
 const fileInput = $('#file-input');
 const devPathUpload = $('#dev-path-upload');
@@ -160,7 +159,6 @@ const btnToggleAdvancedAdjustments = $('#btn-toggle-advanced-adjustments');
 const advancedAdjustments = $('#advanced-adjustments');
 const btnQuickToggleAdvanced = $('#btn-quick-toggle-advanced');
 const quickAdvancedAdjustments = $('#quick-advanced-adjustments');
-const colorModeSelect = $('#color-mode-select');
 const btnGenerate = $('#btn-generate');
 
 // Build plan tab
@@ -918,8 +916,7 @@ function showEditorStep(step) {
     // Hide all editor steps
     stepUpload.classList.add('hidden');
     stepCrop.classList.add('hidden');
-    stepOptions.classList.add('hidden');
-
+    
     const hints = {
         upload: 'Drop an image or click to browse',
         crop: 'Drag the square to define your mosaic area',
@@ -939,8 +936,6 @@ function showEditorStep(step) {
         // Hide the title group to save vertical space
         $('#editor-title-group').classList.add('hidden');
     } else if (step === 'options') {
-        stepOptions.classList.remove('hidden');
-        stepOptions.style.display = 'flex';
         $('#editor-hint').textContent = hints.options;
         $('#editor-title').textContent = 'Mosaic Config';
         $('#editor-subtitle').textContent = 'Fine-tune rendering settings';
@@ -1846,7 +1841,8 @@ async function applyCrop() {
         state.historyIndex = -1;
         updateHistoryUI(); // Clear UI dots
         
-        showEditorStep('options');
+        showTab('build-plan');
+        generateMosaic();
     } catch (e) {
         console.error('Crop failed:', e);
         alert(`Crop failed: ${e.message}`);
@@ -1873,13 +1869,8 @@ function updateOptionsPanel() {
 function setupGenerate() {
     btnGenerate.addEventListener('click', generateMosaic);
 
-    if (colorModeSelect && quickColorModeSelect) {
-        colorModeSelect.addEventListener('change', () => {
-            quickColorModeSelect.value = colorModeSelect.value;
-            syncColorModeUI();
-        });
+    if (quickColorModeSelect) {
         quickColorModeSelect.addEventListener('change', () => {
-            colorModeSelect.value = quickColorModeSelect.value;
             syncColorModeUI();
         });
     }
@@ -1913,7 +1904,7 @@ function setupGenerate() {
     }
 
     function syncColorModeUI() {
-        const mode = colorModeSelect ? colorModeSelect.value : 'realistic';
+        const mode = quickColorModeSelect ? quickColorModeSelect.value : 'realistic';
         
         if (mode === 'gradient') {
             if (gradientConfig) gradientConfig.classList.remove('hidden');
@@ -1923,8 +1914,7 @@ function setupGenerate() {
             if (quickGradientConfig) quickGradientConfig.classList.add('hidden');
         }
 
-        const ditheringToggle = $('#dithering-toggle');
-        if (ditheringToggle) ditheringToggle.disabled = (mode !== 'realistic');
+        if (quickDitherToggle) quickDitherToggle.disabled = (mode !== 'realistic');
         if (quickDitherToggle) quickDitherToggle.disabled = (mode !== 'realistic');
         
         reorderPreprocessingSliders(mode);
@@ -2314,9 +2304,9 @@ async function generateMosaic() {
             body: JSON.stringify({
                 url: state.croppedImageUrl,
                 set_selections: getSetSelectionsPayload(),
-                dithering: $('#dithering-toggle').checked,
+                dithering: quickDitherToggle.checked,
                 ...getPreprocessingParams(),
-                color_mode: colorModeSelect ? colorModeSelect.value : 'realistic',
+                color_mode: quickColorModeSelect ? quickColorModeSelect.value : 'realistic',
                 gradient_colors: isQuickCol ? getGradientColors(true) : getGradientColors(),
                 target_width: state.targetW || null,
                 target_height: state.targetH || null,
@@ -2943,23 +2933,18 @@ function setupResult() {
 
     function syncQuickConfigUI() {
         renderQuickChips();
-        quickDitherToggle.checked = $('#dithering-toggle').checked;
-        if (quickColorModeSelect && colorModeSelect) {
-            quickColorModeSelect.value = colorModeSelect.value;
-        }
+        
         // With Alpine.js binding, store changes automatically reflect in the UI.
     }
     window.syncQuickConfigUI = syncQuickConfigUI;
     syncQuickConfigUI();
 
     quickDitherToggle.addEventListener('change', () => {
-        $('#dithering-toggle').checked = quickDitherToggle.checked;
-        hideReferenceLayerImmediately();
+                hideReferenceLayerImmediately();
         generateMosaic();
     });
     if (quickColorModeSelect) {
         quickColorModeSelect.addEventListener('change', () => {
-            if (colorModeSelect) colorModeSelect.value = quickColorModeSelect.value;
             hideReferenceLayerImmediately();
             generateMosaic();
         });
@@ -3472,8 +3457,8 @@ function addCompareColumn(autoGenerate = false, isUserInteraction = false) {
     
     const newCol = {
         id: Date.now().toString(),
-        colorMode: lastCol ? lastCol.colorMode : (colorModeSelect ? colorModeSelect.value : 'realistic'),
-        dithering: lastCol ? lastCol.dithering : $('#dithering-toggle').checked,
+        colorMode: lastCol ? lastCol.colorMode : (quickColorModeSelect ? quickColorModeSelect.value : 'realistic'),
+        dithering: lastCol ? lastCol.dithering : quickDitherToggle.checked,
         contrast: lastCol ? lastCol.contrast : state.adj_contrast,
         preprocessing: lastCol ? lastCol.preprocessing : true,
         gradientColors: lastCol ? [...lastCol.gradientColors] : getGradientColors(),
@@ -3619,13 +3604,12 @@ window.promoteToPrimary = function(id) {
     state.contrast_boost = col.contrast;
     state.gradient_colors = [...col.gradientColors];
 
-    colorModeSelect.value = col.colorMode;
     quickColorModeSelect.value = col.colorMode;
-    colorModeSelect.dispatchEvent(new Event('change')); // Syncs the UI panels (gradient vs dithering)
+    quickColorModeSelect.value = col.colorMode;
+    quickColorModeSelect.dispatchEvent(new Event('change')); // Syncs the UI panels (gradient vs dithering)
     
-    $('#dithering-toggle').checked = col.dithering;
     quickDitherToggle.checked = col.dithering;
-    $('#dithering-toggle').dispatchEvent(new Event('change'));
+    quickDitherToggle.dispatchEvent(new Event('change'));
 
     // Sync adjustments directly to the store.
     state.adj_contrast = col.contrast;
@@ -3711,8 +3695,8 @@ function _defaultProjectName() {
 function _getCurrentConfig() {
     return {
         ...getPreprocessingParams(),
-        dithering: $('#dithering-toggle')?.checked ?? false,
-        color_mode: colorModeSelect?.value ?? 'realistic',
+        dithering: quickDitherToggle?.checked ?? false,
+        color_mode: quickColorModeSelect?.value ?? 'realistic',
         gradient_colors: getGradientColors(),
         target_width: state.targetW || null,
         target_height: state.targetH || null,
@@ -3871,7 +3855,7 @@ async function loadProject(projectId) {
 
         // Restore config UI
         const cfg = project.config || {};
-        if ($('#dithering-toggle') && cfg.dithering !== undefined) $('#dithering-toggle').checked = cfg.dithering;
+        if (quickDitherToggle && cfg.dithering !== undefined) quickDitherToggle.checked = cfg.dithering;
         // Restore all preprocessing sliders to the store.
         state.adj_contrast = cfg.contrast_boost ?? 1.0;
         state.adj_saturation = cfg.saturation ?? 0;
@@ -3881,7 +3865,7 @@ async function loadProject(projectId) {
         state.adj_black_point = cfg.black_point ?? 0;
         state.adj_white_point = cfg.white_point ?? 255;
         state.adj_posterize = cfg.posterize_levels ?? 32;
-        if (colorModeSelect && cfg.color_mode) colorModeSelect.value = cfg.color_mode;
+        if (quickColorModeSelect && cfg.color_mode) quickColorModeSelect.value = cfg.color_mode;
         if (cfg.target_width) state.targetW = cfg.target_width;
         if (cfg.target_height) state.targetH = cfg.target_height;
 
