@@ -11,7 +11,7 @@
   <!-- Google Fonts -->
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;700;800&family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet"/>
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
-  <link rel="stylesheet" href="styles.css?v=2.3"/>
+  <link rel="stylesheet" href="styles.css?v=2.4"/>
   <!-- Three.js for 3D Mode (vendored — no CDN dependency) -->
   <script src="vendor/three.min.js"></script>
   <script src="vendor/OrbitControls.js"></script>
@@ -498,10 +498,7 @@
                   <div id="crop-container" class="relative">
                     <canvas id="crop-canvas" class="block"></canvas>
                     <div id="crop-overlay" class="absolute border-2 border-primary shadow-[0_0_25px_rgba(255,45,120,0.5)] cursor-move select-none touch-none">
-                      <div class="crop-handle absolute -top-3 -left-3 w-7 h-7 sm:w-4 sm:h-4 sm:-top-1.5 sm:-left-1.5 bg-primary shadow-[0_0_8px_#ff2d78] rounded-sm"></div>
-                      <div class="crop-handle absolute -top-3 -right-3 w-7 h-7 sm:w-4 sm:h-4 sm:-top-1.5 sm:-right-1.5 bg-primary shadow-[0_0_8px_#ff2d78] rounded-sm"></div>
-                      <div class="crop-handle absolute -bottom-3 -left-3 w-7 h-7 sm:w-4 sm:h-4 sm:-bottom-1.5 sm:-left-1.5 bg-primary shadow-[0_0_8px_#ff2d78] rounded-sm"></div>
-                      <div class="crop-handle absolute -bottom-3 -right-3 w-7 h-7 sm:w-4 sm:h-4 sm:-bottom-1.5 sm:-right-1.5 bg-primary shadow-[0_0_8px_#ff2d78] rounded-sm"></div>
+
                       <!-- Rule of thirds -->
                       <div class="absolute inset-0 pointer-events-none grid grid-cols-3 grid-rows-3">
                         <div class="border-r border-b border-primary/20"></div><div class="border-r border-b border-primary/20"></div><div class="border-b border-primary/20"></div>

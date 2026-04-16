@@ -468,10 +468,7 @@
   background: var(--md-sys-color-outline-variant, #45364c);
 }
 
-/* ── Crop Handles – touch-sized on mobile ── */
-.crop-handle {
-  touch-action: none;
-}
+
 
 /* ── Prevent overscroll / pull-to-refresh on interactive areas ── */
 #crop-wrapper,
@@ -557,11 +554,7 @@
     box-shadow: none;
   }
 
-  /* Larger crop handles for finger precision */
-  .crop-handle {
-    min-width: 28px !important;
-    min-height: 28px !important;
-  }
+
 
   /* Larger scrollbar for touch */
   ::-webkit-scrollbar {
