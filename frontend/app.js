@@ -2187,13 +2187,19 @@ function applyInstantPreview(isManualInteraction = false) {
             const satFactor = 1.0 + (p.saturation / 100);
             const tempVal = p.temperature;
             
+            // Precompute gamma and black/white point mapping
+            const lut = new Float32Array(256);
+            for (let i = 0; i < 256; i++) {
+                lut[i] = 255 * Math.pow(Math.max(0, Math.min(1, (i - bp) / range)), invGamma);
+            }
+
             for (let i = 0; i < d.length; i += 4) {
                 let r = d[i], g = d[i+1], b = d[i+2];
                 
                 // Black/White Point + Gamma
-                r = 255 * Math.pow(Math.max(0, Math.min(1, (r - bp) / range)), invGamma);
-                g = 255 * Math.pow(Math.max(0, Math.min(1, (g - bp) / range)), invGamma);
-                b = 255 * Math.pow(Math.max(0, Math.min(1, (b - bp) / range)), invGamma);
+                r = lut[r];
+                g = lut[g];
+                b = lut[b];
                 
                 // Contrast
                 r = contrast * (r - 128) + 128;
