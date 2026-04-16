@@ -1544,8 +1544,12 @@ function populateTargetResolutions() {
 function recalcCropFrame() {
     // The frame (crop area) is STATIC and centered in the canvas.
     // Sized to fill up to 90% of the canvas to leave breathing room around the edges.
-    const maxViewportW = cropCanvas.width * 0.9;
-    const maxViewportH = cropCanvas.height * 0.9;
+    let maxViewportW = cropCanvas.width * 0.9;
+    let maxViewportH = cropCanvas.height * 0.9;
+    
+    // Safety check if canvas is not yet sized properly
+    if (maxViewportW <= 0) maxViewportW = 540; // fallback (90% of 600)
+    if (maxViewportH <= 0) maxViewportH = 360; // fallback (90% of 400)
     
     let fw = maxViewportW;
     let fh = fw / cropState.targetRatio;
@@ -1605,53 +1609,68 @@ function initCropTool() {
     img.src = state.imageUrl;
     
     img.onload = () => {
-        // Auto-detect portrait images and set initial rotation if image is taller than wide
-        // (most phone photos come in landscape from the URL even if taken portrait)
-        // We don't rotate here — the backend handles EXIF. Just store natural dimensions.
-        cropState.naturalW = img.naturalWidth;
-        cropState.naturalH = img.naturalHeight;
+        requestAnimationFrame(() => {
+            // Auto-detect portrait images and set initial rotation if image is taller than wide
+            // (most phone photos come in landscape from the URL even if taken portrait)
+            // We don't rotate here — the backend handles EXIF. Just store natural dimensions.
+            cropState.naturalW = img.naturalWidth;
+            cropState.naturalH = img.naturalHeight;
 
-        // Use the maximum available screen real estate within crop-wrapper boundaries (minus the 32px padding).
-        const wrapperW = cropWrapper.clientWidth > 64 ? cropWrapper.clientWidth - 64 : cropWrapper.clientWidth;
-        const wrapperH = cropWrapper.clientHeight > 64 ? cropWrapper.clientHeight - 64 : cropWrapper.clientHeight;
-        const dispW = wrapperW;
-        const dispH = Math.max(wrapperH, 300); // minimum height so it doesn't collapse entirely
-        
-        cropCanvas.width = dispW;
-        cropCanvas.height = dispH;
-        cropCanvas.style.width = dispW + 'px';
-        cropCanvas.style.height = dispH + 'px';
-        
-        const cropContainer = document.getElementById('crop-container');
-        if (cropContainer) {
-            cropContainer.style.width = dispW + 'px';
-            cropContainer.style.height = dispH + 'px';
-        }
+            // Use the maximum available screen real estate within crop-wrapper boundaries (minus the 32px padding).
+            // Robust fallback: if clientWidth is 0 (layout hasn't caught up), use a 600px default (standard desktop)
+            let wrapperW = cropWrapper.clientWidth;
+            let wrapperH = cropWrapper.clientHeight;
 
-        // We can just use displayScale = 1, as imgScale will automatically adjust to 
-        // fill the crop frame perfectly in recalcCropFrame().
-        cropState.displayScale = 1;
+            if (wrapperW <= 0) {
+                console.warn("Crop wrapper width is 0, using 600px fallback. This suggests a layout race condition.");
+                wrapperW = 600;
+            }
+            if (wrapperH <= 0) {
+                console.warn("Crop wrapper height is 0, using 400px fallback. This suggests a layout race condition.");
+                wrapperH = 400;
+            }
 
-        // Store the loaded image for redraws
-        cropState._img = img;
+            const adjustedW = wrapperW > 64 ? wrapperW - 64 : wrapperW;
+            const adjustedH = wrapperH > 64 ? wrapperH - 64 : wrapperH;
+            
+            const dispW = adjustedW;
+            const dispH = Math.max(adjustedH, 300); // minimum height so it doesn't collapse entirely
+            
+            cropCanvas.width = dispW;
+            cropCanvas.height = dispH;
+            cropCanvas.style.width = dispW + 'px';
+            cropCanvas.style.height = dispH + 'px';
+            
+            const cropContainer = document.getElementById('crop-container');
+            if (cropContainer) {
+                cropContainer.style.width = dispW + 'px';
+                cropContainer.style.height = dispH + 'px';
+            }
 
-        populateTargetResolutions();
-        recalcCropFrame();
+            // We can just use displayScale = 1, as imgScale will automatically adjust to 
+            // fill the crop frame perfectly in recalcCropFrame().
+            cropState.displayScale = 1;
+            // Store the loaded image for redraws
+            cropState._img = img;
 
-        // Image drag (pan) listeners — user drags the IMAGE behind the fixed frame
-        cropOverlay.removeEventListener('mousedown', startImageDrag);
-        cropOverlay.removeEventListener('touchstart', startImageDragTouch);
-        document.removeEventListener('mousemove', moveImageDrag);
-        document.removeEventListener('touchmove', moveImageDragTouch);
-        document.removeEventListener('mouseup', endImageDrag);
-        document.removeEventListener('touchend', endImageDrag);
+            populateTargetResolutions();
+            recalcCropFrame();
 
-        cropOverlay.addEventListener('mousedown', startImageDrag);
-        cropOverlay.addEventListener('touchstart', startImageDragTouch, { passive: false });
-        document.addEventListener('mousemove', moveImageDrag);
-        document.addEventListener('touchmove', moveImageDragTouch, { passive: false });
-        document.addEventListener('mouseup', endImageDrag);
-        document.addEventListener('touchend', endImageDrag);
+            // Image drag (pan) listeners — user drags the IMAGE behind the fixed frame
+            cropOverlay.removeEventListener('mousedown', startImageDrag);
+            cropOverlay.removeEventListener('touchstart', startImageDragTouch);
+            document.removeEventListener('mousemove', moveImageDrag);
+            document.removeEventListener('touchmove', moveImageDragTouch);
+            document.removeEventListener('mouseup', endImageDrag);
+            document.removeEventListener('touchend', endImageDrag);
+
+            cropOverlay.addEventListener('mousedown', startImageDrag);
+            cropOverlay.addEventListener('touchstart', startImageDragTouch, { passive: false });
+            document.addEventListener('mousemove', moveImageDrag);
+            document.addEventListener('touchmove', moveImageDragTouch, { passive: false });
+            document.addEventListener('mouseup', endImageDrag);
+            document.addEventListener('touchend', endImageDrag);
+        });
     };
 }
 
