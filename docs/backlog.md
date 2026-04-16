@@ -27,10 +27,6 @@
 - [ ] **Center Mosaic Canvas Vertically and Horizontally**
   - **Description**: The mosaic canvas is centered horizontally but not vertically within the canvas wrapper. Fix the layout so the mosaic is centered on both axes, and ensure centering is preserved when zooming in/out via the slider.
   - **Context**: The parent flex container lacks proper height constraints for vertical centering to work. `applyZoom()` also needs adjustment to maintain centering during zoom changes.
-- [ ] **Remove Obsolete Mosaic Config Step**
-  - **Description**: Delete the "Mosaic Config" sidebar step (`step-options`) that appears between cropping and mosaic generation. All config controls already exist in the Quick Config panel on the build-plan page. After cropping, the flow should go directly to generating the mosaic with default config.
-  - **Impact**: Simpler user flow (crop → auto-generate → view), one fewer navigation step.
-  - **Context**: The step-options sidebar (Color Mode, Dithering, Image Adjustments, Gradient) is 100% duplicated in the Quick Config panel on the build-plan tab.
 
 ### Architecture Improvements
 - [ ] **Eliminate Redundant Base64 Mosaic Payloads**
@@ -71,3 +67,4 @@
 | **Zoom Slider UI Cutoff** | 2026-04-16 | Redesigned the zoom popover into a narrow 40px-wide vertical layout: rotated the `<input type=range>` 90° and gave it `position:absolute` inside a fixed-height wrapper so it never expands the flex parent. Removed stale `#zoom-popover { min-width:220px }` CSS that was overriding layout, added dark-theme custom track/thumb styling, updated JS toggle to `style.display='flex'` (not `hidden` class), and finally changed popover anchor from `bottom-full mb-2` to `top-full mt-2` so it opens downward into the canvas instead of upward into the navigation bar. |
 | **Eliminate CustomEvent Bridges** | 2026-04-15 | Removed all 5 `window.dispatchEvent(new CustomEvent(...))` bridges that existed between `app.js` and Alpine templates. Added `setsLoading`, `recentImages`, `recentLoading`, `recentError`, `projects`, `projectsError`, and `projectsVisible` directly to `Alpine.store('app')`. Templates for sets-grid, cart footer, recent-uploads-grid, compare-mode-view, and projects-grid now read from `$store.app.*` directly, making state flow entirely reactive and unidirectional. |
 
+| **Remove Obsolete Mosaic Config Step** | 2026-04-16 | Removed `<aside id="step-options">` from `frontend/index.html` and deleted related logic (`updateOptionsPanel`, `stepOptions`) from `frontend/app.js`. Updated `applyCrop()` to bypass the config step and call `generateMosaic()` directly. |

@@ -931,7 +931,6 @@ function showEditorStep(step) {
     // Hide all editor steps
     stepUpload.classList.add('hidden');
     stepCrop.classList.add('hidden');
-    stepOptions.classList.add('hidden');
 
     const hints = {
         upload: 'Drop an image or click to browse',
@@ -951,14 +950,6 @@ function showEditorStep(step) {
         $('#editor-hint').textContent = hints.crop;
         // Hide the title group to save vertical space
         $('#editor-title-group').classList.add('hidden');
-    } else if (step === 'options') {
-        stepOptions.classList.remove('hidden');
-        stepOptions.style.display = 'flex';
-        $('#editor-hint').textContent = hints.options;
-        $('#editor-title').textContent = 'Mosaic Config';
-        $('#editor-subtitle').textContent = 'Fine-tune rendering settings';
-        $('#editor-title-group').classList.remove('hidden');
-        updateOptionsPanel();
     }
 }
 
@@ -1840,7 +1831,7 @@ async function applyCrop() {
         state.historyIndex = -1;
         updateHistoryUI(); // Clear UI dots
         
-        showEditorStep('options');
+        await generateMosaic();
     } catch (e) {
         console.error('Crop failed:', e);
         alert(`Crop failed: ${e.message}`);
@@ -1849,23 +1840,8 @@ async function applyCrop() {
     }
 }
 
-// ═════════════════════════════════════════════════
-//  STEP 3: OPTIONS PANEL
-// ═════════════════════════════════════════════════
-function updateOptionsPanel() {
-    const srcImg = $('#source-preview');
-    if (srcImg && state.croppedImageUrl) {
-        srcImg.src = state.croppedImageUrl;
-    }
-    const info = getMergedSetInfo();
-    const setNameLabel = $('#set-name-label');
-    const gridSizeLabel = $('#grid-size-label');
-    if (setNameLabel) setNameLabel.textContent = info.name;
-    if (gridSizeLabel) gridSizeLabel.textContent = `${state.targetW || info.grid[0]}×${state.targetH || info.grid[1]} studs`;
-}
 
 function setupGenerate() {
-    btnGenerate.addEventListener('click', generateMosaic);
 
     if (colorModeSelect && quickColorModeSelect) {
         colorModeSelect.addEventListener('change', () => {
@@ -2368,7 +2344,6 @@ function setupPreprocessingControls() {
 
 async function generateMosaic() {
     // Show a loading state gracefully whether on Editor or Build Plan
-    if (btnGenerate) setBtnLoading(btnGenerate, true, 'Processing…');
     const loadingOverlay = document.createElement('div');
     if ($('#tab-build-plan').style.display !== 'none') {
         loadingOverlay.className = 'absolute inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center';
@@ -2443,7 +2418,6 @@ async function generateMosaic() {
         console.error('Generation failed:', e);
         alert('Mosaic generation failed: ' + e.message);
     } finally {
-        if (btnGenerate) setBtnLoading(btnGenerate, false);
         if (loadingOverlay.parentNode) loadingOverlay.remove();
     }
 }

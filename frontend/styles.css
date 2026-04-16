@@ -497,11 +497,6 @@
   }
   
   /* Editor sidebar: full-width stacked below canvas */
-  #step-options {
-    max-height: 60vh;
-    border-top: 1px solid var(--md-sys-color-outline-variant, #45364c);
-    border-left: none;
-  }
 
   /* Comparison slider needs full width */
   .comparison-slider-container {
@@ -522,11 +517,6 @@
   }
 
   /* Editor sidebar: stacked below in portrait */
-  #step-options {
-    max-height: 50vh;
-    border-top: 1px solid var(--md-sys-color-outline-variant, #45364c);
-    border-left: none;
-  }
 }
 
 /* iPad landscape and larger (≥1024px) — side-by-side layout */
@@ -537,9 +527,6 @@
   }
 
   /* Editor sidebar is side-by-side on large screens */
-  #step-options {
-    max-height: none;
-  }
 }
 
 /* Desktop (≥1280px) */

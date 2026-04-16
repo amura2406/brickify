@@ -23,7 +23,7 @@ def test_count_projects():
     res = service.count_projects("user_123")
     assert res == 5
 
-def test_process_base64_preview():
+def test_process_base64_images():
     service = ProjectService(MockDatabaseProvider(), MockStorageProvider())
     
     # 1x1 transparent PNG
@@ -39,10 +39,10 @@ def test_process_base64_preview():
         mosaic_data={}
     )
     
-    service.process_base64_preview(req, "user_123")
+    service.process_base64_images(req, "user_123")
     assert req.mosaic_preview_url == "https://storage.mock/mosaics/preview.png"
 
-def test_process_base64_preview_invalid():
+def test_process_base64_images_invalid():
     service = ProjectService(MockDatabaseProvider(), MockStorageProvider())
     
     req = SaveProjectRequest(
@@ -55,10 +55,10 @@ def test_process_base64_preview_invalid():
         mosaic_data={}
     )
     
-    service.process_base64_preview(req, "user_123")
+    service.process_base64_images(req, "user_123")
     assert req.mosaic_preview_url == ""
 
-def test_process_base64_preview_not_data_image():
+def test_process_base64_images_not_data_image():
     service = ProjectService(MockDatabaseProvider(), MockStorageProvider())
     
     req = SaveProjectRequest(
@@ -71,5 +71,5 @@ def test_process_base64_preview_not_data_image():
         mosaic_data={}
     )
     
-    service.process_base64_preview(req, "user_123")
+    service.process_base64_images(req, "user_123")
     assert req.mosaic_preview_url == "https://example.com/normal_image.png"
