@@ -11,7 +11,7 @@
   <!-- Google Fonts -->
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;700;800&family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet"/>
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
-  <link rel="stylesheet" href="styles.css?v=2.1"/>
+  <link rel="stylesheet" href="styles.css?v=2.2"/>
   <!-- Three.js for 3D Mode (vendored — no CDN dependency) -->
   <script src="vendor/three.min.js"></script>
   <script src="vendor/OrbitControls.js"></script>
@@ -789,15 +789,15 @@
                   <span id="zoom-label" class="tabular-nums" x-text="Math.round($store.app.zoom * 100) + '%'">100%</span>
                   <span class="material-symbols-outlined" style="font-size:12px">expand_more</span>
                 </button>
-                <!-- Zoom slider popover — vertical layout avoids right-edge clipping -->
-                <!-- Note: uses style display:none (not Tailwind hidden) so JS can set display:flex -->
-                <div id="zoom-popover" class="flex flex-col items-center gap-2 absolute right-0 bottom-full mb-2 z-40 bg-surface-container-high/95 backdrop-blur-md border border-outline-variant rounded-xl shadow-2xl px-2 py-3 w-10 pointer-events-auto" style="display:none;">
+                <!-- Zoom slider popover — narrow vertical layout, never clips right edge -->
+                <!-- style.display used (not 'hidden') so JS can set display:flex -->
+                <div id="zoom-popover" class="flex flex-col items-center gap-2 absolute right-0 bottom-full mb-2 z-40 bg-surface-container-high/95 backdrop-blur-md border border-outline-variant rounded-xl shadow-2xl px-2 py-3 pointer-events-auto" style="display:none; width:40px; overflow:visible;">
                   <span class="text-[8px] font-label text-on-surface-variant/80 tabular-nums leading-none" id="zoom-popover-label">100%</span>
-                  <!-- Vertical range slider via writing-mode -->
-                  <div class="flex items-center justify-center" style="height:120px;width:20px;">
+                  <!-- Slider is position:absolute so it doesn't expand the 40px-wide flex parent -->
+                  <div style="position:relative; height:120px; width:24px; overflow:visible; flex-shrink:0;">
                     <input type="range" id="zoom-slider" min="50" max="500" step="10" value="100"
                       class="appearance-none cursor-pointer accent-primary"
-                      style="writing-mode:vertical-lr;direction:rtl;width:120px;height:16px;transform:rotate(180deg);">
+                      style="position:absolute; width:110px; top:50%; left:50%; transform:translate(-50%,-50%) rotate(-90deg); margin:0;">
                   </div>
                   <button id="btn-zoom-reset" class="text-[8px] font-label text-primary hover:text-white leading-none" title="Reset zoom">↺</button>
                 </div>
