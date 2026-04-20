@@ -678,11 +678,11 @@ function createSetCard(set) {
     card.className = 'set-card';
     card.dataset.id = set.id;
 
-    const palette = set.colors.slice(0, 10).map(c =>
+    const palette = (set.colors ? set.colors.slice(0, 10) : []).map(c =>
         `<span class="palette-dot" style="background:${c.hex}" title="${c.name.replace(/"/g, '&quot;')}: ${c.count} pcs"></span>`
     ).join('');
 
-    const totalPiecesCount = set.colors.reduce((s, c) => s + c.count, 0);
+    const totalPiecesCount = set.colors ? set.colors.reduce((s, c) => s + c.count, 0) : 0;
 
     card.innerHTML = `
         <div class="set-card-image">
@@ -699,7 +699,7 @@ function createSetCard(set) {
                 </div>
                 <div class="set-card-meta-item">
                     <span class="material-symbols-outlined">palette</span>
-                    ${set.colors.length} colors
+                    ${set.colors ? set.colors.length : 0} colors
                 </div>
                 <div class="set-card-meta-item">
                     <span class="material-symbols-outlined">category</span>
@@ -790,7 +790,7 @@ function getMergedSetInfo() {
         const [gw, gh] = sel.set.grid;
         if (gw * gh > maxGw * maxGh) { maxGw = gw; maxGh = gh; }
         names.push(sel.qty > 1 ? `${sel.set.name} ×${sel.qty}` : sel.set.name);
-        sel.set.colors.forEach(c => {
+        (sel.set.colors || []).forEach(c => {
             if (colorMap[c.hex]) {
                 colorMap[c.hex].count += c.count * sel.qty;
             } else {
@@ -821,7 +821,7 @@ function getMergedSetInfoFromCart(cart) {
     (cart || []).forEach(sel => {
         const [gw, gh] = sel.set.grid;
         if (gw * gh > maxGw * maxGh) { maxGw = gw; maxGh = gh; }
-        sel.set.colors.forEach(c => {
+        (sel.set.colors || []).forEach(c => {
             if (colorMap[c.hex]) {
                 colorMap[c.hex].count += c.count * sel.qty;
             } else {
@@ -1867,7 +1867,7 @@ function updateOptionsPanel() {
 }
 
 function setupGenerate() {
-    btnGenerate.addEventListener('click', generateMosaic);
+    if (btnGenerate) btnGenerate.addEventListener('click', generateMosaic);
 
     if (quickColorModeSelect) {
         quickColorModeSelect.addEventListener('change', () => {

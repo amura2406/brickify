@@ -13,14 +13,14 @@
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="styles.css?v=2.4"/>
   <!-- Three.js for 3D Mode (vendored — no CDN dependency) -->
-  <script src="vendor/three.min.js"></script>
+  <script src="vendor/three.js"></script>
   <script src="vendor/OrbitControls.js"></script>
   <!-- Firebase SDK (v9 compat) -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="auth.js"></script>
   <!-- Alpine.js (vendored — no CDN dependency) -->
-  <script defer src="vendor/alpine.min.js"></script>
+  <script defer src="vendor/alpine.js"></script>
 </head>
 <body x-data class="bg-background text-on-background font-body min-h-screen flex flex-col selection:bg-primary/30">
 
@@ -288,11 +288,11 @@
                   </div>
                   <div class="set-card-meta-item">
                     <span class="material-symbols-outlined">palette</span>
-                    <span x-text="set.colors.length + ' colors'"></span>
+                    <span x-text="(set.colors ? set.colors.length : 0) + ' colors'"></span>
                   </div>
                   <div class="set-card-meta-item">
                     <span class="material-symbols-outlined">category</span>
-                    <span x-text="set.colors.reduce((a,c)=>a+c.count,0).toLocaleString() + ' pcs'"></span>
+                    <span x-text="(set.colors ? set.colors.reduce((a,c)=>a+c.count,0) : 0).toLocaleString() + ' pcs'"></span>
                   </div>
                   <!-- Cart quantity badge -->
                   <div class="set-card-meta-item set-qty-display"
@@ -303,7 +303,7 @@
                   </div>
                 </div>
                 <div class="set-card-palette">
-                  <template x-for="(c, ci) in set.colors.slice(0,10)" :key="ci">
+                  <template x-for="(c, ci) in (set.colors ? set.colors.slice(0,10) : [])" :key="ci">
                     <span class="palette-dot"
                           :style="'background:' + c.hex"
                           :title="c.name + ': ' + c.count + ' pcs'"></span>
