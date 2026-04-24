@@ -10,6 +10,7 @@ let setSearch;
 window.setCardToggle = setCardToggle;
 window.setCardQtyChange = setCardQtyChange;
 window.getMergedSetInfoFromCart = getMergedSetInfoFromCart;
+window.getMergedSetInfo = getMergedSetInfo;
 
 export function setupSets(onContinueToEditor) {
     setSearch = $('#set-search');

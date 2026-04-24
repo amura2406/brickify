@@ -395,6 +395,8 @@ async function pickFromGooglePhotos() {
     }
 }
 
+import { initCropTool } from './crop.js';
+
 function handleUploadResponse(data) {
     const state = getState();
     state.imageUrl = data.url;
@@ -404,5 +406,5 @@ function handleUploadResponse(data) {
 
     // Use global functions to proceed until extracted
     if (window.showEditorStep) window.showEditorStep('crop');
-    if (window.initCropTool) window.initCropTool();
+    initCropTool();
 }

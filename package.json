@@ -1,6 +1,6 @@
 {
   "name": "brickify",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "private": true,
   "scripts": {
     "build:css": "tailwindcss -i frontend/vendor/tailwind.input.css -o frontend/vendor/tailwind.css --minify",
