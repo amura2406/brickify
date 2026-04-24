@@ -2253,14 +2253,21 @@ window._onSliderInput = () => {
     applyInstantPreview(true);
 };
 
-window._onSliderChange = () => {
-    const isQuick = $('#tab-build-plan').style.display !== 'none';
-    if (!isQuick) {
-        applyInstantPreview(true);
-    } else {
-        hideReferenceLayerImmediately();
-        generateMosaic();
+window.hideReferenceLayerImmediately = function() {
+    if (typeof referenceLayer !== 'undefined' && referenceLayer) {
+        if (typeof isComparisonActive !== 'undefined' && !isComparisonActive) {
+            referenceLayer.classList.add('hidden');
+        } else if (typeof isComparisonActive !== 'undefined' && isComparisonActive) {
+            if (typeof comparisonSlider !== 'undefined' && comparisonSlider) {
+                referenceLayer.style.clipPath = `inset(0 ${100 - comparisonSlider.value}% 0 0)`;
+            }
+        }
     }
+};
+
+window._onSliderChange = () => {
+    hideReferenceLayerImmediately();
+    generateMosaic();
 };
 
 function setupPreprocessingControls() {

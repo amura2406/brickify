@@ -276,7 +276,7 @@
             <div class="set-card" :class="{ 'in-cart': $store.app.setSelections.some(s => s.set.id === set.id) }" :data-id="set.id">
               <div class="set-card-image">
                 <img :src="`/assets/sets/${set.id}.jpg`" :alt="set.name"
-                     :onerror="`this.src='/assets/sets/${set.id}.png'; this.onerror=function(){this.parentElement.innerHTML='<div class=\'w-full h-full flex items-center justify-center bg-surface-container-lowest\'><span class=\'material-symbols-outlined text-5xl text-on-surface-variant/30\'>deployed_code</span></div>';}`" />
+                     :onerror="`this.src='/assets/sets/${set.id}.png'; this.onerror=function(){this.parentElement.innerHTML='<div class=&quot;w-full h-full flex items-center justify-center bg-surface-container-lowest&quot;><span class=&quot;material-symbols-outlined text-5xl text-on-surface-variant/30&quot;>deployed_code</span></div>';}`" />
               </div>
               <div class="set-card-body">
                 <div class="set-card-id" x-text="'Set #' + set.id"></div>
