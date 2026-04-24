@@ -54,8 +54,8 @@ Before deploying frontend, **always rebuild Tailwind CSS** if any `.html` or `.j
 generated CSS. See Frontend Build Conventions @rules/frontend-build-conventions.md for details.
 
 ```bash
-# Step 1 — rebuild Tailwind (run from project root)
-export NVM_DIR="$HOME/.nvm" && [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" && npm run build:css
+# Step 1 — rebuild Tailwind and JS (run from project root)
+export NVM_DIR="$HOME/.nvm" && [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" && npm run build
 ```
 
 **Step 2 — verify cache-busting versions were bumped (MANDATORY):**
