@@ -35,7 +35,7 @@ export function setupCrop() {
     cropWrapper = $('#crop-wrapper');
     btnRotateImage = $('#btn-rotate-image');
     cropZoomValue = $('#crop-zoom-value');
-    targetResolutionSelect = $('#target-resolution');
+    targetResolutionSelect = $('#target-resolution-select');
     btnRotateCrop = $('#btn-rotate-crop');
     cropCanvas = $('#crop-canvas');
     cropOverlay = $('#crop-overlay');
