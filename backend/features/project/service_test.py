@@ -39,7 +39,7 @@ def test_process_base64_preview():
         mosaic_data={}
     )
     
-    service.process_base64_preview(req, "user_123")
+    service.process_base64_images(req, "user_123")
     assert req.mosaic_preview_url == "https://storage.mock/mosaics/preview.png"
 
 def test_process_base64_preview_invalid():
@@ -55,7 +55,7 @@ def test_process_base64_preview_invalid():
         mosaic_data={}
     )
     
-    service.process_base64_preview(req, "user_123")
+    service.process_base64_images(req, "user_123")
     assert req.mosaic_preview_url == ""
 
 def test_process_base64_preview_not_data_image():
@@ -71,5 +71,5 @@ def test_process_base64_preview_not_data_image():
         mosaic_data={}
     )
     
-    service.process_base64_preview(req, "user_123")
+    service.process_base64_images(req, "user_123")
     assert req.mosaic_preview_url == "https://example.com/normal_image.png"

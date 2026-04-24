@@ -5,8 +5,8 @@
   "scripts": {
     "build:css": "tailwindcss -i frontend/vendor/tailwind.input.css -o frontend/vendor/tailwind.css --minify",
     "watch:css": "tailwindcss -i frontend/vendor/tailwind.input.css -o frontend/vendor/tailwind.css --watch",
-    "build:js": "esbuild frontend/app.js frontend/auth.js --minify --outdir=frontend --out-extension:.js=.min.js",
-    "watch:js": "esbuild frontend/app.js frontend/auth.js --minify --watch --outdir=frontend --out-extension:.js=.min.js",
+    "build:js": "esbuild frontend/app.js frontend/auth.js --bundle --minify --outdir=frontend --out-extension:.js=.min.js",
+    "watch:js": "esbuild frontend/app.js frontend/auth.js --bundle --minify --watch --outdir=frontend --out-extension:.js=.min.js",
     "build": "npm run build:css && npm run build:js"
   },
   "devDependencies": {
