@@ -1,6 +1,26 @@
 import { $ } from '../utils.js';
 import { getState } from '../store.js';
 import { API, authFetch } from '../api.js';
+const state = new Proxy({}, {
+    get(target, prop) { return getState()[prop]; },
+    set(target, prop, value) { getState()[prop] = value; return true; }
+});
+
+export const mosaicState = {
+    dragging: false,
+    dragStartX: 0,
+    dragStartY: 0,
+    initialPanX: 0,
+    initialPanY: 0,
+    panX: 0,
+    panY: 0,
+    pinchDistance: null,
+    initialZoom: 1
+};
+
+let btn2d, btn3d, btnComparisonToggle, comparisonSlider, referenceLayer, mosaicWrapper;
+let btnModeSingle, btnModeCompare, btnAddCompareColumn, singleModeView, compareModeView;
+let quickDitherToggle, quickColorModeSelect;
 
 // ═════════════════════════════════════════════════
 //  BUILD PLAN: CONTROLS (2D/3D, Comparison, Zoom)
@@ -11,6 +31,20 @@ export function setupResult() {
         return;
     }
     window.__resultEventsBound = true;
+
+    btn2d = $('#btn-2d');
+    btn3d = $('#btn-3d');
+    btnComparisonToggle = $('#btn-comparison-toggle');
+    comparisonSlider = $('#comparison-slider');
+    referenceLayer = $('#reference-layer');
+    mosaicWrapper = $('#mosaic-canvas-wrapper');
+    btnModeSingle = $('#btn-mode-single');
+    btnModeCompare = $('#btn-mode-compare');
+    btnAddCompareColumn = $('#btn-add-compare-column');
+    singleModeView = $('#single-mode-view');
+    compareModeView = $('#compare-mode-view');
+    quickDitherToggle = $('#quick-dither-toggle');
+    quickColorModeSelect = $('#quick-color-mode-select');
 
     // Zoom slider popover
     const zoomToggleBtn = document.getElementById('btn-zoom-toggle');
@@ -425,7 +459,7 @@ function toggleComparison() {
 }
 
 function startOver() {
-    state = { setSelections: [], allSets: state.allSets, imageUrl: null, imageWidth: 0, imageHeight: 0, isSquare: false, croppedImageUrl: null, mosaicUrl: null, mosaicData: null, zoom: 1, baseScale: 1, isDev: state.isDev, compareColumns: [], isCompareArena: false, targetW: 0, targetH: 0 };
+    Object.assign(state, { setSelections: [], imageUrl: null, imageWidth: 0, imageHeight: 0, isSquare: false, croppedImageUrl: null, mosaicUrl: null, mosaicData: null, zoom: 1, baseScale: 1, compareColumns: [], isCompareArena: false, targetW: 0, targetH: 0 });
     renderSelectedSets();
     if (window.renderQuickChips) window.renderQuickChips();
     if (typeof renderCompareColumns === 'function') renderCompareColumns();

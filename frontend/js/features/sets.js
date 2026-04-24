@@ -6,14 +6,14 @@ import { showTab } from './navigation.js';
 
 let setSearch;
 
+// Assign Alpine helpers to window immediately
+window.setCardToggle = setCardToggle;
+window.setCardQtyChange = setCardQtyChange;
+window.getMergedSetInfoFromCart = getMergedSetInfoFromCart;
+
 export function setupSets(onContinueToEditor) {
     setSearch = $('#set-search');
     
-    // Assign Alpine helpers to window
-    window.setCardToggle = setCardToggle;
-    window.setCardQtyChange = setCardQtyChange;
-    window.getMergedSetInfoFromCart = getMergedSetInfoFromCart;
-
     setupSearch();
 
     const btnContinueSets = $('#btn-continue-sets');
