@@ -600,8 +600,10 @@ export function setupResult() {
 }
 
 let isComparisonActive = false;
+window.isComparisonActive = false;
 function toggleComparison() {
     isComparisonActive = !isComparisonActive;
+    window.isComparisonActive = isComparisonActive;
     if (isComparisonActive) {
         mosaicWrapper.classList.remove('mosaic-3d-perspective');
         btn2d.className = 'px-3 py-1 text-xs font-label uppercase tracking-wider rounded-lg transition-all bg-primary text-on-primary shadow-[0_0_10px_rgba(255,45,120,0.4)]';

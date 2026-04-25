@@ -173,9 +173,9 @@ export function applyInstantPreview(isManualInteraction = false) {
 
 export function hideReferenceLayerImmediately() {
     if (typeof referenceLayer !== 'undefined' && referenceLayer) {
-        if (typeof isComparisonActive !== 'undefined' && !isComparisonActive) {
+        if (!window.isComparisonActive) {
             referenceLayer.classList.add('hidden');
-        } else if (typeof isComparisonActive !== 'undefined' && isComparisonActive) {
+        } else {
             if (typeof comparisonSlider !== 'undefined' && comparisonSlider) {
                 referenceLayer.style.clipPath = `inset(0 ${100 - comparisonSlider.value}% 0 0)`;
             }
