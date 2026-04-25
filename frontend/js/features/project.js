@@ -1,9 +1,21 @@
-import { $, $$ } from '../utils.js';
+import { $, $$, setBtnLoading } from '../utils.js';
 import { getState } from '../store.js';
 import { API, authFetch } from '../api.js';
 
-import { generateMosaic } from './generate.js';
+import { generateMosaic, getGradientColors } from './generate.js';
 import { showTab } from './navigation.js';
+import { getPreprocessingParams, applyInstantPreview } from './preprocess.js';
+import { renderSelectedSets } from './sets.js';
+import { cropState } from './crop.js';
+
+// Reactive proxy alias for Alpine.store('app') — mirrors the pattern in result.js.
+const state = new Proxy({}, {
+    get(target, prop) { return getState()[prop]; },
+    set(target, prop, value) { getState()[prop] = value; return true; }
+});
+
+// DOM refs resolved lazily (after DOMContentLoaded)
+let quickDitherToggle, quickColorModeSelect;
 
 // ═════════════════════════════════════════════════
 //  PROJECT MANAGEMENT — Save, List, Load, Delete
@@ -171,14 +183,14 @@ async function loadProject(projectId) {
         // Ensure array holds valid layout (drop legacy if it's there but missing config)
         state.mosaicHistory = state.mosaicHistory.filter(h => h && h.config);
         state.historyIndex = state.mosaicHistory.length - 1;
-        updateHistoryUI(); // Reset UI slider hooks
+        if (window.updateHistoryUI) window.updateHistoryUI(); // Reset UI slider hooks
 
         // Restore set selections using allSets lookup
         state.setSelections = (project.set_selections || []).map(sel => {
             const found = state.allSets.find(s => s.id === sel.set_id);
             return found ? { set: found, qty: sel.qty || 1 } : null;
         }).filter(Boolean);
-        renderSelectedSets();
+        if (renderSelectedSets) renderSelectedSets();
 
         // Restore config UI
         const cfg = project.config || {};
@@ -202,10 +214,10 @@ async function loadProject(projectId) {
 
         // Leave reference image unchanged to display whatever the preprocessing set it to.
         showTab('build-plan');
-        applyInstantPreview(false); // Make sure the reference layer has an image src
+        if (applyInstantPreview) applyInstantPreview(false); // Make sure the reference layer has an image src
         if (window.syncQuickConfigUI) window.syncQuickConfigUI();
-        renderMosaic();
-        renderLegend();
+        if (window.renderMosaic) window.renderMosaic();
+        if (window.renderLegend) window.renderLegend();
     } catch (e) {
         alert('Failed to load project: ' + e.message);
     } finally {
@@ -419,6 +431,10 @@ function _showToast(message, type) {
 // ── Wire up modal event listeners (after DOM ready) ──
 
 document.addEventListener('DOMContentLoaded', () => {
+    // Resolve DOM refs now that DOM is ready
+    quickDitherToggle = $('#quick-dither-toggle');
+    quickColorModeSelect = $('#quick-color-mode-select');
+
     $('#btn-close-projects-modal')?.addEventListener('click', closeProjectsGallery);
     $('#projects-modal')?.addEventListener('click', e => { if (e.target === e.currentTarget) closeProjectsGallery(); });
 

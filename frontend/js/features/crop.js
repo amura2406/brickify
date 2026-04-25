@@ -7,7 +7,7 @@ let btnApplyCrop, btnResetCrop, cropWrapper, btnRotateImage;
 let cropZoomValue, targetResolutionSelect, btnRotateCrop;
 let cropCanvas, cropOverlay;
 
-let cropState = {
+export let cropState = {
     // Image transform state (NEW: fixed frame, movable image)
     imgScale: 1,        // Current image zoom level (1 = fit-to-frame)
     imgPanX: 0,         // Image pan offset X (in display px)
