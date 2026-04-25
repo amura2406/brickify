@@ -234,6 +234,12 @@ export function getGradientColors(isQuick = false) {
 
 export async function generateMosaic() {
     const state = getState();
+    
+    if (!state.setSelections || state.setSelections.length === 0) {
+        alert("Please select at least one LEGO set before generating a mosaic.");
+        return;
+    }
+    
     if (window.setBtnLoading) window.setBtnLoading(btnGenerate, true, 'Processing…');
     const loadingOverlay = document.createElement('div');
     const tabBuildPlan = document.getElementById('tab-build-plan');
@@ -248,13 +254,12 @@ export async function generateMosaic() {
 
     try {
         const isQuickCol = quickColorModeSelect && quickColorModeSelect.value === 'gradient';
-        const getSetSelectionsPayload = window.getSetSelectionsPayload || (() => []);
         const res = await authFetch(`${API}/api/generate`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 url: state.croppedImageUrl,
-                set_selections: getSetSelectionsPayload(),
+                set_selections: state.setSelections.map(s => ({ set_id: s.set.id, set_name: s.set.name, qty: s.qty })),
                 dithering: quickDitherToggle ? quickDitherToggle.checked : false,
                 ...getPreprocessingParams(),
                 color_mode: quickColorModeSelect ? quickColorModeSelect.value : 'realistic',
@@ -389,47 +394,49 @@ export function updateHistoryUI() {
     const slider = historySlider;
     const label = historySliderLabel;
     
-    let isPeeking = false;
-    
-    slider.addEventListener('input', () => {
-        const val = parseInt(slider.value);
-        label.textContent = val === 0 ? '0' : val.toString();
+    if (slider && label) {
+        let isPeeking = false;
         
-        if (val === 0) {
+        slider.addEventListener('input', () => {
+            const val = parseInt(slider.value);
+            label.textContent = val === 0 ? '0' : val.toString();
+            
+            if (val === 0) {
+                if (isPeeking) {
+                    isPeeking = false;
+                    if (window.renderMosaic) window.renderMosaic(true); 
+                }
+                return;
+            }
+            
+            isPeeking = true;
+            const idx = state.mosaicHistory.length - 1 + val; 
+            if (idx >= 0 && idx < state.mosaicHistory.length) {
+                const pastItem = state.mosaicHistory[idx];
+                const ctx = mosaicCanvas.getContext('2d');
+                const img = new Image();
+                img.onload = () => {
+                    ctx.clearRect(0, 0, mosaicCanvas.width, mosaicCanvas.height);
+                    ctx.drawImage(img, 0, 0);
+                };
+                img.src = pastItem.url;
+            }
+        }, opts);
+        
+        const snapBack = () => {
+            slider.value = 0;
+            label.textContent = '0';
             if (isPeeking) {
                 isPeeking = false;
                 if (window.renderMosaic) window.renderMosaic(true); 
             }
-            return;
-        }
+        };
         
-        isPeeking = true;
-        const idx = state.mosaicHistory.length - 1 + val; 
-        if (idx >= 0 && idx < state.mosaicHistory.length) {
-            const pastItem = state.mosaicHistory[idx];
-            const ctx = mosaicCanvas.getContext('2d');
-            const img = new Image();
-            img.onload = () => {
-                ctx.clearRect(0, 0, mosaicCanvas.width, mosaicCanvas.height);
-                ctx.drawImage(img, 0, 0);
-            };
-            img.src = pastItem.url;
-        }
-    }, opts);
-    
-    const snapBack = () => {
-        slider.value = 0;
-        label.textContent = '0';
-        if (isPeeking) {
-            isPeeking = false;
-            if (window.renderMosaic) window.renderMosaic(true); 
-        }
-    };
-    
-    slider.addEventListener('mouseup', snapBack, opts);
-    slider.addEventListener('touchend', snapBack, opts);
-    slider.addEventListener('mouseleave', () => {
-        if (parseInt(slider.value) !== 0) snapBack();
-    }, opts);
+        slider.addEventListener('mouseup', snapBack, opts);
+        slider.addEventListener('touchend', snapBack, opts);
+        slider.addEventListener('mouseleave', () => {
+            if (isPeeking) snapBack();
+        }, opts);
+    }
 }
 window.updateHistoryUI = updateHistoryUI;

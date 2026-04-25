@@ -249,6 +249,8 @@ document.addEventListener('DOMContentLoaded', () => {
     setupPreprocessingControls();
     setupResult();
 
-    btnContinueSets.addEventListener('click', continueFromSetSelection);
+    if (btnContinueSets) {
+        btnContinueSets.addEventListener('click', continueFromSetSelection);
+    }
 });
 

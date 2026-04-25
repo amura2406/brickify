@@ -85,32 +85,34 @@ export function setupResult() {
     // Mosaic Canvas interactions (pan / pinch zoom — wheel zoom removed)
     const mw = $('#mosaic-canvas-wrapper');
 
-    mw.addEventListener('mousedown', (e) => {
-        if (e.target.id === 'comparison-slider') return;
-        mosaicState.dragging = true;
-        mosaicState.dragStartX = e.clientX;
-        mosaicState.dragStartY = e.clientY;
-        mosaicState.initialPanX = mosaicState.panX;
-        mosaicState.initialPanY = mosaicState.panY;
-    });
-
-    mw.addEventListener('touchstart', (e) => {
-        if (e.target.id === 'comparison-slider') return;
-        if (e.touches.length === 1) {
+    if (mw) {
+        mw.addEventListener('mousedown', (e) => {
+            if (e.target.id === 'comparison-slider') return;
             mosaicState.dragging = true;
-            mosaicState.dragStartX = e.touches[0].clientX;
-            mosaicState.dragStartY = e.touches[0].clientY;
+            mosaicState.dragStartX = e.clientX;
+            mosaicState.dragStartY = e.clientY;
             mosaicState.initialPanX = mosaicState.panX;
             mosaicState.initialPanY = mosaicState.panY;
-        } else if (e.touches.length === 2) {
-            mosaicState.dragging = false; 
-            const t1 = e.touches[0];
-            const t2 = e.touches[1];
-            mosaicState.pinchDistance = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
-            mosaicState.initialZoom = state.zoom;
-            e.preventDefault();
-        }
-    }, { passive: false });
+        });
+
+        mw.addEventListener('touchstart', (e) => {
+            if (e.target.id === 'comparison-slider') return;
+            if (e.touches.length === 1) {
+                mosaicState.dragging = true;
+                mosaicState.dragStartX = e.touches[0].clientX;
+                mosaicState.dragStartY = e.touches[0].clientY;
+                mosaicState.initialPanX = mosaicState.panX;
+                mosaicState.initialPanY = mosaicState.panY;
+            } else if (e.touches.length === 2) {
+                mosaicState.dragging = false; 
+                const t1 = e.touches[0];
+                const t2 = e.touches[1];
+                mosaicState.pinchDistance = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+                mosaicState.initialZoom = state.zoom;
+                e.preventDefault();
+            }
+        }, { passive: false });
+    }
 
     window.addEventListener('mousemove', (e) => {
         if (!mosaicState.dragging) return;
@@ -303,38 +305,44 @@ export function setupResult() {
     };
 
     // Toggle popover
-    quickAddSetBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const isHidden = quickAddPopover.classList.contains('hidden');
-        if (isHidden) {
-            window._compareColId = undefined; // Clear compare targeting
-            window._replaceSetIdx = undefined; // Clear replace mode
-            quickAddPopover.classList.remove('hidden');
-            quickAddPopover.style.display = 'flex';
-            quickAddSearch.value = '';
-            buildQuickAddList('');
-            quickAddSearch.focus();
-        } else {
-            window._replaceSetIdx = undefined;
-            quickAddPopover.classList.add('hidden');
-            quickAddPopover.style.display = '';
-        }
-    });
+    if (quickAddSetBtn) {
+        quickAddSetBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isHidden = quickAddPopover.classList.contains('hidden');
+            if (isHidden) {
+                window._compareColId = undefined; // Clear compare targeting
+                window._replaceSetIdx = undefined; // Clear replace mode
+                quickAddPopover.classList.remove('hidden');
+                quickAddPopover.style.display = 'flex';
+                quickAddSearch.value = '';
+                buildQuickAddList('');
+                quickAddSearch.focus();
+            } else {
+                window._replaceSetIdx = undefined;
+                quickAddPopover.classList.add('hidden');
+                quickAddPopover.style.display = '';
+            }
+        });
+    }
     // Close popover when clicking outside modal content
     document.addEventListener('click', (e) => {
         const modalContent = document.getElementById('quick-add-set-modal-content');
         const isClickingModal = modalContent && modalContent.contains(e.target);
-        const isClickingBtn = e.target === quickAddSetBtn || quickAddSetBtn.contains(e.target);
-        const isHidden = quickAddPopover.classList.contains('hidden');
+        const isClickingBtn = quickAddSetBtn && (e.target === quickAddSetBtn || quickAddSetBtn.contains(e.target));
+        const isHidden = quickAddPopover && quickAddPopover.classList.contains('hidden');
         
         if (!isHidden && !isClickingModal && !isClickingBtn) {
             window._replaceSetIdx = undefined;
-            quickAddPopover.classList.add('hidden');
-            quickAddPopover.style.display = '';
+            if (quickAddPopover) {
+                quickAddPopover.classList.add('hidden');
+                quickAddPopover.style.display = '';
+            }
         }
     });
     // Search filter
-    quickAddSearch.addEventListener('input', () => buildQuickAddList(quickAddSearch.value));
+    if (quickAddSearch) {
+        quickAddSearch.addEventListener('input', () => buildQuickAddList(quickAddSearch.value));
+    }
     // ───────────────────────────────────────────────────────────────────────────
 
     function syncQuickConfigUI() {
@@ -345,10 +353,12 @@ export function setupResult() {
     window.syncQuickConfigUI = syncQuickConfigUI;
     syncQuickConfigUI();
 
-    quickDitherToggle.addEventListener('change', () => {
-                hideReferenceLayerImmediately();
-        generateMosaic();
-    });
+    if (quickDitherToggle) {
+        quickDitherToggle.addEventListener('change', () => {
+                    hideReferenceLayerImmediately();
+            generateMosaic();
+        });
+    }
     if (quickColorModeSelect) {
         quickColorModeSelect.addEventListener('change', () => {
             hideReferenceLayerImmediately();
