@@ -58,6 +58,32 @@ generated CSS. See Frontend Build Conventions @rules/frontend-build-conventions.
 export NVM_DIR="$HOME/.nvm" && [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" && npm run build
 ```
 
+**Step 1b — verify bundle integrity (MANDATORY):**
+
+After building JS, verify that all critical `window.*` globals are present in the bundle.
+Missing globals cause **silent failures** (black screens, dead buttons) with no console errors,
+because calling code uses defensive `if (window.fn)` guards.
+
+See Frontend Module Architecture @rules/frontend-module-architecture.md for the full contract.
+
+```bash
+echo "=== Bundle Integrity Check ===" && \
+for fn in renderMosaic renderLegend applyZoom generateMosaic \
+          hideReferenceLayerImmediately loadProject openDeleteProjectDialog \
+          renderQuickChips showColorPopover; do \
+    count=$(grep -c "window\.$fn" frontend/app.min.js 2>/dev/null || echo 0); \
+    if [ "$count" -eq "0" ]; then \
+        echo "❌ MISSING: window.$fn not found in bundle!"; \
+    else \
+        echo "✅ window.$fn ($count references)"; \
+    fi; \
+done
+```
+
+> **If any function shows ❌ MISSING:** STOP. Do not deploy. Find the source module that should
+> define and export this function. See the debugging guide in
+> Frontend Module Architecture @rules/frontend-module-architecture.md.
+
 **Step 2 — verify cache-busting versions were bumped (MANDATORY):**
 
 If `app.js`, `styles.css`, or `auth.js` were modified in this conversation, you MUST verify

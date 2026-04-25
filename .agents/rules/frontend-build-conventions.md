@@ -107,6 +107,38 @@ This project uses a **two-tier caching architecture**:
 
 > **Anti-pattern**: Never remove version query strings. Never set them statically. Always increment.
 
+### JavaScript Build (esbuild)
+
+The app's JavaScript is modular ES6, bundled by esbuild into a single IIFE (`app.min.js`).
+This happens alongside the Tailwind CSS build.
+
+**When to rebuild `app.min.js`:**
+- You modify any file under `frontend/js/` or `frontend/app.js`
+- You add, move, or rename a function that is exported to `window.*`
+- Before every frontend deployment
+
+**How to rebuild:**
+```bash
+# JS only
+npm run build:js
+
+# Full build (CSS + JS)
+npm run build
+```
+
+**Critical: `window.*` bridge pattern.** Because esbuild wraps everything in an IIFE, modules
+communicate via `window.*` globals. These are NOT validated at build time — a missing
+`window.renderMosaic` will only fail at RUNTIME (silently, due to defensive `if` guards).
+
+After building, always verify critical functions exist:
+```bash
+grep -c "window\.renderMosaic" frontend/app.min.js  # should be > 0
+```
+
+See Frontend Module Architecture @frontend-module-architecture.md for the full cross-module
+contract, refactoring checklist, and debugging guide.
+
 ### Related Rules
+- Frontend Module Architecture @frontend-module-architecture.md
 - Project Structure @project-structure.md
 - Deploy Workflow @workflows/deploy.md
