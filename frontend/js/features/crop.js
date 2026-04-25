@@ -1,7 +1,8 @@
-import { $ } from '../utils.js';
+import { $, setBtnLoading } from '../utils.js';
 import { getState } from '../store.js';
 import { API, authFetch } from '../api.js';
-
+import { showTab } from './navigation.js';
+import { generateMosaic, updateHistoryUI } from './generate.js';
 let btnApplyCrop, btnResetCrop, cropWrapper, btnRotateImage;
 let cropZoomValue, targetResolutionSelect, btnRotateCrop;
 let cropCanvas, cropOverlay;
@@ -30,6 +31,7 @@ let cropState = {
 };
 
 export function setupCrop() {
+    console.log('[setupCrop] Initializing crop module ...');
     btnApplyCrop = $('#btn-apply-crop');
     btnResetCrop = $('#btn-reset-crop');
     cropWrapper = $('#crop-wrapper');
@@ -39,6 +41,13 @@ export function setupCrop() {
     btnRotateCrop = $('#btn-rotate-crop');
     cropCanvas = $('#crop-canvas');
     cropOverlay = $('#crop-overlay');
+
+    console.log('[setupCrop] DOM elements:', {
+        btnApplyCrop: !!btnApplyCrop,
+        cropCanvas: !!cropCanvas,
+        cropWrapper: !!cropWrapper,
+        cropOverlay: !!cropOverlay,
+    });
 
     if (btnApplyCrop) btnApplyCrop.addEventListener('click', applyCrop);
     if (btnResetCrop) btnResetCrop.addEventListener('click', resetCrop);
@@ -458,7 +467,23 @@ function resetCrop() {
 }
 
 async function applyCrop() {
+    console.log('[applyCrop] START');
     const state = getState();
+
+    // Guard: cropCanvas must exist
+    if (!cropCanvas) {
+        console.error('[applyCrop] cropCanvas is null — aborting. DOM may not be ready.');
+        alert('Crop tool is not ready. Please reload the page.');
+        return;
+    }
+
+    // Guard: imageUrl must exist
+    if (!state.imageUrl) {
+        console.error('[applyCrop] No imageUrl in state — aborting.');
+        alert('No image loaded. Please upload an image first.');
+        return;
+    }
+
     // Calculate the crop region in ORIGINAL image coordinates.
     // The frame is at (frameX, frameY) with size (frameW, frameH) in display space.
     // The image is drawn at center + pan, scaled by imgScale, rotated by imgRotation.
@@ -511,8 +536,16 @@ async function applyCrop() {
     const w = Math.round(cropState.frameW / scaleX);
     const h = Math.round(cropState.frameH / scaleY);
 
-    if (window.setBtnLoading) window.setBtnLoading(btnApplyCrop, true, 'Cropping…');
+    console.log('[applyCrop] Crop coords:', { x, y, w, h, rotation: cropState.imgRotation, url: state.imageUrl });
+
+    if (setBtnLoading) setBtnLoading(btnApplyCrop, true, 'Cropping…');
     try {
+        console.log('[applyCrop] Sending POST to /api/crop ...');
+
+        // Timeout wrapper to prevent silent hangs — abort after 30 seconds
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000);
+
         const res = await authFetch(`${API}/api/crop`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -521,22 +554,39 @@ async function applyCrop() {
                 x, y, w, h,
                 rotation_degrees: cropState.imgRotation,
             }),
+            signal: controller.signal,
         });
+        clearTimeout(timeoutId);
+
+        console.log('[applyCrop] Response received, status:', res.status);
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || 'Crop failed');
+
+        console.log('[applyCrop] Crop success, croppedUrl:', data.url);
         state.croppedImageUrl = data.url;
         
         // Reset history for the new image
         state.mosaicHistory = [];
         state.historyIndex = -1;
-        if (window.updateHistoryUI) window.updateHistoryUI(); // Clear UI dots
+        if (updateHistoryUI) updateHistoryUI(); // Clear UI dots
         
-        if (window.showTab) window.showTab('build-plan');
-        if (window.generateMosaic) window.generateMosaic();
+        console.log('[applyCrop] Switching to build-plan tab ...');
+        if (showTab) showTab('build-plan');
+
+        console.log('[applyCrop] Calling generateMosaic ...');
+        if (generateMosaic) {
+            await generateMosaic();
+        }
+        console.log('[applyCrop] DONE');
     } catch (e) {
-        console.error('Crop failed:', e);
-        alert(`Crop failed: ${e.message}`);
+        if (e.name === 'AbortError') {
+            console.error('[applyCrop] Request timed out after 30s');
+            alert('Crop request timed out. Please check your connection and try again.');
+        } else {
+            console.error('[applyCrop] Crop failed:', e);
+            alert(`Crop failed: ${e.message}`);
+        }
     } finally {
-        if (window.setBtnLoading) window.setBtnLoading(btnApplyCrop, false);
+        if (setBtnLoading) setBtnLoading(btnApplyCrop, false);
     }
 }

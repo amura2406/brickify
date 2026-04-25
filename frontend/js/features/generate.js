@@ -9,6 +9,7 @@ let btnAddGradientColor, btnQuickAddGradientColor, mosaicCanvas;
 let historyPeekContainer, historySlider, historySliderLabel;
 
 export function setupGenerate() {
+    console.log('[setupGenerate] Initializing generate module ...');
     btnGenerate = $('#btn-generate');
     quickColorModeSelect = $('#quick-color-mode-select');
     gradientConfig = $('#gradient-config');
@@ -22,6 +23,12 @@ export function setupGenerate() {
     historyPeekContainer = $('#history-peek-container');
     historySlider = document.getElementById('history-slider');
     historySliderLabel = document.getElementById('history-slider-label');
+
+    console.log('[setupGenerate] DOM elements:', {
+        btnGenerate: !!btnGenerate,
+        mosaicCanvas: !!mosaicCanvas,
+        quickColorModeSelect: !!quickColorModeSelect,
+    });
 
     if (btnGenerate) btnGenerate.addEventListener('click', generateMosaic);
 
@@ -233,10 +240,19 @@ export function getGradientColors(isQuick = false) {
 }
 
 export async function generateMosaic() {
+    console.log('[generateMosaic] START');
     const state = getState();
+    console.log('[generateMosaic] state.setSelections:', state.setSelections?.length, 'croppedImageUrl:', !!state.croppedImageUrl);
     
     if (!state.setSelections || state.setSelections.length === 0) {
-        alert("Please select at least one LEGO set before generating a mosaic.");
+        console.warn('[generateMosaic] No LEGO sets selected — aborting generation.');
+        // Show a visible toast instead of blocking alert()
+        const toast = document.createElement('div');
+        toast.className = 'fixed top-4 left-1/2 -translate-x-1/2 z-[9999] bg-error text-on-error px-6 py-3 rounded-xl shadow-lg text-sm font-medium animate-fade-in';
+        toast.textContent = 'Please select at least one LEGO set before generating a mosaic.';
+        document.body.appendChild(toast);
+        setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.5s'; }, 3000);
+        setTimeout(() => toast.remove(), 3500);
         return;
     }
     
@@ -253,7 +269,14 @@ export async function generateMosaic() {
     const isRegeneration = !!state.mosaicData;
 
     try {
+        console.log('[generateMosaic] Preparing request payload ...');
         const isQuickCol = quickColorModeSelect && quickColorModeSelect.value === 'gradient';
+
+        // Timeout wrapper — abort after 60 seconds
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 60000);
+
+        console.log('[generateMosaic] Sending POST to /api/generate ...');
         const res = await authFetch(`${API}/api/generate`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -267,9 +290,14 @@ export async function generateMosaic() {
                 target_width: state.targetW || null,
                 target_height: state.targetH || null,
             }),
+            signal: controller.signal,
         });
+        clearTimeout(timeoutId);
+
+        console.log('[generateMosaic] Response received, status:', res.status);
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || JSON.stringify(data));
+        console.log('[generateMosaic] Data received, grid:', data.grid?.length, 'x', data.width);
 
         state.mosaicData = data;
         state.mosaicUrl = renderOffscreenMosaic(data.grid, data.colors, data.width, data.height);
@@ -309,9 +337,15 @@ export async function generateMosaic() {
             }
         }, 50);
     } catch (e) {
-        console.error('Generation failed:', e);
-        alert('Mosaic generation failed: ' + e.message);
+        if (e.name === 'AbortError') {
+            console.error('[generateMosaic] Request timed out after 60s');
+            alert('Mosaic generation timed out. Please try again.');
+        } else {
+            console.error('[generateMosaic] Generation failed:', e);
+            alert('Mosaic generation failed: ' + e.message);
+        }
     } finally {
+        console.log('[generateMosaic] FINALLY — cleaning up');
         if (window.setBtnLoading) window.setBtnLoading(btnGenerate, false);
         if (loadingOverlay.parentNode) loadingOverlay.remove();
     }

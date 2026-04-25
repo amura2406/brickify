@@ -38,9 +38,26 @@ backend/
     config/                  # Firebase config endpoint
 frontend/
   index.html                 # Main SPA
-  app.js                     # Core application logic
-  auth.js                    # Firebase Auth client
+  app.js                     # ES module entry point (imports js/features/*)
+  app.min.js                 # esbuild IIFE bundle (built, not edited directly)
+  auth.js                    # Firebase Auth client (separate entry point)
+  auth.min.js                # esbuild bundle for auth
   styles.css                 # Custom CSS (non-Tailwind)
+  js/                        # Modular ES6 source
+    store.js                 # Alpine.store proxy (shared state)
+    api.js                   # API base URL helper
+    utils.js                 # Shared utilities
+    features/                # Feature modules (one per concern)
+      auth.js                # Login/logout flow
+      navigation.js          # Tab switching
+      sets.js                # LEGO set picker
+      upload.js              # Image upload
+      crop.js                # Image cropping
+      preprocess.js          # Image adjustments
+      generate.js            # Mosaic generation API calls
+      result.js              # Canvas rendering, zoom, legend
+      project.js             # Save/load projects
+      admin.js               # Admin panel
   vendor/                    # Self-hosted dependencies (NO runtime CDNs)
     alpine.min.js            # Alpine.js 3.14.9
     three.min.js             # Three.js r128
@@ -620,6 +637,16 @@ npm run build:css
 4. **Never** add a runtime CDN `<script>` or `<link>` tag
 
 See `.agents/rules/frontend-build-conventions.md` for the full reference.
+
+### JavaScript Modules and esbuild
+
+The frontend uses **ES6 modules** (`frontend/js/features/*.js`) bundled by esbuild into a single
+IIFE (`app.min.js`). Cross-module communication uses `window.*` globals as a bridge. **Missing
+`window.*` exports cause silent failures** (black screens, dead buttons) because calling code
+uses defensive `if (window.fn)` guards.
+
+See `.agents/rules/frontend-module-architecture.md` for the full module contract, refactoring
+safety checklist, and debugging guide.
 
 ## Workflows
 

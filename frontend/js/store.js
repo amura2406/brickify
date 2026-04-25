@@ -70,7 +70,16 @@ export function initStore() {
 
 export function getState() {
     if (!_state) {
-        console.warn('[Brickify] Store not initialized yet!');
+        // Try to grab the store directly — covers the case where initStore() wasn't called yet
+        if (typeof Alpine !== 'undefined' && Alpine.store) {
+            const store = Alpine.store('app');
+            if (store) {
+                console.warn('[Brickify] Store recovered from Alpine.store directly (initStore was not called)');
+                _state = store;
+                return _state;
+            }
+        }
+        console.warn('[Brickify] Store not initialized yet — returning fallback initialState!');
         return initialState;
     }
     return _state;

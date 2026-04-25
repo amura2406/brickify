@@ -22,6 +22,182 @@ let btn2d, btn3d, btnComparisonToggle, comparisonSlider, referenceLayer, mosaicW
 let btnModeSingle, btnModeCompare, btnAddCompareColumn, singleModeView, compareModeView;
 let quickDitherToggle, quickColorModeSelect;
 
+// ── DOM refs needed by renderMosaic / renderLegend (assigned in setupResult) ──
+let mosaicCanvas, mosaicTitle, mosaicSubtitle, legendItems, totalPieces, legendColorCount;
+
+// The "default scale factor" — zoom=1.0 displays the canvas at 35% of its full resolution.
+// This makes 100% in the UI = a comfortable default view.
+const DEFAULT_SCALE_FACTOR = 0.35;
+
+// ═════════════════════════════════════════════════
+//  RENDER: Mosaic Canvas + Zoom + Legend
+// ═════════════════════════════════════════════════
+
+/**
+ * Draw the mosaic grid onto the 2D canvas and recalculate scale/zoom.
+ * @param {boolean} preserveZoom - If true, keep the user's current zoom level.
+ */
+function renderMosaic(preserveZoom = false) {
+    if (!state.mosaicData) return;
+    if (!mosaicCanvas) mosaicCanvas = $('#mosaic-canvas');
+    if (!mosaicWrapper) mosaicWrapper = $('#mosaic-canvas-wrapper');
+    if (!mosaicTitle) mosaicTitle = $('#mosaic-title');
+    if (!mosaicSubtitle) mosaicSubtitle = $('#mosaic-subtitle');
+    if (!mosaicCanvas || !mosaicWrapper) {
+        console.warn('[renderMosaic] mosaicCanvas or mosaicWrapper not found — skipping render');
+        return;
+    }
+
+    const { grid, colors, width, height } = state.mosaicData;
+
+    const studSize = 15;
+    const padding = 2;
+    const cell = studSize + padding;
+
+    mosaicCanvas.width = width * cell + padding;
+    mosaicCanvas.height = height * cell + padding;
+
+    const ctx = mosaicCanvas.getContext('2d');
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(0, 0, mosaicCanvas.width, mosaicCanvas.height);
+
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            const ci = grid[y][x];
+            const color = colors[ci];
+            const cx = x * cell + padding;
+            const cy = y * cell + padding;
+            const centerX = cx + studSize / 2;
+            const centerY = cy + studSize / 2;
+            const radius = (studSize - 2) / 2;
+
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+            ctx.fillStyle = color.hex;
+            ctx.fill();
+
+            const hlX = centerX - radius * 0.25;
+            const hlY = centerY - radius * 0.25;
+            const grad = ctx.createRadialGradient(hlX, hlY, 0, hlX, hlY, radius * 0.7);
+            grad.addColorStop(0, 'rgba(255,255,255,0.3)');
+            grad.addColorStop(1, 'rgba(255,255,255,0)');
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+            ctx.fillStyle = grad;
+            ctx.fill();
+
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius * 0.45, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+            ctx.lineWidth = 0.5;
+            ctx.stroke();
+        }
+    }
+
+    const info = window.getMergedSetInfo ? window.getMergedSetInfo() : { name: 'Mosaic' };
+    if (mosaicTitle) mosaicTitle.textContent = (info.name || 'Mosaic').toUpperCase();
+    if (mosaicSubtitle) mosaicSubtitle.textContent = `${width}×${height} • ${(width * height).toLocaleString()} studs`;
+
+    const wrapperWidth = mosaicWrapper.clientWidth - 32;
+    state.baseScale = Math.min(1, Math.max(0.01, wrapperWidth / mosaicCanvas.width));
+
+    // Default zoom: 1.0 = "100%" which visually corresponds to 35% of full-resolution.
+    // Only reset if this is a fresh render (new generation or project load).
+    // When preserveZoom=true (e.g. history peek snap-back), keep whatever the user set.
+    if (!preserveZoom) state.zoom = 1.0;
+
+    // maxZoom is a fixed 3.0 (300%) — the slider's own max="500" in HTML already
+    // enforces this upper bound.
+    state.maxZoom = 3.0;
+
+    mosaicState.panX = 0;
+    mosaicState.panY = 0;
+
+    applyZoom();
+}
+
+/**
+ * Apply the current zoom/pan state to the mosaic canvas CSS dimensions.
+ */
+function applyZoom() {
+    if (!mosaicCanvas) mosaicCanvas = $('#mosaic-canvas');
+    if (!mosaicCanvas) return;
+
+    const scale = state.baseScale * DEFAULT_SCALE_FACTOR * state.zoom;
+    const cw = mosaicCanvas.width * scale;
+    const ch = mosaicCanvas.height * scale;
+
+    // Scale the canvas via CSS properties directly
+    mosaicCanvas.style.width = cw + 'px';
+    mosaicCanvas.style.height = ch + 'px';
+
+    // Exact match for the comparison slider container so it shrinks naturally
+    const wrapper = $('#comparison-wrapper');
+    if (wrapper) {
+        wrapper.style.width = cw + 'px';
+        wrapper.style.height = ch + 'px';
+        wrapper.style.margin = 'auto';
+        wrapper.style.transform = `translate(${mosaicState.panX}px, ${mosaicState.panY}px)`;
+    }
+
+    // Sync zoom slider + popover label if they exist
+    const zoomSlider = document.getElementById('zoom-slider');
+    const zoomPopoverLabel = document.getElementById('zoom-popover-label');
+    if (zoomSlider) zoomSlider.value = Math.round(state.zoom * 100);
+    if (zoomPopoverLabel) zoomPopoverLabel.textContent = Math.round(state.zoom * 100) + '%';
+}
+
+/**
+ * Populate the colour legend panel with the current mosaic's colour data.
+ */
+function renderLegend() {
+    if (!state.mosaicData) return;
+    if (!legendItems) legendItems = $('#legend-items');
+    if (!totalPieces) totalPieces = $('#total-pieces');
+    if (!legendColorCount) legendColorCount = $('#legend-color-count');
+    if (!legendItems) return;
+
+    const { colors } = state.mosaicData;
+    legendItems.innerHTML = '';
+
+    let totalUsed = 0;
+    const isFreeMode = colors.some(c => c.count >= 9999);
+
+    colors.forEach((c) => {
+        if (c.used === 0 && c.count === 0) return;
+        totalUsed += c.used;
+
+        const countLabel = isFreeMode ? `${c.used}` : `${c.used}/${c.count}`;
+        const pct = isFreeMode ? 100 : Math.round((c.used / c.count) * 100);
+
+        const item = document.createElement('div');
+        item.className = 'legend-item-compact';
+        item.title = `${c.name}: ${isFreeMode ? c.used + ' used' : c.used + ' / ' + c.count + ' used'}`;
+        item.innerHTML = `
+            <div class="legend-swatch-sm" style="background:${c.hex}"></div>
+            <div class="flex-1 min-w-0">
+                <div class="flex items-center justify-between gap-1">
+                    <span class="legend-name-sm truncate">${c.name}</span>
+                    <span class="legend-count-sm">${countLabel}</span>
+                </div>
+                <div class="legend-bar-bg">
+                    <div class="legend-bar-fill" style="width:${pct}%;background:${c.hex}"></div>
+                </div>
+            </div>
+        `;
+        legendItems.appendChild(item);
+    });
+
+    const totalLabel = isFreeMode ? `${totalUsed.toLocaleString()} pcs` : `${totalUsed.toLocaleString()} pcs used`;
+    if (totalPieces) totalPieces.textContent = totalLabel;
+    if (legendColorCount) legendColorCount.textContent = `${colors.filter(c => c.used > 0).length}`;
+}
+
+// Expose on window for cross-module access (generate.js, project.js)
+window.renderMosaic = renderMosaic;
+window.renderLegend = renderLegend;
+window.applyZoom = applyZoom;
+
 // ═════════════════════════════════════════════════
 //  BUILD PLAN: CONTROLS (2D/3D, Comparison, Zoom)
 // ═════════════════════════════════════════════════
