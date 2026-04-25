@@ -50,14 +50,13 @@ export function applyInstantPreview(isManualInteraction = false) {
     clearTimeout(previewTimeoutId);
     previewTimeoutId = setTimeout(() => {
         const srcImg = $('#source-preview');
-        if (!srcImg || !state.croppedImageUrl) return;
+        if (!state.croppedImageUrl) return;
 
         const isQuick = $('#tab-build-plan').style.display !== 'none';
         const p = getPreprocessingParams();
         
         const img = new Image();
         img.crossOrigin = "Anonymous";
-        img.src = state.croppedImageUrl;
         img.onload = () => {
             const maxDim = 800;
             let w = img.width, h = img.height;
@@ -168,6 +167,17 @@ export function applyInstantPreview(isManualInteraction = false) {
                 }
             }
         };
+        img.onerror = () => {
+            // CORS failed — fall back to showing the raw image without preprocessing
+            console.warn('[applyInstantPreview] CORS image load failed, falling back to raw URL');
+            if (isQuick) {
+                const refImg = $('#reference-image');
+                if (refImg) {
+                    refImg.src = state.croppedImageUrl;
+                }
+            }
+        };
+        img.src = state.croppedImageUrl;
     }, previewDebounceMs);
 }
 

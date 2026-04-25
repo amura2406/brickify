@@ -615,6 +615,16 @@ function toggleComparison() {
         // FIX: Ensure comparison slider is at 50% and clip-path matches
         comparisonSlider.value = 50;
         referenceLayer.style.clipPath = 'inset(0 50% 0 0)';
+
+        // FIX: Ensure reference image has a valid src before showing
+        const refImg = $('#reference-image');
+        if (refImg && (!refImg.src || refImg.src === window.location.href)) {
+            // src is empty — set it from the cropped image URL as a baseline
+            const croppedUrl = state.croppedImageUrl;
+            if (croppedUrl) {
+                refImg.src = croppedUrl;
+            }
+        }
         
         const labelRef = $('#label-reference');
         const labelMos = $('#label-mosaic');
