@@ -1,7 +1,11 @@
 import { $ } from '../utils.js';
 import { getState } from '../store.js';
 import { API, authFetch } from '../api.js';
-import { getPreprocessingParams } from './preprocess.js';
+import { getPreprocessingParams, hideReferenceLayerImmediately, applyInstantPreview } from './preprocess.js';
+import { generateMosaic, getGradientColors, renderOffscreenMosaic } from './generate.js';
+import { showTab } from './navigation.js';
+import { renderSelectedSets } from './sets.js';
+import { cropState } from './crop.js';
 const state = new Proxy({}, {
     get(target, prop) { return getState()[prop]; },
     set(target, prop, value) { getState()[prop] = value; return true; }
@@ -532,12 +536,14 @@ export function setupResult() {
 
     if (quickDitherToggle) {
         quickDitherToggle.addEventListener('change', () => {
-                    hideReferenceLayerImmediately();
+            if (window._suppressGenerate) return;
+            hideReferenceLayerImmediately();
             generateMosaic();
         });
     }
     if (quickColorModeSelect) {
         quickColorModeSelect.addEventListener('change', () => {
+            if (window._suppressGenerate) return;
             hideReferenceLayerImmediately();
             generateMosaic();
         });
@@ -1061,7 +1067,7 @@ function addCompareColumn(autoGenerate = false, isUserInteraction = false) {
     }
     
     const newCol = {
-        id: Date.now().toString(),
+        id: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         colorMode: lastCol ? lastCol.colorMode : (quickColorModeSelect ? quickColorModeSelect.value : 'realistic'),
         dithering: lastCol ? lastCol.dithering : quickDitherToggle.checked,
         contrast: lastCol ? lastCol.contrast : state.adj_contrast,
@@ -1128,6 +1134,7 @@ window.removeCompareSet = function(colId, idx) {
 };
 
 window.renderCompareColumns = renderCompareColumns;
+window.generateCompareColumn = generateCompareColumn;
 function renderCompareColumns() {
     // compareColumns lives in the Alpine store ($store.app.compareColumns).
     // Alpine's reactivity picks up changes automatically when elements of the
@@ -1209,9 +1216,12 @@ window.promoteToPrimary = function(id) {
     state.contrast_boost = col.contrast;
     state.gradient_colors = [...col.gradientColors];
 
+    // Guard: suppress generateMosaic() calls triggered by dispatchEvent below.
+    // We already have the mosaic data from the compare column — no need to re-generate.
+    window._suppressGenerate = true;
+
     quickColorModeSelect.value = col.colorMode;
-    quickColorModeSelect.value = col.colorMode;
-    quickColorModeSelect.dispatchEvent(new Event('change')); // Syncs the UI panels (gradient vs dithering)
+    quickColorModeSelect.dispatchEvent(new Event('change')); // Syncs UI panels (gradient vs dithering)
     
     quickDitherToggle.checked = col.dithering;
     quickDitherToggle.dispatchEvent(new Event('change'));
@@ -1222,16 +1232,15 @@ window.promoteToPrimary = function(id) {
         hideReferenceLayerImmediately();
     }
     
-    if (preprocessingToggle) {
-        preprocessingToggle.checked = col.preprocessing;
-        preprocessingToggle.dispatchEvent(new Event('change'));
-    }
+    // Note: preprocessing state is synced via store, no toggle element exists.
+
+    window._suppressGenerate = false;
     
-    if (gradientColorPickers && gradientColorPickers.setColors) {
-        gradientColorPickers.setColors(col.gradientColors);
+    if (window.gradientColorPickers && window.gradientColorPickers.setColors) {
+        window.gradientColorPickers.setColors(col.gradientColors);
     }
-    if (quickGradientPickers && quickGradientPickers.setColors) {
-        quickGradientPickers.setColors(col.gradientColors);
+    if (window.quickGradientPickers && window.quickGradientPickers.setColors) {
+        window.quickGradientPickers.setColors(col.gradientColors);
     }
     
     switchResultMode('single');
@@ -1242,28 +1251,30 @@ window.promoteToPrimary = function(id) {
 }
 
 async function generateCompareColumn(id) {
-    const col = state.compareColumns.find(c => c.id === id);
+    // Helper: always get the live reference from state (renderCompareColumns deep-clones the array)
+    const getCol = () => state.compareColumns.find(c => c.id === id);
+
+    let col = getCol();
     if (!col || !state.croppedImageUrl) return;
     
     col.loading = true;
     col.error = null;
-    renderCompareColumns(); // shows loading state
+    renderCompareColumns(); // deep-clones → col is now stale
     
-    try {
-        const payload = {
-            url: state.croppedImageUrl,
-            set_selections: col.setSelections.map(s => ({ set_id: s.set.id, qty: s.qty })),
-            dithering: col.dithering,
-            preprocessing: col.preprocessing,
-            contrast_boost: col.contrast,
-            color_mode: col.colorMode,
-            gradient_colors: col.gradientColors,
-        };
-        
-        // Pass targets so rectangular mosaics are properly processed without squashing.
-        if (state.targetW) payload.target_width = state.targetW;
-        if (state.targetH) payload.target_height = state.targetH;
+    // Build payload from current config (captured before the clone)
+    const payload = {
+        url: state.croppedImageUrl,
+        set_selections: col.setSelections.map(s => ({ set_id: s.set.id, qty: s.qty })),
+        dithering: col.dithering,
+        preprocessing: col.preprocessing,
+        contrast_boost: col.contrast,
+        color_mode: col.colorMode,
+        gradient_colors: col.gradientColors,
+    };
+    if (state.targetW) payload.target_width = state.targetW;
+    if (state.targetH) payload.target_height = state.targetH;
 
+    try {
         const res = await authFetch(`${API}/api/generate`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1272,13 +1283,19 @@ async function generateCompareColumn(id) {
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || 'Generation failed');
         
-        col.mosaicData = data;
-        col.mosaicUrl = renderOffscreenMosaic(data.grid, data.colors, data.width, data.height);
+        // Re-fetch live reference after await
+        col = getCol();
+        if (col) {
+            col.mosaicData = data;
+            col.mosaicUrl = renderOffscreenMosaic(data.grid, data.colors, data.width, data.height);
+        }
     } catch (e) {
         console.error('Arena generation failed:', e);
-        col.error = e.message.substring(0, 50);
+        col = getCol();
+        if (col) col.error = e.message.substring(0, 50);
     } finally {
-        col.loading = false;
+        col = getCol();
+        if (col) col.loading = false;
         renderCompareColumns();
     }
 }
