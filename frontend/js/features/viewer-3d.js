@@ -171,15 +171,10 @@ window.update3DMosaic = function() {
     const instancedBases = {};
     const instancedStuds = {};
     
-    // Choose base geometry (round plate for normal, flat tile for useTiles)
-    const baseCylGeom = useTiles 
-        ? new THREE.BoxGeometry(0.96, 0.96, tileThickness) 
-        : new THREE.CylinderGeometry(0.48, 0.48, tileThickness, 16);
-        
-    // Always translate to rest on Z=0
-    if (!useTiles) {
-        baseCylGeom.rotateX(Math.PI / 2);
-    }
+    // Choose base geometry — always round (LEGO Art pieces are 1×1 round dots)
+    // Tile sets get a flat round piece; normal sets get a round piece with stud bump on top
+    const baseCylGeom = new THREE.CylinderGeometry(0.48, 0.48, tileThickness, 16);
+    baseCylGeom.rotateX(Math.PI / 2);
     
     const studGeom = new THREE.CylinderGeometry(studRadius, studRadius, studHeight, 12);
     studGeom.rotateX(Math.PI / 2);
