@@ -720,6 +720,115 @@
   transition: width 0.3s ease;
 }
 
+/* ── Color Weight Items ── */
+.cw-item {
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.cw-item:last-child { border-bottom: none; }
+.cw-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.cw-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.2), 0 1px 3px rgba(0,0,0,0.3);
+}
+.cw-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 10px;
+  line-height: 1.2;
+  color: rgba(255,255,255,0.7);
+  font-family: var(--font-label, sans-serif);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* mini iOS toggle */
+.cw-toggle {
+  position: relative;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.cw-toggle .cw-checkbox { display: none; }
+.cw-toggle-track {
+  display: block;
+  width: 28px;
+  height: 14px;
+  border-radius: 7px;
+  background: rgba(255,255,255,0.12);
+  transition: background 0.2s;
+  position: relative;
+}
+.cw-toggle .cw-checkbox:checked + .cw-toggle-track {
+  background: rgba(255, 45, 120, 0.5);
+}
+.cw-toggle-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #a098b0;
+  transition: transform 0.15s, background 0.15s;
+}
+.cw-toggle .cw-checkbox:checked + .cw-toggle-track .cw-toggle-thumb {
+  transform: translateX(14px);
+  background: #ff2d78;
+  box-shadow: 0 0 4px rgba(255, 45, 120, 0.6);
+}
+/* slider row */
+.cw-slider-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 0 0 20px;
+}
+.cw-slider-row.hidden { display: none; }
+.cw-slider {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 3px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+.cw-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #ff2d78;
+  box-shadow: 0 0 4px rgba(255, 45, 120, 0.4);
+  cursor: pointer;
+}
+.cw-slider::-moz-range-thumb {
+  border: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #ff2d78;
+  box-shadow: 0 0 4px rgba(255, 45, 120, 0.4);
+  cursor: pointer;
+}
+.cw-val {
+  font-size: 9px;
+  color: rgba(255,255,255,0.4);
+  font-family: var(--font-label, sans-serif);
+  font-variant-numeric: tabular-nums;
+  width: 24px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
 /* ── History Slider ── */
 #history-slider {
   -webkit-appearance: none;

@@ -97,6 +97,7 @@ def generate_mosaic(
     gradient_colors: list[str] | None = None,
     target_width: int | None = None,
     target_height: int | None = None,
+    color_weights: dict[str, float] | None = None,
 ) -> dict:
     """Generate a LEGO mosaic from an image.
 
@@ -118,6 +119,7 @@ def generate_mosaic(
         gradient_colors: List of hex colors for gradient mapping mode
         target_width: Override standard grid width
         target_height: Override standard grid height
+        color_weights: Mapping of hex color → weight (0.0=excluded, 0.1–3.0 multiplier)
 
     Returns:
         dict with grid, colors, width, height
@@ -166,21 +168,42 @@ def generate_mosaic(
     palette_lab = np.array([single_rgb_to_lab(rgb) for rgb in palette_rgb])
     max_counts = np.array([c["count"] for c in set_data["colors"]])
 
+    # Build per-color weights array from the hex→float mapping
+    n_colors = len(set_data["colors"])
+    weights: np.ndarray | None = None
+    if color_weights:
+        weights = np.ones(n_colors, dtype=np.float64)
+        hex_to_idx = {
+            c["hex"].lower(): i for i, c in enumerate(set_data["colors"])
+        }
+        for hex_code, w in color_weights.items():
+            idx = hex_to_idx.get(hex_code.lower())
+            if idx is not None:
+                weights[idx] = max(0.0, min(3.0, float(w)))
+
     if color_mode == "gradient" and gradient_colors:
         grid = generate_gradient_mapping(
             pixels, gradient_colors, palette_rgb, palette_lab, grid_w, grid_h
         )
     elif color_mode == "pop_art":
-        grid = generate_pop_art_ratio(pixels, palette_lab, max_counts, grid_w, grid_h)
+        grid = generate_pop_art_ratio(
+            pixels, palette_lab, max_counts, grid_w, grid_h, weights=weights,
+        )
     else:
         # Realistic color matching
-        relevance = analyze_palette_relevance(img, palette_rgb, grid_w, grid_h)
+        relevance = analyze_palette_relevance(
+            img, palette_rgb, grid_w, grid_h, weights=weights,
+        )
         if dithering:
-            grid = generate_realistic_dithered(pixels, palette_rgb, palette_lab,
-                                            max_counts, grid_w, grid_h, relevance)
+            grid = generate_realistic_dithered(
+                pixels, palette_rgb, palette_lab,
+                max_counts, grid_w, grid_h, relevance, weights=weights,
+            )
         else:
-            grid = generate_realistic(pixels, palette_lab, max_counts,
-                                    grid_w, grid_h, relevance)
+            grid = generate_realistic(
+                pixels, palette_lab, max_counts,
+                grid_w, grid_h, relevance, weights=weights,
+            )
 
     # Count used pieces per color
     used_counts = [0] * len(set_data["colors"])

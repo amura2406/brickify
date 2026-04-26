@@ -11,7 +11,7 @@
   <!-- Google Fonts -->
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;700;800&family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet"/>
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
-  <link rel="stylesheet" href="styles.css?v=2.4"/>
+  <link rel="stylesheet" href="styles.css?v=2.5"/>
   <!-- Three.js for 3D Mode (vendored — no CDN dependency) -->
   <script src="vendor/three.js"></script>
   <script src="vendor/OrbitControls.js"></script>
@@ -21,7 +21,7 @@
   <script src="auth.min.js?v=1.2"></script>
   <!-- Alpine.js (vendored — no CDN dependency) -->
   <script defer src="vendor/alpine.js"></script>
-  <script src="app.min.js?v=3.38"></script>
+  <script src="app.min.js?v=3.42"></script>
 </head>
 <body x-data class="bg-background text-on-background font-body min-h-screen flex flex-col selection:bg-primary/30">
 
@@ -724,6 +724,17 @@
                   </label>
                 </div>
                 
+                <!-- Color Weights / Exclusion -->
+                <div id="quick-color-weights" class="hidden flex flex-col gap-2 border-t border-outline-variant pt-3 mt-1">
+                  <div class="flex items-center justify-between">
+                    <span class="font-label text-[10px] uppercase tracking-widest text-primary font-bold">Color Weights</span>
+                    <button id="btn-reset-weights" class="text-[9px] font-label text-secondary hover:text-white uppercase tracking-wider transition-colors">Reset</button>
+                  </div>
+                  <div id="color-weight-items" class="flex flex-col gap-1.5 max-h-[280px] overflow-y-auto custom-scrollbar">
+                    <!-- Populated dynamically by JS after mosaic generation -->
+                  </div>
+                </div>
+
                 <div class="border-t border-outline-variant pt-3 mt-1">
                   <span class="font-label text-[10px] uppercase tracking-widest text-primary font-bold mb-3 block">Quick Adjustments</span>
                   <div id="quick-preprocessing-sliders" class="space-y-3 flex flex-col">
@@ -987,7 +998,7 @@
     </div>
 
     <footer class="bg-background border-t border-outline-variant/30 py-3 sm:py-4 px-4 sm:px-8 flex flex-col sm:flex-row justify-between items-center text-on-surface-variant mt-auto gap-2 safe-area-bottom">
-      <div class="font-label text-[9px] sm:text-[10px] uppercase tracking-widest text-center sm:text-left">© 2024 BRICKIFY NEON. NOT AN OFFICIAL LEGO PRODUCT. <span class="ml-2 opacity-50">v1.2.0</span></div>
+      <div class="font-label text-[9px] sm:text-[10px] uppercase tracking-widest text-center sm:text-left">© 2024 BRICKIFY NEON. NOT AN OFFICIAL LEGO PRODUCT. <span class="ml-2 opacity-50">v1.3.0</span></div>
       <div class="flex gap-4 sm:gap-6 font-label text-[9px] sm:text-[10px] uppercase tracking-widest">
         <a class="hover:text-tertiary transition-colors" href="/terms.html">Terms</a>
         <a class="hover:text-tertiary transition-colors" href="/privacy.html">Privacy</a>

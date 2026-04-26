@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional, List, Dict
 
 class SetSelection(BaseModel):
     set_id: str
@@ -21,6 +21,7 @@ class GenerateRequest(BaseModel):
     white_point: int = 255
     color_mode: str = "realistic"
     gradient_colors: Optional[List[str]] = None
+    color_weights: Optional[Dict[str, float]] = None
     target_width: Optional[int] = None
     target_height: Optional[int] = None
 

@@ -121,6 +121,7 @@ def generate(
         gradient_colors=req.gradient_colors,
         target_width=req.target_width,
         target_height=req.target_height,
+        color_weights=req.color_weights,
     )
 
     return {

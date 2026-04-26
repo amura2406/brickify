@@ -35,8 +35,18 @@ export function setupGenerate() {
     if (quickColorModeSelect) {
         quickColorModeSelect.addEventListener('change', () => {
             syncColorModeUI();
+            if (window.generateMosaic) window.generateMosaic();
         });
     }
+
+    // Wire up handlers referenced by Alpine x-on:change in index.html
+    window._onColorModeChange = () => {
+        syncColorModeUI();
+        if (window.generateMosaic) window.generateMosaic();
+    };
+    window._onDitheringChange = () => {
+        if (window.generateMosaic) window.generateMosaic();
+    };
 
     function reorderPreprocessingSliders(mode) {
         const isBW = mode === 'bw' || mode === 'sepia';
@@ -289,6 +299,7 @@ export async function generateMosaic() {
                 gradient_colors: isQuickCol ? getGradientColors(true) : getGradientColors(),
                 target_width: state.targetW || null,
                 target_height: state.targetH || null,
+                color_weights: state.color_weights && Object.keys(state.color_weights).length > 0 ? state.color_weights : null,
             }),
             signal: controller.signal,
         });
@@ -328,6 +339,7 @@ export async function generateMosaic() {
 
         if (window.renderMosaic) window.renderMosaic(isRegeneration);
         if (window.renderLegend) window.renderLegend();
+        buildColorWeightsUI();
         hideReferenceLayerImmediately();
 
         setTimeout(() => {
@@ -474,3 +486,91 @@ export function updateHistoryUI() {
     }
 }
 window.updateHistoryUI = updateHistoryUI;
+
+// ═════════════════════════════════════════════════
+//  COLOR WEIGHTS UI
+// ═════════════════════════════════════════════════
+
+function buildColorWeightsUI() {
+    const state = getState();
+    const container = document.getElementById('color-weight-items');
+    const section = document.getElementById('quick-color-weights');
+    const btnReset = document.getElementById('btn-reset-weights');
+    if (!container || !section) return;
+    if (!state.mosaicData || !state.mosaicData.colors) return;
+
+    const colors = state.mosaicData.colors;
+    container.innerHTML = '';
+    section.classList.remove('hidden');
+
+    // Ensure color_weights is always an object (may be null via Alpine proxy)
+    if (!state.color_weights) state.color_weights = {};
+
+    colors.forEach((c) => {
+        const hex = c.hex.toLowerCase();
+        const currentWeight = state.color_weights[hex];
+        const isExcluded = currentWeight === 0;
+        const weight = (currentWeight !== undefined && currentWeight > 0) ? currentWeight : 1.0;
+
+        const item = document.createElement('div');
+        item.className = 'cw-item';
+        item.innerHTML = `
+            <div class="cw-row">
+                <div class="cw-swatch" style="background:${c.hex}"></div>
+                <span class="cw-name" title="${c.name}">${c.name}</span>
+                <label class="cw-toggle">
+                    <input type="checkbox" ${isExcluded ? '' : 'checked'} data-hex="${hex}" class="cw-checkbox" />
+                    <span class="cw-toggle-track"><span class="cw-toggle-thumb"></span></span>
+                </label>
+            </div>
+            <div class="cw-slider-row ${isExcluded ? 'hidden' : ''}">
+                <input type="range" min="0.1" max="3.0" step="0.1" value="${weight}" class="cw-slider" data-hex="${hex}" />
+                <span class="cw-val">${weight.toFixed(1)}×</span>
+            </div>
+        `;
+
+        const checkbox = item.querySelector('.cw-checkbox');
+        const sliderRow = item.querySelector('.cw-slider-row');
+        const slider = item.querySelector('.cw-slider');
+        const valLabel = item.querySelector('.cw-val');
+
+        checkbox.addEventListener('change', () => {
+            if (!checkbox.checked) {
+                state.color_weights[hex] = 0;
+                sliderRow.classList.add('hidden');
+            } else {
+                const sv = parseFloat(slider.value) || 1.0;
+                state.color_weights[hex] = sv;
+                sliderRow.classList.remove('hidden');
+            }
+            // Regenerate with new weights
+            if (window.generateMosaic) window.generateMosaic();
+        });
+
+        // Live label update while dragging
+        slider.addEventListener('input', () => {
+            const v = parseFloat(slider.value);
+            valLabel.textContent = v.toFixed(1) + '×';
+            state.color_weights[hex] = v;
+        });
+
+        // Trigger regeneration on release
+        slider.addEventListener('change', () => {
+            const v = parseFloat(slider.value);
+            state.color_weights[hex] = v;
+            if (window.generateMosaic) window.generateMosaic();
+        });
+
+        container.appendChild(item);
+    });
+
+    if (btnReset) {
+        btnReset.onclick = () => {
+            state.color_weights = {};
+            buildColorWeightsUI();
+            if (window.generateMosaic) window.generateMosaic();
+        };
+    }
+}
+
+window.buildColorWeightsUI = buildColorWeightsUI;

@@ -18,15 +18,31 @@ def generate_pop_art_ratio(
     max_counts: np.ndarray,
     grid_w: int,
     grid_h: int,
+    weights: np.ndarray | None = None,
 ) -> list:
-    """Pop-Art (Luminance & Ratio-Based) Mapping."""
+    """Pop-Art (Luminance & Ratio-Based) Mapping.
+
+    Args:
+        weights: Optional per-color weight multipliers (0.0=excluded, 0.1–3.0).
+                 When provided, adjusts the ratio each color occupies.
+    """
     
     total_pixels = grid_w * grid_h
-    total_pieces = np.sum(max_counts)
+
+    # Apply user-defined weights to shift color ratios
+    effective_counts = max_counts.copy().astype(np.float64)
+    if weights is not None:
+        effective_counts *= weights
+
+    total_weighted = np.sum(effective_counts)
+    if total_weighted <= 0:
+        # All colors excluded — fallback to uniform
+        effective_counts = np.ones_like(max_counts, dtype=np.float64)
+        total_weighted = float(len(effective_counts))
 
     # 1. Proportional Allocation (Hamilton Method)
-    # Give pieces proportionally to their availability in the set
-    ratios = max_counts / total_pieces
+    # Give pieces proportionally to their weighted availability
+    ratios = effective_counts / total_weighted
     target_counts = ratios * total_pixels
     alloc = np.floor(target_counts).astype(int)
     remainder = total_pixels - np.sum(alloc)
