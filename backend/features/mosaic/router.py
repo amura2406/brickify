@@ -107,7 +107,7 @@ def generate(
 
     mosaic_data = generate_mosaic(
         img, set_data,
-        dithering=req.dithering,
+
         preprocessing=req.preprocessing,
         contrast_boost=max(0.0, min(2.0, req.contrast_boost)),
         saturation=max(-100.0, min(100.0, req.saturation)),

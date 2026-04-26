@@ -4,7 +4,7 @@ import { API, authFetch } from '../api.js';
 import { getPreprocessingParams, applyInstantPreview, hideReferenceLayerImmediately } from './preprocess.js';
 
 let btnGenerate, quickColorModeSelect, gradientConfig, quickGradientConfig;
-let quickDitherToggle, gradientColorPickers, quickGradientPickers;
+let gradientColorPickers, quickGradientPickers;
 let btnAddGradientColor, btnQuickAddGradientColor, mosaicCanvas;
 let historyPeekContainer, historySlider, historySliderLabel;
 
@@ -14,7 +14,7 @@ export function setupGenerate() {
     quickColorModeSelect = $('#quick-color-mode-select');
     gradientConfig = $('#gradient-config');
     quickGradientConfig = $('#quick-gradient-config');
-    quickDitherToggle = $('#quick-dither-toggle');
+
     gradientColorPickers = $('#gradient-color-pickers');
     quickGradientPickers = $('#quick-gradient-color-pickers');
     btnAddGradientColor = $('#btn-add-gradient-color');
@@ -44,9 +44,7 @@ export function setupGenerate() {
         syncColorModeUI();
         if (window.generateMosaic) window.generateMosaic();
     };
-    window._onDitheringChange = () => {
-        if (window.generateMosaic) window.generateMosaic();
-    };
+
 
     function reorderPreprocessingSliders(mode) {
         const isBW = mode === 'bw' || mode === 'sepia';
@@ -87,7 +85,7 @@ export function setupGenerate() {
             if (quickGradientConfig) quickGradientConfig.classList.add('hidden');
         }
 
-        if (quickDitherToggle) quickDitherToggle.disabled = (mode !== 'realistic');
+
         
         reorderPreprocessingSliders(mode);
     }
@@ -293,7 +291,7 @@ export async function generateMosaic() {
             body: JSON.stringify({
                 url: state.croppedImageUrl,
                 set_selections: state.setSelections.map(s => ({ set_id: s.set.id, set_name: s.set.name, qty: s.qty })),
-                dithering: quickDitherToggle ? quickDitherToggle.checked : false,
+
                 ...getPreprocessingParams(),
                 color_mode: quickColorModeSelect ? quickColorModeSelect.value : 'realistic',
                 gradient_colors: isQuickCol ? getGradientColors(true) : getGradientColors(),

@@ -11,7 +11,7 @@
   <!-- Google Fonts -->
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;700;800&family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet"/>
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
-  <link rel="stylesheet" href="styles.css?v=2.5"/>
+  <link rel="stylesheet" href="styles.css?v=2.6"/>
   <!-- Three.js for 3D Mode (vendored — no CDN dependency) -->
   <script src="vendor/three.js"></script>
   <script src="vendor/OrbitControls.js"></script>
@@ -21,7 +21,7 @@
   <script src="auth.min.js?v=1.2"></script>
   <!-- Alpine.js (vendored — no CDN dependency) -->
   <script defer src="vendor/alpine.js"></script>
-  <script src="app.min.js?v=3.42"></script>
+  <script src="app.min.js?v=3.43"></script>
 </head>
 <body x-data class="bg-background text-on-background font-body min-h-screen flex flex-col selection:bg-primary/30">
 
@@ -714,15 +714,7 @@
                   <button id="btn-quick-add-gradient-color" class="text-[10px] font-label text-primary hover:text-white mt-1 text-left">+ Add Color (Max 5)</button>
                 </div>
 
-                <div class="flex items-center justify-between" id="quick-dither-wrapper">
-                  <label class="font-label text-xs text-on-surface-variant" id="quick-dither-label">Dithering (Quality)</label>
-                  <label class="relative inline-flex items-center cursor-pointer" id="quick-dither-toggle-label">
-                    <input type="checkbox" id="quick-dither-toggle" class="sr-only peer"
-                           x-model="$store.app.dithering"
-                           x-on:change="window._onDitheringChange?.()"/>
-                    <div class="w-9 h-5 bg-surface-container-high peer-focus:outline-none rounded-full peer peer-disabled:opacity-50 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-on-surface peer-disabled:after:bg-on-surface-variant/50 after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary border border-outline-variant"></div>
-                  </label>
-                </div>
+
                 
                 <!-- Color Weights / Exclusion -->
                 <div id="quick-color-weights" class="hidden flex flex-col gap-2 border-t border-outline-variant pt-3 mt-1">
@@ -973,10 +965,7 @@
                       </div>
                   </template>
                   
-                  <div class="flex justify-between items-center">
-                      <label class="font-label text-[10px] uppercase text-on-surface-variant">Dithering</label>
-                      <input type="checkbox" :checked="col.dithering" class="w-4 h-4 rounded border-outline-variant bg-surface-container accent-primary" @change="window.updateCompareConfig(col.id, 'dithering', $event.target.checked)">
-                  </div>
+
                   
                   <div class="flex flex-col gap-1">
                       <label class="font-label text-[10px] uppercase text-on-surface-variant flex justify-between">

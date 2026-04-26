@@ -83,7 +83,6 @@ document.addEventListener('alpine:init', () => {
 
         // ── Config mirrors (synced by promoteToPrimary) ──
         colorMode: 'pop_art',
-        dithering: false,
         contrast_boost: 1.0,
         gradient_colors: ['#000000', '#ff2d78', '#ffffff'],
 
@@ -139,7 +138,7 @@ const btnBackToSets = $('#btn-back-to-sets');
 const btnBackToEditor = $('#btn-back-to-editor');
 // Quick Settings DOM
 const quickSetPicker = $('#quick-set-picker');
-const quickDitherToggle = $('#quick-dither-toggle');
+
 const quickColorModeSelect = $('#quick-color-mode-select');
 
 // Sets tab
@@ -231,7 +230,7 @@ document.addEventListener('DOMContentLoaded', () => {
             compareColumns: [], targetW: 0, targetH: 0,
             mosaicHistory: [], historyIndex: -1,
             _loadedProjectId: null, _loadedProjectName: null,
-            colorMode: 'pop_art', dithering: false,
+            colorMode: 'pop_art',
             contrast_boost: 1.0, gradient_colors: ['#000000', '#ff2d78', '#ffffff'],
             adj_contrast: 1.0, adj_saturation: 0, adj_temperature: 0, adj_sharpen: 0.0,
             adj_gamma: 1.0, adj_black_point: 0, adj_white_point: 255, adj_posterize: 32,

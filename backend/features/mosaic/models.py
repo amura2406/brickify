@@ -9,7 +9,7 @@ class GenerateRequest(BaseModel):
     url: str
     set_id: Optional[str] = None
     set_selections: Optional[List[SetSelection]] = None
-    dithering: bool = False
+
     preprocessing: bool = True
     contrast_boost: float = 1.0
     saturation: float = 0.0

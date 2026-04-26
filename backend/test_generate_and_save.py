@@ -20,8 +20,7 @@ try:
             }
         ],
         "preprocessing": True,
-        "color_mode": "realistic",
-        "dithering": False
+        "color_mode": "realistic"
     }
     
     resp_gen = client.post("/api/generate", json=gen_payload)

@@ -15,7 +15,7 @@ const state = new Proxy({}, {
 });
 
 // DOM refs resolved lazily (after DOMContentLoaded)
-let quickDitherToggle, quickColorModeSelect;
+let quickColorModeSelect;
 
 // ═════════════════════════════════════════════════
 //  PROJECT MANAGEMENT — Save, List, Load, Delete
@@ -34,7 +34,6 @@ function _defaultProjectName() {
 function _getCurrentConfig() {
     return {
         ...getPreprocessingParams(),
-        dithering: quickDitherToggle?.checked ?? false,
         color_mode: quickColorModeSelect?.value ?? 'realistic',
         gradient_colors: getGradientColors(),
         target_width: state.targetW || null,
@@ -194,7 +193,7 @@ async function loadProject(projectId) {
 
         // Restore config UI
         const cfg = project.config || {};
-        if (quickDitherToggle && cfg.dithering !== undefined) quickDitherToggle.checked = cfg.dithering;
+
         // Restore all preprocessing sliders to the store.
         state.adj_contrast = cfg.contrast_boost ?? 1.0;
         state.adj_saturation = cfg.saturation ?? 0;
@@ -432,7 +431,6 @@ function _showToast(message, type) {
 
 document.addEventListener('DOMContentLoaded', () => {
     // Resolve DOM refs now that DOM is ready
-    quickDitherToggle = $('#quick-dither-toggle');
     quickColorModeSelect = $('#quick-color-mode-select');
 
     $('#btn-close-projects-modal')?.addEventListener('click', closeProjectsGallery);

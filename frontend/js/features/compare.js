@@ -24,7 +24,7 @@ const state = new Proxy({}, {
 
 // DOM refs — resolved lazily on first use to avoid timing issues
 let _btnModeSingle, _btnModeCompare, _singleModeView, _compareModeView;
-let _quickColorModeSelect, _quickDitherToggle;
+let _quickColorModeSelect;
 
 /** Resolve DOM refs (called once on first use). */
 function _ensureDom() {
@@ -34,7 +34,6 @@ function _ensureDom() {
     _singleModeView = document.getElementById('single-mode-view');
     _compareModeView = document.getElementById('compare-mode-view');
     _quickColorModeSelect = document.getElementById('quick-color-mode');
-    _quickDitherToggle = document.getElementById('quick-dither-toggle');
 }
 
 export function switchResultMode(mode) {
@@ -88,23 +87,20 @@ export function addCompareColumn(autoGenerate = false, isUserInteraction = false
     const lastCol = state.compareColumns.length > 0 ? state.compareColumns[state.compareColumns.length - 1] : null;
 
     let mutatePrimarySet = false;
-    let mutateDithering = false;
     let mutateColorMode = false;
 
     if (isUserInteraction && lastCol) {
-        const choice = prompt("Choose a variant mutation:\n1: Swap primary set out for another set\n2: Toggle dithering\n3: Toggle Pop Art vs Gradient\n(Leave blank to just copy current)");
+        const choice = prompt("Choose a variant mutation:\n1: Swap primary set out for another set\n2: Toggle Pop Art vs Gradient\n(Leave blank to just copy current)");
         
         if (choice === null) return; // User cancelled
         
         if (choice === '1') mutatePrimarySet = true;
-        if (choice === '2') mutateDithering = true;
-        if (choice === '3') mutateColorMode = true;
+        if (choice === '2') mutateColorMode = true;
     }
     
     const newCol = {
         id: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         colorMode: lastCol ? lastCol.colorMode : (_quickColorModeSelect ? _quickColorModeSelect.value : 'realistic'),
-        dithering: lastCol ? lastCol.dithering : (_quickDitherToggle ? _quickDitherToggle.checked : false),
         contrast: lastCol ? lastCol.contrast : state.adj_contrast,
         preprocessing: lastCol ? lastCol.preprocessing : true,
         gradientColors: lastCol ? [...lastCol.gradientColors] : getGradientColors(),
@@ -125,9 +121,7 @@ export function addCompareColumn(autoGenerate = false, isUserInteraction = false
         }
     }
     
-    if (mutateDithering) {
-        newCol.dithering = !newCol.dithering;
-    }
+
     
     if (mutateColorMode) {
         newCol.colorMode = newCol.colorMode === 'pop_art' ? 'gradient' : 'pop_art';
@@ -249,7 +243,6 @@ window.promoteToPrimary = function(id) {
     
     // sync global UI controls
     state.colorMode = col.colorMode;
-    state.dithering = col.dithering;
     state.contrast_boost = col.contrast;
     state.gradient_colors = [...col.gradientColors];
 
@@ -258,10 +251,7 @@ window.promoteToPrimary = function(id) {
     window._suppressGenerate = true;
 
     _quickColorModeSelect.value = col.colorMode;
-    _quickColorModeSelect.dispatchEvent(new Event('change')); // Syncs UI panels (gradient vs dithering)
-    
-    _quickDitherToggle.checked = col.dithering;
-    _quickDitherToggle.dispatchEvent(new Event('change'));
+    _quickColorModeSelect.dispatchEvent(new Event('change'));
 
     // Sync adjustments directly to the store.
     state.adj_contrast = col.contrast;
@@ -302,7 +292,7 @@ async function generateCompareColumn(id) {
     const payload = {
         url: state.croppedImageUrl,
         set_selections: col.setSelections.map(s => ({ set_id: s.set.id, qty: s.qty })),
-        dithering: col.dithering,
+
         preprocessing: col.preprocessing,
         contrast_boost: col.contrast,
         color_mode: col.colorMode,

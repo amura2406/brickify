@@ -27,7 +27,7 @@ export const mosaicState = {
 
 let btn2d, btn3d, btnComparisonToggle, comparisonSlider, referenceLayer, mosaicWrapper;
 let btnModeSingle, btnModeCompare, btnAddCompareColumn, singleModeView, compareModeView;
-let quickDitherToggle, quickColorModeSelect;
+let quickColorModeSelect;
 
 // ── DOM refs needed by renderMosaic / renderLegend (assigned in setupResult) ──
 let mosaicCanvas, mosaicTitle, mosaicSubtitle, legendItems, totalPieces, legendColorCount;
@@ -226,7 +226,6 @@ export function setupResult() {
     btnAddCompareColumn = $('#btn-add-compare-column');
     singleModeView = $('#single-mode-view');
     compareModeView = $('#compare-mode-view');
-    quickDitherToggle = $('#quick-dither-toggle');
     quickColorModeSelect = $('#quick-color-mode-select');
 
     // Zoom slider popover
@@ -536,13 +535,7 @@ export function setupResult() {
     window.syncQuickConfigUI = syncQuickConfigUI;
     syncQuickConfigUI();
 
-    if (quickDitherToggle) {
-        quickDitherToggle.addEventListener('change', () => {
-            if (window._suppressGenerate) return;
-            hideReferenceLayerImmediately();
-            generateMosaic();
-        });
-    }
+
     if (quickColorModeSelect) {
         quickColorModeSelect.addEventListener('change', () => {
             if (window._suppressGenerate) return;

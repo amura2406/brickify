@@ -4,7 +4,6 @@ import pytest
 from backend.algos.realistic import (
     analyze_palette_relevance,
     generate_realistic,
-    generate_realistic_dithered
 )
 from backend.algos.color_math import rgb_to_lab, single_rgb_to_lab
 
@@ -74,20 +73,3 @@ def test_generate_realistic_constraints_kick_in(dummy_image, dummy_palette_lab):
     # One cell must be something else (1 or 2)
     assert flat.count(1) + flat.count(2) == 1
 
-def test_generate_realistic_dithered(dummy_image, dummy_palette_rgb, dummy_palette_lab):
-    pixels = np.array(dummy_image, dtype=np.float64)
-    max_counts = np.array([10, 10, 10])
-    relevance = np.array([1.0, 0.5, 0.5])
-    
-    grid = generate_realistic_dithered(
-        pixels=pixels,
-        palette_rgb=dummy_palette_rgb,
-        palette_lab=dummy_palette_lab,
-        max_counts=max_counts,
-        grid_w=2,
-        grid_h=2,
-        relevance=relevance
-    )
-    
-    # Dithered mapping of pure red to pure red should remain pure red
-    assert grid == [[0, 0], [0, 0]]

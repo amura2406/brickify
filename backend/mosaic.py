@@ -2,7 +2,7 @@
 Mosaic generation engine orchestration.
 
 Delegates to algorithms in `backend/algos/` based on `color_mode`:
-- `realistic`: Perceptual CIEDE2000 color matching with dithering support and constraints.
+- `realistic`: Perceptual CIEDE2000 color matching with constraints.
 - `pop_art`: Luminance and ratio-based stylization for Andy Warhol style generation.
 """
 
@@ -10,7 +10,7 @@ import numpy as np
 from PIL import Image
 
 from algos.color_math import preprocess_image, single_rgb_to_lab, rgb_to_lab, ciede2000
-from algos.realistic import analyze_palette_relevance, generate_realistic, generate_realistic_dithered
+from algos.realistic import analyze_palette_relevance, generate_realistic
 from algos.pop_art import generate_pop_art_ratio
 from algos.gradient import generate_gradient_mapping
 
@@ -82,7 +82,7 @@ def generate_palette_preview(
 def generate_mosaic(
     image: Image.Image,
     set_data: dict,
-    dithering: bool = False,
+
     crop_box: dict | None = None,
     preprocessing: bool = True,
     contrast_boost: float = 1.0,
@@ -104,7 +104,7 @@ def generate_mosaic(
     Args:
         image: PIL Image (RGB)
         set_data: LEGO set definition from lego_sets.py
-        dithering: Enable Floyd-Steinberg dithering (only used in realistic mode)
+
         crop_box: Optional {x, y, size} for square crop
         preprocessing: Enable palette-aware preprocessing (CLAHE)
         contrast_boost: Contrast enhancement multiplier (0.0-2.0)
@@ -194,16 +194,10 @@ def generate_mosaic(
         relevance = analyze_palette_relevance(
             img, palette_rgb, grid_w, grid_h, weights=weights,
         )
-        if dithering:
-            grid = generate_realistic_dithered(
-                pixels, palette_rgb, palette_lab,
-                max_counts, grid_w, grid_h, relevance, weights=weights,
-            )
-        else:
-            grid = generate_realistic(
-                pixels, palette_lab, max_counts,
-                grid_w, grid_h, relevance, weights=weights,
-            )
+        grid = generate_realistic(
+            pixels, palette_lab, max_counts,
+            grid_w, grid_h, relevance, weights=weights,
+        )
 
     # Count used pieces per color
     used_counts = [0] * len(set_data["colors"])
