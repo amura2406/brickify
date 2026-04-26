@@ -5,7 +5,12 @@ Attempts to match the perceptual color of the reference image as closely as poss
 
 import numpy as np
 from PIL import Image
-from algos.color_math import rgb_to_lab, single_rgb_to_lab, ciede2000, compute_importance_map
+from algos.color_math import (
+    rgb_to_lab,
+    single_rgb_to_lab,
+    ciede2000,
+    compute_importance_map,
+)
 
 
 def analyze_palette_relevance(
@@ -48,8 +53,9 @@ def analyze_palette_relevance(
         close_pixels = np.sum(distances[:, i] < 25)
         avg_nearness[i] = close_pixels / total_pixels
 
-    relevance = 0.6 * demand_fraction / max(demand_fraction.max(), 1e-6) + \
-                0.4 * avg_nearness / max(avg_nearness.max(), 1e-6)
+    relevance = 0.6 * demand_fraction / max(
+        demand_fraction.max(), 1e-6
+    ) + 0.4 * avg_nearness / max(avg_nearness.max(), 1e-6)
 
     palette_chroma = np.sqrt(palette_lab[:, 1] ** 2 + palette_lab[:, 2] ** 2)
     is_achromatic = palette_chroma < 15
@@ -152,14 +158,15 @@ def generate_realistic(
             to_reassign = worst_first[:excess]
 
             for px in to_reassign:
-                for rank in range(1, n_colors):
+                for rank in range(n_colors):
                     alt_ci = sorted_indices[px, rank]
-                    current_used = np.sum(assignment == alt_ci)
-                    if current_used < effective_counts[alt_ci]:
+                    if alt_ci == ci:
+                        continue
+                    if used[alt_ci] < effective_counts[alt_ci]:
                         assignment[px] = alt_ci
+                        used[ci] -= 1
+                        used[alt_ci] += 1
                         break
 
     grid = assignment.reshape(grid_h, grid_w).tolist()
     return grid
-
-

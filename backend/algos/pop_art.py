@@ -1,16 +1,16 @@
 """
 Pop-Art style mosaic generation algorithm.
 
-Ignores original color hues completely. Instead, it sorts the image by 
-luminance (brightness) and maps pixels to the LEGO palette (sorted by 
-brightness), respecting the exact piece counts and ratios available in 
-the selected LEGO set. This automatically handles highly stylized, 
+Ignores original color hues completely. Instead, it sorts the image by
+luminance (brightness) and maps pixels to the LEGO palette (sorted by
+brightness), respecting the exact piece counts and ratios available in
+the selected LEGO set. This automatically handles highly stylized,
 Andy Warhol-esque portraits with unnatural colors.
 """
 
 import numpy as np
-from PIL import Image
 from algos.color_math import rgb_to_lab
+
 
 def generate_pop_art_ratio(
     pixels: np.ndarray,
@@ -26,7 +26,7 @@ def generate_pop_art_ratio(
         weights: Optional per-color weight multipliers (0.0=excluded, 0.1–3.0).
                  When provided, adjusts the ratio each color occupies.
     """
-    
+
     total_pixels = grid_w * grid_h
 
     # Apply user-defined weights to shift color ratios
@@ -66,17 +66,17 @@ def generate_pop_art_ratio(
     # 4. Sort image pixels by Luminance
     pixels_lab = rgb_to_lab(pixels)
     L_image = pixels_lab[..., 0]
-    
+
     # --- Add Random Noise Dithering ---
     # Use uniform random noise to break ties naturally without checkerboard patterns
     # The noise spans [-0.5, 0.5].
     noise_mask = np.random.uniform(-0.5, 0.5, size=(grid_h, grid_w))
-    
+
     # Add scaled noise to the luminance channel.
     # L ranges from 0 to ~100. A strength of 24.0 provides nice, broad mixing.
     noise_strength = 24.0
     L_perturbed = L_image + noise_mask * noise_strength
-    
+
     # We want to match dark pixels with dark colors.
     # Argsort gives the indices that would sort the array, meaning
     # pixel_sort_idx[0] is the index of the darkest pixel.

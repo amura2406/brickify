@@ -3,22 +3,15 @@ import { getState } from '../store.js';
 import { API, authFetch } from '../api.js';
 import { getPreprocessingParams, applyInstantPreview, hideReferenceLayerImmediately } from './preprocess.js';
 
-let btnGenerate, quickColorModeSelect, gradientConfig, quickGradientConfig;
-let gradientColorPickers, quickGradientPickers;
-let btnAddGradientColor, btnQuickAddGradientColor, mosaicCanvas;
+let btnGenerate, quickColorModeSelect;
+let mosaicCanvas;
 let historyPeekContainer, historySlider, historySliderLabel;
 
 export function setupGenerate() {
     console.log('[setupGenerate] Initializing generate module ...');
     btnGenerate = $('#btn-generate');
     quickColorModeSelect = $('#quick-color-mode-select');
-    gradientConfig = $('#gradient-config');
-    quickGradientConfig = $('#quick-gradient-config');
 
-    gradientColorPickers = $('#gradient-color-pickers');
-    quickGradientPickers = $('#quick-gradient-color-pickers');
-    btnAddGradientColor = $('#btn-add-gradient-color');
-    btnQuickAddGradientColor = $('#btn-quick-add-gradient-color');
     mosaicCanvas = $('#mosaic-canvas');
     historyPeekContainer = $('#history-peek-container');
     historySlider = document.getElementById('history-slider');
@@ -76,17 +69,6 @@ export function setupGenerate() {
 
     function syncColorModeUI() {
         const mode = quickColorModeSelect ? quickColorModeSelect.value : 'realistic';
-        
-        if (mode === 'gradient') {
-            if (gradientConfig) gradientConfig.classList.remove('hidden');
-            if (quickGradientConfig) quickGradientConfig.classList.remove('hidden');
-        } else {
-            if (gradientConfig) gradientConfig.classList.add('hidden');
-            if (quickGradientConfig) quickGradientConfig.classList.add('hidden');
-        }
-
-
-        
         reorderPreprocessingSliders(mode);
     }
     syncColorModeUI();
@@ -146,105 +128,6 @@ export function setupGenerate() {
         window.colorPopover.style.left = `${Math.min(rect.left + window.scrollX, window.innerWidth - 260)}px`;
         window.colorPopover.classList.remove('hidden');
     }
-
-    window.handleArenaColorClick = function(btn, colId, index) {
-        const state = getState();
-        const col = state.compareColumns.find(c => c.id === colId);
-        if (!col) return;
-        
-        const availableColors = col.setSelections.length > 0 
-            ? col.setSelections.flatMap(s => s.set.colors || []) 
-            : [{hex:'000000', name:'Black'}, {hex:'FFFFFF', name:'White'}];
-            
-        const uniqueColors = Array.from(new Map(availableColors.map(c => [c.hex, c])).values());
-        const currentColors = col.gradientColors;
-        
-        window.showColorPopover(btn, currentColors, uniqueColors, (newHex) => {
-            if (window.updateCompareGradient) window.updateCompareGradient(colId, index, newHex);
-        });
-    }
-        
-    function setupPickers(btnAdd, container) {
-        if (!btnAdd || !container) return;
-        
-        function openPickerWithContext(btn) {
-            const setInfo = window.getMergedSetInfo ? window.getMergedSetInfo() : { colors: [] };
-            const availableColors = setInfo.colors.length > 0 ? setInfo.colors : [
-                { hex: '000000', name: 'Black' }, { hex: 'FFFFFF', name: 'White' }, { hex: 'FF2D78', name: 'Pink' }
-            ];
-            const currentColors = Array.from(container.querySelectorAll('button[data-color]')).map(b => b.dataset.color);
-            window.showColorPopover(btn, currentColors, availableColors, null);
-        }
-
-        function createColorButton(initialHex) {
-            const btn = document.createElement('button');
-            btn.dataset.color = initialHex;
-            btn.style.backgroundColor = initialHex;
-            btn.className = container.id.includes('quick') 
-                ? 'w-6 h-6 rounded cursor-pointer border border-outline-variant p-0 shadow-sm' 
-                : 'w-8 h-8 rounded cursor-pointer border border-outline-variant p-0 shadow-sm';
-            
-            btn.addEventListener('click', (e) => {
-                e.preventDefault();
-                openPickerWithContext(btn);
-            });
-
-            btn.addEventListener('contextmenu', (e) => {
-                e.preventDefault();
-                if (container.querySelectorAll('button[data-color]').length > 2) {
-                    if (window.activePickerBtn === btn) {
-                        if (window.colorPopover) window.colorPopover.classList.add('hidden');
-                        window.activePickerBtn = null;
-                    }
-                    btn.remove();
-                } else {
-                    alert('Minimum 2 colors required.');
-                }
-            });
-            container.appendChild(btn);
-        }
-
-        const initialInputs = container.querySelectorAll('input[type="color"]');
-        const initialColors = Array.from(initialInputs).map(i => i.value);
-        
-        container.setColors = function(colorsArr) {
-            container.innerHTML = '';
-            colorsArr.forEach(hex => createColorButton(hex));
-        };
-        
-        container.setColors(initialColors);
-
-        btnAdd.addEventListener('click', () => {
-            const currentButtons = Array.from(container.querySelectorAll('button[data-color]'));
-            if (currentButtons.length >= 5) {
-                alert('Maximum 5 colors allowed for gradient mapping.');
-                return;
-            }
-            const setInfo = window.getMergedSetInfo ? window.getMergedSetInfo() : { colors: [] };
-            const availableColors = setInfo.colors.length > 0 ? setInfo.colors : [
-                { hex: '000000', name: 'Black' }, { hex: 'FFFFFF', name: 'White' }, { hex: 'FF2D78', name: 'Pink' }
-            ];
-            const currentColors = currentButtons.map(b => b.dataset.color);
-            let defaultColor = '#cccccc';
-            for (const c of availableColors) {
-                const hexColor = c.hex.startsWith('#') ? c.hex : '#' + c.hex;
-                if (!currentColors.includes(hexColor)) {
-                    defaultColor = hexColor;
-                    break;
-                }
-            }
-            createColorButton(defaultColor);
-        });
-    }
-
-    setupPickers(btnAddGradientColor, gradientColorPickers);
-    setupPickers(btnQuickAddGradientColor, quickGradientPickers);
-}
-
-export function getGradientColors(isQuick = false) {
-    const container = isQuick ? quickGradientPickers : gradientColorPickers;
-    if (!container) return ['#000000', '#ffffff'];
-    return Array.from(container.querySelectorAll('button[data-color]')).map(el => el.dataset.color);
 }
 
 export async function generateMosaic() {
@@ -278,7 +161,6 @@ export async function generateMosaic() {
 
     try {
         console.log('[generateMosaic] Preparing request payload ...');
-        const isQuickCol = quickColorModeSelect && quickColorModeSelect.value === 'gradient';
 
         // Timeout wrapper — abort after 60 seconds
         const controller = new AbortController();
@@ -294,7 +176,6 @@ export async function generateMosaic() {
 
                 ...getPreprocessingParams(),
                 color_mode: quickColorModeSelect ? quickColorModeSelect.value : 'realistic',
-                gradient_colors: isQuickCol ? getGradientColors(true) : getGradientColors(),
                 target_width: state.targetW || null,
                 target_height: state.targetH || null,
                 color_weights: state.color_weights && Object.keys(state.color_weights).length > 0 ? state.color_weights : null,

@@ -1,9 +1,11 @@
 from pydantic import BaseModel
 from typing import Optional, List, Dict
 
+
 class SetSelection(BaseModel):
     set_id: str
     qty: int = 1
+
 
 class GenerateRequest(BaseModel):
     url: str
@@ -25,11 +27,13 @@ class GenerateRequest(BaseModel):
     target_width: Optional[int] = None
     target_height: Optional[int] = None
 
+
 class GeneratePdfRequest(BaseModel):
     grid: List[List[int]]
     colors: List[dict]
     width: int
     height: int
+
 
 class PalettePreviewRequest(BaseModel):
     url: str
@@ -48,6 +52,7 @@ class PalettePreviewRequest(BaseModel):
     gradient_colors: Optional[List[str]] = None
     target_width: Optional[int] = None
     target_height: Optional[int] = None
+
 
 class CropRequest(BaseModel):
     url: str

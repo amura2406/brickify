@@ -4,6 +4,9 @@ Mosaic generation engine orchestration.
 Delegates to algorithms in `backend/algos/` based on `color_mode`:
 - `realistic`: Perceptual CIEDE2000 color matching with constraints.
 - `pop_art`: Luminance and ratio-based stylization for Andy Warhol style generation.
+- `ordered_dither`: Bayer-matrix structured dithering for smooth gradients.
+- `edge_aware`: Sobel edge detection + spatial coherence for sharp portraits.
+- `clustered`: K-means region grouping for painterly color-by-number look.
 """
 
 import numpy as np
@@ -12,7 +15,10 @@ from PIL import Image
 from algos.color_math import preprocess_image, single_rgb_to_lab, rgb_to_lab, ciede2000
 from algos.realistic import analyze_palette_relevance, generate_realistic
 from algos.pop_art import generate_pop_art_ratio
-from algos.gradient import generate_gradient_mapping
+from algos.ordered_dither import generate_ordered_dither
+from algos.edge_aware import generate_edge_aware
+from algos.clustered import generate_clustered
+
 
 def generate_palette_preview(
     img: Image.Image,
@@ -38,7 +44,7 @@ def generate_palette_preview(
 
     if preprocessing:
         processed = preprocess_image(
-            processed, 
+            processed,
             contrast_boost=contrast_boost,
             saturation=saturation,
             temperature=temperature,
@@ -74,15 +80,13 @@ def generate_palette_preview(
 
     preview = Image.fromarray(result)
     scale = 10
-    preview = preview.resize((grid_w * scale, grid_h * scale),
-                             Image.Resampling.NEAREST)
+    preview = preview.resize((grid_w * scale, grid_h * scale), Image.Resampling.NEAREST)
     return preview
 
 
 def generate_mosaic(
     image: Image.Image,
     set_data: dict,
-
     crop_box: dict | None = None,
     preprocessing: bool = True,
     contrast_boost: float = 1.0,
@@ -94,7 +98,6 @@ def generate_mosaic(
     black_point: int = 0,
     white_point: int = 255,
     color_mode: str = "realistic",
-    gradient_colors: list[str] | None = None,
     target_width: int | None = None,
     target_height: int | None = None,
     color_weights: dict[str, float] | None = None,
@@ -115,8 +118,7 @@ def generate_mosaic(
         gamma: Midtone brightness curve (0.2 to 3.0)
         black_point: Crush shadows (0 to 100)
         white_point: Clip highlights (155 to 255)
-        color_mode: "realistic", "pop_art", or "gradient"
-        gradient_colors: List of hex colors for gradient mapping mode
+        color_mode: "realistic", "pop_art", "ordered_dither", "edge_aware", or "clustered"
         target_width: Override standard grid width
         target_height: Override standard grid height
         color_weights: Mapping of hex color → weight (0.0=excluded, 0.1–3.0 multiplier)
@@ -147,7 +149,7 @@ def generate_mosaic(
 
     if preprocessing:
         img = preprocess_image(
-            img, 
+            img,
             contrast_boost=contrast_boost,
             saturation=saturation,
             temperature=temperature,
@@ -173,30 +175,73 @@ def generate_mosaic(
     weights: np.ndarray | None = None
     if color_weights:
         weights = np.ones(n_colors, dtype=np.float64)
-        hex_to_idx = {
-            c["hex"].lower(): i for i, c in enumerate(set_data["colors"])
-        }
+        hex_to_idx = {c["hex"].lower(): i for i, c in enumerate(set_data["colors"])}
         for hex_code, w in color_weights.items():
             idx = hex_to_idx.get(hex_code.lower())
             if idx is not None:
                 weights[idx] = max(0.0, min(3.0, float(w)))
 
-    if color_mode == "gradient" and gradient_colors:
-        grid = generate_gradient_mapping(
-            pixels, gradient_colors, palette_rgb, palette_lab, grid_w, grid_h
-        )
-    elif color_mode == "pop_art":
+    if color_mode == "pop_art":
         grid = generate_pop_art_ratio(
-            pixels, palette_lab, max_counts, grid_w, grid_h, weights=weights,
+            pixels,
+            palette_lab,
+            max_counts,
+            grid_w,
+            grid_h,
+            weights=weights,
+        )
+    elif color_mode == "ordered_dither":
+        grid = generate_ordered_dither(
+            pixels,
+            palette_lab,
+            max_counts,
+            grid_w,
+            grid_h,
+            weights=weights,
+        )
+    elif color_mode == "edge_aware":
+        relevance = analyze_palette_relevance(
+            img,
+            palette_rgb,
+            grid_w,
+            grid_h,
+            weights=weights,
+        )
+        grid = generate_edge_aware(
+            pixels,
+            palette_lab,
+            max_counts,
+            grid_w,
+            grid_h,
+            relevance,
+            weights=weights,
+        )
+    elif color_mode == "clustered":
+        grid = generate_clustered(
+            pixels,
+            palette_lab,
+            max_counts,
+            grid_w,
+            grid_h,
+            weights=weights,
         )
     else:
-        # Realistic color matching
+        # Default: Realistic color matching
         relevance = analyze_palette_relevance(
-            img, palette_rgb, grid_w, grid_h, weights=weights,
+            img,
+            palette_rgb,
+            grid_w,
+            grid_h,
+            weights=weights,
         )
         grid = generate_realistic(
-            pixels, palette_lab, max_counts,
-            grid_w, grid_h, relevance, weights=weights,
+            pixels,
+            palette_lab,
+            max_counts,
+            grid_w,
+            grid_h,
+            relevance,
+            weights=weights,
         )
 
     # Count used pieces per color
@@ -207,13 +252,15 @@ def generate_mosaic(
 
     colors_info = []
     for i, c in enumerate(set_data["colors"]):
-        colors_info.append({
-            "name": c["name"],
-            "hex": c["hex"],
-            "rgb": list(c["rgb"]),
-            "count": c["count"],
-            "used": used_counts[i],
-        })
+        colors_info.append(
+            {
+                "name": c["name"],
+                "hex": c["hex"],
+                "rgb": list(c["rgb"]),
+                "count": c["count"],
+                "used": used_counts[i],
+            }
+        )
 
     return {
         "grid": grid,
@@ -252,7 +299,12 @@ def render_mosaic_image(
 
             margin = 1
             draw.ellipse(
-                [cx + margin, cy + margin, cx + stud_size - margin, cy + stud_size - margin],
+                [
+                    cx + margin,
+                    cy + margin,
+                    cx + stud_size - margin,
+                    cy + stud_size - margin,
+                ],
                 fill=color,
             )
 

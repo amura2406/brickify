@@ -10,7 +10,7 @@
 import { getState } from '../store.js';
 import { API, authFetch } from '../api.js';
 import { hideReferenceLayerImmediately } from './preprocess.js';
-import { getGradientColors, renderOffscreenMosaic } from './generate.js';
+import { renderOffscreenMosaic } from './generate.js';
 import { renderSelectedSets } from './sets.js';
 
 const state = new Proxy({}, {
@@ -90,7 +90,7 @@ export function addCompareColumn(autoGenerate = false, isUserInteraction = false
     let mutateColorMode = false;
 
     if (isUserInteraction && lastCol) {
-        const choice = prompt("Choose a variant mutation:\n1: Swap primary set out for another set\n2: Toggle Pop Art vs Gradient\n(Leave blank to just copy current)");
+        const choice = prompt("Choose a variant mutation:\n1: Swap primary set out for another set\n2: Toggle color mode (Pop Art / Realistic)\n(Leave blank to just copy current)");
         
         if (choice === null) return; // User cancelled
         
@@ -103,7 +103,6 @@ export function addCompareColumn(autoGenerate = false, isUserInteraction = false
         colorMode: lastCol ? lastCol.colorMode : (_quickColorModeSelect ? _quickColorModeSelect.value : 'realistic'),
         contrast: lastCol ? lastCol.contrast : state.adj_contrast,
         preprocessing: lastCol ? lastCol.preprocessing : true,
-        gradientColors: lastCol ? [...lastCol.gradientColors] : getGradientColors(),
         setSelections: (lastCol ? lastCol.setSelections : state.setSelections).map(s => ({ set: s.set, qty: s.qty })),
         mosaicUrl: null,
         mosaicData: null,
@@ -124,7 +123,7 @@ export function addCompareColumn(autoGenerate = false, isUserInteraction = false
 
     
     if (mutateColorMode) {
-        newCol.colorMode = newCol.colorMode === 'pop_art' ? 'gradient' : 'pop_art';
+        newCol.colorMode = newCol.colorMode === 'pop_art' ? 'realistic' : 'pop_art';
     }
     
     state.compareColumns.push(newCol);
@@ -198,35 +197,7 @@ window.updateCompareSets = function(id, setId, checked) {
     generateCompareColumn(id);
 }
 
-window.updateCompareGradient = function(id, index, value) {
-    const col = state.compareColumns.find(c => c.id === id);
-    if (col) {
-        col.gradientColors[index] = value;
-        // debounce slightly for color picker
-        clearTimeout(col.debounceTimer);
-        col.debounceTimer = setTimeout(() => {
-            generateCompareColumn(id);
-        }, 500);
-    }
-}
 
-window.addArenaGradientColor = function(id) {
-    const col = state.compareColumns.find(c => c.id === id);
-    if (!col || col.gradientColors.length >= 5) return;
-    col.gradientColors.push('#888888');
-    renderCompareColumns();
-    clearTimeout(col.debounceTimer);
-    col.debounceTimer = setTimeout(() => generateCompareColumn(id), 500);
-}
-
-window.removeArenaGradientColor = function(id, index) {
-    const col = state.compareColumns.find(c => c.id === id);
-    if (!col || col.gradientColors.length <= 2) return;
-    col.gradientColors.splice(index, 1);
-    renderCompareColumns();
-    clearTimeout(col.debounceTimer);
-    col.debounceTimer = setTimeout(() => generateCompareColumn(id), 500);
-}
 
 window.promoteToPrimary = function(id) {
     _ensureDom();
@@ -244,7 +215,6 @@ window.promoteToPrimary = function(id) {
     // sync global UI controls
     state.colorMode = col.colorMode;
     state.contrast_boost = col.contrast;
-    state.gradient_colors = [...col.gradientColors];
 
     // Guard: suppress generateMosaic() calls triggered by dispatchEvent below.
     // We already have the mosaic data from the compare column — no need to re-generate.
@@ -262,13 +232,6 @@ window.promoteToPrimary = function(id) {
     // Note: preprocessing state is synced via store, no toggle element exists.
 
     window._suppressGenerate = false;
-    
-    if (window.gradientColorPickers && window.gradientColorPickers.setColors) {
-        window.gradientColorPickers.setColors(col.gradientColors);
-    }
-    if (window.quickGradientPickers && window.quickGradientPickers.setColors) {
-        window.quickGradientPickers.setColors(col.gradientColors);
-    }
     
     switchResultMode('single');
     
@@ -296,7 +259,6 @@ async function generateCompareColumn(id) {
         preprocessing: col.preprocessing,
         contrast_boost: col.contrast,
         color_mode: col.colorMode,
-        gradient_colors: col.gradientColors,
     };
     if (state.targetW) payload.target_width = state.targetW;
     if (state.targetH) payload.target_height = state.targetH;

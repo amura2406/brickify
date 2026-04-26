@@ -2,7 +2,7 @@ import { $, $$, setBtnLoading } from '../utils.js';
 import { getState } from '../store.js';
 import { API, authFetch } from '../api.js';
 
-import { generateMosaic, getGradientColors } from './generate.js';
+import { generateMosaic } from './generate.js';
 import { showTab } from './navigation.js';
 import { getPreprocessingParams, applyInstantPreview } from './preprocess.js';
 import { renderSelectedSets } from './sets.js';
@@ -35,7 +35,6 @@ function _getCurrentConfig() {
     return {
         ...getPreprocessingParams(),
         color_mode: quickColorModeSelect?.value ?? 'realistic',
-        gradient_colors: getGradientColors(),
         target_width: state.targetW || null,
         target_height: state.targetH || null,
     };

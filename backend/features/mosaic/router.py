@@ -18,15 +18,21 @@ from features.mosaic.models import (
 
 router = APIRouter(prefix="/api", tags=["mosaic"])
 
+
 def _download_from_url(url: str) -> Image.Image:
     """Downloads image from URL and returns PIL Image."""
-    req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
     with urllib.request.urlopen(req) as resp:
         return Image.open(io.BytesIO(resp.read())).convert("RGB")
 
-def _resolve_set_data(set_id: str | None, set_selections: list[SetSelection] | None) -> dict:
+
+def _resolve_set_data(
+    set_id: str | None, set_selections: list[SetSelection] | None
+) -> dict:
     if set_selections and len(set_selections) > 0:
-        merged = merge_sets([{"set_id": s.set_id, "qty": s.qty} for s in set_selections])
+        merged = merge_sets(
+            [{"set_id": s.set_id, "qty": s.qty} for s in set_selections]
+        )
         if not merged:
             raise HTTPException(400, "Invalid set selections")
         return merged
@@ -38,6 +44,7 @@ def _resolve_set_data(set_id: str | None, set_selections: list[SetSelection] | N
     else:
         raise HTTPException(400, "Provide set_id or set_selections")
 
+
 @router.post("/crop")
 def crop_image(
     req: CropRequest,
@@ -46,6 +53,7 @@ def crop_image(
 ):
     """Download image, optionally rotate, crop, and upload result."""
     import logging
+
     logger = logging.getLogger(__name__)
 
     try:
@@ -89,25 +97,29 @@ def crop_image(
         "is_square": target_w == target_h,
     }
 
+
 @router.post("/generate")
 def generate(
     req: GenerateRequest,
     _user: dict = Depends(require_approved_user),
-    provider: StorageProvider = Depends(get_storage_provider)
+    provider: StorageProvider = Depends(get_storage_provider),
 ):
     """Generate a LEGO mosaic and render a preview to storage."""
     try:
         img = _download_from_url(req.url)
     except Exception as e:
         import logging
-        logging.getLogger(__name__).error("Failed fetching URL %s", req.url, exc_info=True)
+
+        logging.getLogger(__name__).error(
+            "Failed fetching URL %s", req.url, exc_info=True
+        )
         raise HTTPException(400, "Cannot fetch cropped image URL") from e
 
     set_data = _resolve_set_data(req.set_id, req.set_selections)
 
     mosaic_data = generate_mosaic(
-        img, set_data,
-
+        img,
+        set_data,
         preprocessing=req.preprocessing,
         contrast_boost=max(0.0, min(2.0, req.contrast_boost)),
         saturation=max(-100.0, min(100.0, req.saturation)),
@@ -118,7 +130,6 @@ def generate(
         black_point=max(0, min(100, req.black_point)),
         white_point=max(155, min(255, req.white_point)),
         color_mode=req.color_mode,
-        gradient_colors=req.gradient_colors,
         target_width=req.target_width,
         target_height=req.target_height,
         color_weights=req.color_weights,
@@ -132,27 +143,29 @@ def generate(
         "grid": mosaic_data["grid"],
     }
 
+
 @router.post("/generate-pdf")
-def generate_pdf(
-    req: GeneratePdfRequest,
-    user: dict = Depends(require_approved_user)
-):
+def generate_pdf(req: GeneratePdfRequest, user: dict = Depends(require_approved_user)):
     """Generate a printable PDF build guide for a mosaic."""
     pdf_bytes = generate_instructions_pdf(req.grid, req.colors, req.width, req.height)
     return Response(content=pdf_bytes, media_type="application/pdf")
+
 
 @router.post("/preview-palette")
 def preview_palette(
     req: PalettePreviewRequest,
     _user: dict = Depends(require_approved_user),
-    provider: StorageProvider = Depends(get_storage_provider)
+    provider: StorageProvider = Depends(get_storage_provider),
 ):
     """Uploads palette preview to Firebase Storage and returns URL."""
     try:
         img = _download_from_url(req.url)
     except Exception as e:
         import logging
-        logging.getLogger(__name__).error("Failed fetching URL %s", req.url, exc_info=True)
+
+        logging.getLogger(__name__).error(
+            "Failed fetching URL %s", req.url, exc_info=True
+        )
         raise HTTPException(400, "Cannot fetch image URL") from e
 
     set_data = _resolve_set_data(req.set_id, req.set_selections)
@@ -163,7 +176,10 @@ def preview_palette(
     palette_rgb = [c["rgb"] for c in set_data["colors"]]
 
     preview = generate_palette_preview(
-        img, palette_rgb, grid_w, grid_h,
+        img,
+        palette_rgb,
+        grid_w,
+        grid_h,
         preprocessing=req.preprocessing,
         contrast_boost=max(0.0, min(2.0, req.contrast_boost)),
         saturation=max(-100.0, min(100.0, req.saturation)),

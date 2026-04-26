@@ -2,7 +2,7 @@ import { $ } from '../utils.js';
 import { getState } from '../store.js';
 import { API, authFetch } from '../api.js';
 import { hideReferenceLayerImmediately } from './preprocess.js';
-import { generateMosaic, getGradientColors, renderOffscreenMosaic } from './generate.js';
+import { generateMosaic, renderOffscreenMosaic } from './generate.js';
 import { showTab } from './navigation.js';
 import { renderSelectedSets } from './sets.js';
 import { openSaveProjectDialog } from './project.js';

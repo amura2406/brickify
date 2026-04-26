@@ -39,7 +39,6 @@ export const initialState = {
     colorMode: 'pop_art',
 
     contrast_boost: 1.0,
-    gradient_colors: ['#000000', '#ff2d78', '#ffffff'],
     color_weights: {},  // { "#hexcolor": weight_float }
 
     // ── Preprocessing Adjustments (single source of truth for all sliders) ──

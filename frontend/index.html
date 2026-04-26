@@ -11,7 +11,7 @@
   <!-- Google Fonts -->
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;700;800&family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet"/>
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
-  <link rel="stylesheet" href="styles.css?v=2.6"/>
+  <link rel="stylesheet" href="styles.css?v=2.7"/>
   <!-- Three.js for 3D Mode (vendored — no CDN dependency) -->
   <script src="vendor/three.js"></script>
   <script src="vendor/OrbitControls.js"></script>
@@ -21,7 +21,7 @@
   <script src="auth.min.js?v=1.2"></script>
   <!-- Alpine.js (vendored — no CDN dependency) -->
   <script defer src="vendor/alpine.js"></script>
-  <script src="app.min.js?v=3.43"></script>
+  <script src="app.min.js?v=3.45"></script>
 </head>
 <body x-data class="bg-background text-on-background font-body min-h-screen flex flex-col selection:bg-primary/30">
 
@@ -700,18 +700,10 @@
                   <select id="quick-color-mode-select" x-model="$store.app.colorMode" x-on:change="window._onColorModeChange?.()" class="bg-surface-container-high border border-outline-variant text-xs text-on-surface rounded-md px-2 py-1 outline-none focus:ring-1 focus:ring-primary focus:border-primary">
                     <option value="realistic">Realistic</option>
                     <option value="pop_art" selected>Pop-Art</option>
-                    <option value="gradient">Gradient</option>
+                    <option value="ordered_dither">Smooth Dither</option>
+                    <option value="edge_aware">Edge-Aware</option>
+                    <option value="clustered">Painterly</option>
                   </select>
-                </div>
-                <!-- Quick Gradient Colors Config -->
-                <div id="quick-gradient-config" class="hidden flex flex-col gap-2 p-2 bg-surface-container-lowest border border-outline-variant rounded-md">
-                  <label class="font-label text-[10px] text-on-surface-variant uppercase tracking-widest">Gradient Palette</label>
-                  <div id="quick-gradient-color-pickers" class="flex gap-1">
-                    <input type="color" value="#000000" class="w-6 h-6 rounded cursor-pointer border-none p-0">
-                    <input type="color" value="#ff2d78" class="w-6 h-6 rounded cursor-pointer border-none p-0">
-                    <input type="color" value="#ffffff" class="w-6 h-6 rounded cursor-pointer border-none p-0">
-                  </div>
-                  <button id="btn-quick-add-gradient-color" class="text-[10px] font-label text-primary hover:text-white mt-1 text-left">+ Add Color (Max 5)</button>
                 </div>
 
 
@@ -945,25 +937,11 @@
                       <select class="bg-surface-container border border-outline-variant text-xs text-on-surface rounded px-2 py-1 outline-none" :value="col.colorMode" @change="window.updateCompareConfig(col.id, 'colorMode', $event.target.value)">
                           <option value="realistic">Realistic</option>
                           <option value="pop_art">Pop-Art</option>
-                          <option value="gradient">Gradient Mapping</option>
+                          <option value="ordered_dither">Smooth Dither</option>
+                          <option value="edge_aware">Edge-Aware</option>
+                          <option value="clustered">Painterly</option>
                       </select>
                   </div>
-                  
-                  <!-- gradPickers -->
-                  <template x-if="col.colorMode === 'gradient'">
-                      <div class="flex flex-col gap-1 mt-2">
-                          <label class="font-label text-[9px] text-on-surface-variant uppercase tracking-widest">Gradient Palette</label>
-                          <div class="flex gap-1 items-center">
-                              <template x-for="(hex, hidx) in col.gradientColors">
-                                   <button :data-color="hex" :style="`background-color: ${hex}`" class="w-5 h-5 rounded cursor-pointer border border-outline-variant p-0 inline-block shadow-sm arena-gradient-btn" @click="window.handleArenaColorClick($el, col.id, hidx)" @contextmenu.prevent="window.removeArenaGradientColor(col.id, hidx)"></button>
-                              </template>
-                              <template x-if="col.gradientColors.length < 5">
-                                  <button class="w-5 h-5 rounded border border-dashed border-primary/50 text-primary flex items-center justify-center text-xs hover:bg-primary/10" @click="window.addArenaGradientColor(col.id)">+</button>
-                              </template>
-                          </div>
-                          <span class="text-[8px] text-on-surface-variant">Click to change · Right-click to remove</span>
-                      </div>
-                  </template>
                   
 
                   
