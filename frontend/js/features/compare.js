@@ -33,7 +33,7 @@ function _ensureDom() {
     _btnModeCompare = document.getElementById('btn-mode-compare');
     _singleModeView = document.getElementById('single-mode-view');
     _compareModeView = document.getElementById('compare-mode-view');
-    _quickColorModeSelect = document.getElementById('quick-color-mode');
+    _quickColorModeSelect = document.getElementById('quick-color-mode-select');
 }
 
 export function switchResultMode(mode) {
@@ -220,8 +220,10 @@ window.promoteToPrimary = function(id) {
     // We already have the mosaic data from the compare column — no need to re-generate.
     window._suppressGenerate = true;
 
-    _quickColorModeSelect.value = col.colorMode;
-    _quickColorModeSelect.dispatchEvent(new Event('change'));
+    if (_quickColorModeSelect) {
+        _quickColorModeSelect.value = col.colorMode;
+        _quickColorModeSelect.dispatchEvent(new Event('change'));
+    }
 
     // Sync adjustments directly to the store.
     state.adj_contrast = col.contrast;
