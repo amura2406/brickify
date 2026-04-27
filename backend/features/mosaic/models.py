@@ -54,6 +54,10 @@ class PalettePreviewRequest(BaseModel):
     target_height: Optional[int] = None
 
 
+class UploadPathRequest(BaseModel):
+    file_path: str
+
+
 class CropRequest(BaseModel):
     url: str
     x: float

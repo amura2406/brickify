@@ -1,7 +1,9 @@
 import io
+import logging
+import os
 import urllib.request
 from PIL import Image
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile
 from auth import require_approved_user
 from storage import StorageProvider, get_storage_provider
 from lego_sets import LEGO_SETS, merge_sets
@@ -14,9 +16,15 @@ from features.mosaic.models import (
     GeneratePdfRequest,
     PalettePreviewRequest,
     CropRequest,
+    UploadPathRequest,
 )
 
 router = APIRouter(prefix="/api", tags=["mosaic"])
+
+logger = logging.getLogger(__name__)
+
+_ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".gif"}
+_MAX_UPLOAD_SIZE = 20 * 1024 * 1024  # 20 MB
 
 
 def _download_from_url(url: str) -> Image.Image:
@@ -43,6 +51,82 @@ def _resolve_set_data(
         return set_data
     else:
         raise HTTPException(400, "Provide set_id or set_selections")
+
+
+@router.post("/upload")
+async def upload_file(
+    file: UploadFile = File(...),
+    user: dict = Depends(require_approved_user),
+    provider: StorageProvider = Depends(get_storage_provider),
+) -> dict:
+    """Upload an image file and store it for mosaic processing."""
+    if not file.filename:
+        raise HTTPException(400, "No filename provided")
+
+    ext = os.path.splitext(file.filename)[1].lower()
+    if ext not in _ALLOWED_EXTENSIONS:
+        raise HTTPException(
+            400,
+            f"Unsupported file type '{ext}'. "
+            f"Allowed: {', '.join(sorted(_ALLOWED_EXTENSIONS))}",
+        )
+
+    contents = await file.read()
+    if len(contents) > _MAX_UPLOAD_SIZE:
+        raise HTTPException(
+            400, f"File too large. Max {_MAX_UPLOAD_SIZE // (1024 * 1024)} MB."
+        )
+
+    try:
+        img = Image.open(io.BytesIO(contents)).convert("RGB")
+    except Exception:
+        logger.warning("Failed to open uploaded file: %s", file.filename, exc_info=True)
+        raise HTTPException(400, "Invalid image file")
+
+    url = provider.upload_image(img, "uploads", fmt="JPEG", user_id=user["uid"])
+    return {
+        "url": url,
+        "width": img.width,
+        "height": img.height,
+        "is_square": img.width == img.height,
+    }
+
+
+@router.post("/upload-path")
+def upload_by_path(
+    req: UploadPathRequest,
+    user: dict = Depends(require_approved_user),
+    provider: StorageProvider = Depends(get_storage_provider),
+) -> dict:
+    """Upload an image from a local file path (development only)."""
+    if os.environ.get("ENV", "development") == "production":
+        raise HTTPException(403, "upload-path is disabled in production")
+
+    file_path = req.file_path
+    if not os.path.isfile(file_path):
+        raise HTTPException(404, f"File not found: {file_path}")
+
+    ext = os.path.splitext(file_path)[1].lower()
+    if ext not in _ALLOWED_EXTENSIONS:
+        raise HTTPException(
+            400,
+            f"Unsupported file type '{ext}'. "
+            f"Allowed: {', '.join(sorted(_ALLOWED_EXTENSIONS))}",
+        )
+
+    try:
+        img = Image.open(file_path).convert("RGB")
+    except Exception:
+        logger.warning("Failed to open file: %s", file_path, exc_info=True)
+        raise HTTPException(400, "Cannot open image file")
+
+    url = provider.upload_image(img, "uploads", fmt="JPEG", user_id=user["uid"])
+    return {
+        "url": url,
+        "width": img.width,
+        "height": img.height,
+        "is_square": img.width == img.height,
+    }
 
 
 @router.post("/crop")
